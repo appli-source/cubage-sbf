@@ -263,12 +263,20 @@ V.grilles=()=>{head('Grilles de prix');
   $('#main').querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>{const g={id:uid(),nom:'Nouvelle grille',type:b.dataset.new,lignes:[]};S.grilles.push(g);saveGrille(g);S.hist.push('grilles');go('grille',{gEdit:{id:g.id}});});foot('');};
 V.grille=()=>{const e=S.gEdit;const g=e.local?S.lot.grilleLocal:S.grilles.find(x=>x.id===e.id);const persist=()=>e.local?save():saveGrille(g);head(g.nom,'Prix €/m³ · champs vides = toutes');
   const p=S.params;g.lignes=g.lignes||[];
-  $('#main').innerHTML=`<label class="f"><span class="l">Nom</span><input id="nom" value="${esc(g.nom)}"></label><div class="tbl" style="margin-top:10px"><table><tr><th>Ess.</th><th>Q</th><th class="n">Ø min</th><th class="n">Ø max</th><th class="n">€/m³</th><th></th></tr>
-  ${g.lignes.map((l,i)=>`<tr data-i="${i}"><td><select data-f="ess" style="min-height:36px;padding:2px"><option value="">*</option>${p.essences.map(x=>`<option${x===l.ess?' selected':''}>${esc(x)}</option>`).join('')}</select></td><td><select data-f="q" style="min-height:36px;padding:2px"><option value="">*</option>${[...p.qualites,...(g.type==='pied'&&!p.qualites.includes(resteQ())?[resteQ()]:[])].map(x=>`<option${x===l.q?' selected':''}>${esc(x)}</option>`).join('')}</select></td>
-   <td><input data-f="dmin" type="number" inputmode="numeric" value="${l.dmin??''}" style="width:70px;min-height:36px"></td><td><input data-f="dmax" type="number" inputmode="numeric" value="${l.dmax??''}" style="width:70px;min-height:36px"></td><td><input data-f="prix" type="number" inputmode="decimal" step="0.5" value="${l.prix??''}" style="width:90px;min-height:36px"></td><td><button type="button" class="chip small" data-del="${i}">✕</button></td></tr>`).join('')}</table></div>
-  <div class="row" style="margin-top:10px"><button class="btn primary" id="add">+ Ligne</button>${e.local?'':'<button class="btn danger" id="del">Supprimer la grille</button>'}</div>`;
+  const qOpts=[...p.qualites,...(g.type==='pied'&&!p.qualites.includes(resteQ())?[resteQ()]:[])];
+  $('#main').innerHTML=`<label class="f"><span class="l">Nom</span><input id="nom" value="${esc(g.nom)}"></label>
+  <p class="muted" style="margin:10px 0">Un champ vide s’applique à toutes les essences, qualités ou diamètres. La ligne la plus précise l’emporte.</p>
+  <div class="stack">${g.lignes.map((l,i)=>`<div class="card gl" data-gl="${i}">
+   <div class="gl-row"><label class="f"><span class="l">Essence</span><select data-f="ess"><option value="">Toutes</option>${p.essences.map(x=>`<option${x===l.ess?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   <label class="f"><span class="l">Qualité</span><select data-f="q"><option value="">Toutes</option>${qOpts.map(x=>`<option${x===l.q?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   <button type="button" class="gl-del" data-del="${i}" aria-label="Supprimer la ligne">✕</button></div>
+   <div class="gl-row"><label class="f"><span class="l">Ø min cm</span><input data-f="dmin" type="text" inputmode="numeric" value="${l.dmin??''}"></label>
+   <label class="f"><span class="l">Ø max cm</span><input data-f="dmax" type="text" inputmode="numeric" value="${l.dmax??''}"></label>
+   <label class="f"><span class="l">Prix €/m³</span><input data-f="prix" type="text" inputmode="decimal" value="${l.prix!=null?String(l.prix).replace('.',','):''}"></label></div>
+  </div>`).join('')||'<p class="muted">Aucune ligne. Ajoutez la première.</p>'}</div>
+  <div class="row" style="margin-top:12px"><button class="btn primary big grow" id="add">+ Ligne</button>${e.local?'':'<button class="btn danger" id="del">Supprimer la grille</button>'}</div>`;
   $('#nom').oninput=x=>{g.nom=x.target.value;persist();};
-  $('#main').querySelectorAll('tr[data-i]').forEach(tr=>{const l=g.lignes[Number(tr.dataset.i)];tr.querySelectorAll('[data-f]').forEach(inp=>inp.onchange=()=>{const f=inp.dataset.f;l[f]=(f==='ess'||f==='q')?inp.value:num(inp.value);persist();});});
+  $('#main').querySelectorAll('[data-gl]').forEach(tr=>{const l=g.lignes[Number(tr.dataset.gl)];tr.querySelectorAll('[data-f]').forEach(inp=>inp.onchange=()=>{const f=inp.dataset.f;l[f]=(f==='ess'||f==='q')?inp.value:num(inp.value);persist();});});
   $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{g.lignes.splice(Number(b.dataset.del),1);persist();render();});
   $('#add').onclick=()=>{const last=g.lignes[g.lignes.length-1];g.lignes.push({ess:last?last.ess:'',q:'',dmin:null,dmax:null,prix:null});persist();render();};
   if($('#del'))$('#del').onclick=x=>{if(x.target.dataset.c){S.grilles=S.grilles.filter(y=>y!==g);DB.del('grilles',g.id);S.lots.forEach(l=>{if(l.grilleId===g.id){l.grilleId=null;DB.put('lots',l);}});back();}else{x.target.textContent='Confirmer';x.target.dataset.c='1';}};
