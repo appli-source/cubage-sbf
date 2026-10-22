@@ -79,6 +79,24 @@ function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot
     out.push({num:g.num+'.'+b.rang,ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,b.d),v:volB(b),sl:slName(lot,b.sl)});}}
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const x=arbreCalc(lot,a);
     out.push({num:a.num||'',ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
+const uniqL=a=>[...new Set(a.filter(Boolean))];
+const lotEss=(l,extra)=>uniqL([...((l&&l.essSel&&l.essSel.length)?l.essSel:S.params.essences),...(extra||[])]);
+const lotQual=(l,extra)=>uniqL([...((l&&l.qualSel&&l.qualSel.length)?l.qualSel:S.params.qualites),...(extra||[])]);
+const addBtn=(kind,i)=>`<button type="button" class="chip-add" data-addref="${kind}"${i!=null?` data-i="${i}"`:''} aria-label="Ajouter">+</button>`;
+const multi=(name,all,sel)=>`<div class="chips" data-multi="${name}">${all.map(v=>`<button type="button" class="chip small${sel.includes(v)?' on':''}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+const readMulti=name=>[...document.querySelectorAll(`[data-multi="${name}"] .chip.on`)].map(b=>b.dataset.v);
+function bindMulti(){document.querySelectorAll('[data-multi]').forEach(c=>c.onclick=e=>{const b=e.target.closest('.chip');if(b)b.classList.toggle('on');});}
+/* Ajout d'une essence ou d'une qualité au lot pendant la saisie */
+function bindAddRef(l,onAdded){document.querySelectorAll('[data-addref]').forEach(btn=>btn.onclick=()=>{const kind=btn.dataset.addref,isE=kind==='ess';
+  const cur=isE?lotEss(l):lotQual(l),all=isE?S.params.essences:S.params.qualites,rest=all.filter(v=>!cur.includes(v));
+  const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Ajouter ${isE?'une essence':'une qualité'} au lot</b>
+   ${rest.length?`<div class="chips">${rest.map(v=>`<button type="button" class="chip" data-pick="${esc(v)}">${esc(v)}</button>`).join('')}</div>`:'<p class="muted" style="margin:0">Toutes celles du référentiel sont déjà dans le lot.</p>'}
+   <div class="row"><input id="newRef" placeholder="Nouveau code (ex. ${isE?'AUL':'C+'})" style="flex:1" autocapitalize="characters"><button type="button" class="btn primary" id="okRef">Ajouter</button></div>
+   <button type="button" class="btn" id="mClose">Fermer</button></div>`;
+  document.body.appendChild(m);const close=()=>m.remove();m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
+  const add=v=>{v=String(v||'').trim().toUpperCase();if(!v)return;if(!all.includes(v)){all.push(v);saveParams();}
+    const key=isE?'essSel':'qualSel';l[key]=uniqL([...(isE?lotEss(l):lotQual(l)),v]);save();close();onAdded&&onAdded(kind,v,btn.dataset.i);};
+  m.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>add(b.dataset.pick));m.querySelector('#okRef').onclick=()=>add(m.querySelector('#newRef').value);});}
 const NONE='__none';
 const slMatch=(x,sl)=>!sl||(sl===NONE?!x:x===sl);
 const slChips=(l,cur)=>`<div class="chips" data-chips="sl"><button type="button" class="chip small${!cur?' on':''}" data-v="">Aucun</button>${l.sousLots.map(s=>`<button type="button" class="chip small${cur===s.id?' on':''}" data-v="${s.id}">${esc(s.nom)}</button>`).join('')}</div>`;
@@ -101,7 +119,7 @@ let chipCb=null;const onChip=cb=>{chipCb=cb;};
 function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;c.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(chipCb)chipCb({target:c,detail:b.dataset.v});}));}
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
-function trEditor(list,id){const q=S.params.qualites;return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button></div>`).join('')}
+function trEditor(list,id){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button></div>`).join('')}
   <button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button></div>`;}
 function readTr(id){return [...document.querySelectorAll(`#${id} .tr-row`)].map(r=>({h:num(r.querySelector('[data-f=h]').value),q:r.querySelector('[data-f=q]').value})).filter(t=>t.h>0);}
 
@@ -112,7 +130,7 @@ V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operat
   $('#main').innerHTML=`<div class="row" style="margin-bottom:12px"><button class="btn primary big grow" data-go="newLot">+ Nouveau lot</button><button class="btn big" data-go="grilles">Grilles</button><button class="btn big" data-go="params">⚙</button></div>
   <h2>Lots (${lots.length})</h2><div class="list">${lots.length?lots.map(l=>{const t=lotTotals(l);return `<button class="item" data-open="${l.id}"><div class="t"><b>${esc(l.chantier||'Sans nom')} <span class="pill">${l.type==='grumes'?'Grumes':'Sur pied'}</span></b><small>${esc(l.date)} · ${l.type==='grumes'?t.n+' grumes · '+t.nb+' billons':t.n+' tiges'} · ${l.sync==='done'?'sauvegardé':l.sync==='pending'?'à sauvegarder':'non sauvegardé'}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot. Créez le premier.</p>'}</div>`;foot('');};
 
-V.newLot=()=>{head('Nouveau lot');const p=S.params;
+V.newLot=()=>{head('Nouveau lot');const p=S.params;const prevLot=type=>[...S.lots].filter(x=>x.type===type).sort((a,b)=>(b.created||'').localeCompare(a.created||''))[0];const pl=prevLot('grumes')||prevLot('pied');
   $('#main').innerHTML=`<div class="stack card">
   <div class="segment" id="type"><button type="button" class="on" data-v="grumes">Grumes bord de route</button><button type="button" data-v="pied">Bois sur pied</button></div>
   <label class="f"><span class="l">Chantier / propriétaire</span><input id="chantier" placeholder="Nom du chantier"></label>
@@ -120,13 +138,18 @@ V.newLot=()=>{head('Nouveau lot');const p=S.params;
   <div id="optG"><label class="f"><span class="l">Premier n° de grume</span><input id="numDepart" type="number" inputmode="numeric" value="1"></label></div>
   <div id="optP" hidden class="stack"><label class="f"><span class="l">Tarif Chaudé par défaut (1 à 20)</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="8"></label>
    <label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam">Pied à pied, diamètre seul (hauteurs par classe ensuite)</option><option value="classes">Par classes avec effectifs</option><option value="pieds">Pied à pied numéroté (diamètre + hauteur)</option></select></label></div>
+  <div class="stack"><span class="l-sec">Essences du lot</span>${multi('essSel',p.essences,(pl&&pl.essSel&&pl.essSel.length)?pl.essSel:p.essences)}</div>
+  <div class="stack"><span class="l-sec">Qualités du lot</span>${multi('qualSel',p.qualites,(pl&&pl.qualSel&&pl.qualSel.length)?pl.qualSel:p.qualites)}</div>
+  <p class="muted" style="margin:0">Seules ces essences et qualités apparaîtront à la saisie. Le bouton + permet d’en ajouter en cours de route.</p>
   <label class="f"><span class="l">Grille de prix</span><select id="grille"><option value="">Aucune</option>${S.grilles.map(g=>`<option value="${g.id}">${esc(g.nom)} (${g.type})</option>`).join('')}</select></label>
   </div>`;
+  bindMulti();
   const seg=$('#type');seg.onclick=e=>{const b=e.target.closest('button');if(!b)return;seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');const pied=b.dataset.v==='pied';$('#optG').hidden=pied;$('#optP').hidden=!pied;};
   foot(`<button class="btn primary big" id="create">Créer le lot</button>`);
   $('#create').onclick=()=>{const type=seg.querySelector('.on').dataset.v;const lot={id:uid(),type,chantier:$('#chantier').value.trim(),date:$('#date').value,operateur:$('#op').value.trim(),
     numDepart:Number($('#numDepart').value)||1,tarif:Math.min(20,Math.max(1,Number($('#tarif').value)||8)),mode:$('#mode').value,grilleId:$('#grille').value||null,grilleLocal:null,
-    sousLots:[],grumes:[],arbres:[],classH:{},sync:'new',created:new Date().toISOString()};
+    sousLots:[],grumes:[],arbres:[],classH:{},essSel:readMulti('essSel'),qualSel:readMulti('qualSel'),sync:'new',created:new Date().toISOString()};
+    if(!lot.essSel.length){toast('Choisissez au moins une essence');return;}
     if($('#op').value.trim()){S.params.operateur=$('#op').value.trim();saveParams();}
     S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home'];go('lot');};};
 
@@ -137,6 +160,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   <button class="btn primary big block" data-go="${l.type==='grumes'?'saisieG':'saisieP'}">Saisir</button>
   ${l.type==='pied'?'<div class="row"><button class="btn big grow" data-go="hauteurs">Hauteurs par classe</button><button class="btn big grow" data-go="tarifs">Tarifs Chaudé</button></div>':''}
   <div class="row"><button class="btn big grow" data-go="listing">Listing</button><button class="btn big grow" data-go="recap">Récapitulatif</button></div>
+  <button class="btn block" data-go="lotRef">Essences et qualités du lot (${lotEss(l).length} · ${lotQual(l).length})</button>
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Sauvegarde JSON</button></div>
@@ -163,14 +187,14 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   const hasSL=(l.sousLots||[]).length>0;
   const gv=f.billons.reduce((s,b)=>s+(b.d>0&&lenM(b)>0?volB(b):0),0);
   $('#main').innerHTML=`<div class="stack">
-  <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',p.essences,f.ess,true)}</label></div>
+  <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
   ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
   ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="muted">${b.d>0&&lenM(b)>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
-   <div class="q"><span class="muted">Qualité</span>${chips('q'+i,p.qualites,b.q,true)}</div></div></div>`).join('')}
+   <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div></div></div>`).join('')}
   <button type="button" class="btn big block" id="addB">+ Billon</button>
   <div class="muted">Grume : <b>${f3(gv)} m³</b></div></div>`;
-  bindChips();
+  bindChips();bindAddRef(l,(k,v,i)=>{if(k==='ess')f.ess=v;else if(i!=null&&f.billons[Number(i)])f.billons[Number(i)].q=v;render();});
   onChip(e=>{const n=e.target.dataset.chips;if(n==='sl'){f.sl=e.detail||null;f.slSet=true;if(!ed){l.slCur=f.sl;save();}}else if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
   $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);});
@@ -197,7 +221,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   const cntCl={};let nEss=0;for(const x of l.arbres){if(x.ess!==f.ess)continue;nEss+=x.n||1;const c=cls(x.ess,x.d);cntCl[c]=(cntCl[c]||0)+(x.n||1);}
   $('#main').innerHTML=`<div class="stack">
    ${ed?'':`<div class="count-bar"><div><b>${t.n}</b><small>tiges au total</small></div><div class="ess"><b>${nEss}</b><small>${esc(f.ess)}</small></div></div>`}
-   <div class="row"><label class="f"><span class="l">Essence</span>${chips('ess',p.essences,f.ess,true)}</label></div>
+   <div class="row"><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
    ${(l.sousLots||[]).length?`<div class="sl-box"><span class="l">Sous-lot</span>${slChips(l,f.sl||null)}</div>`:''}
    <div class="tarif-row"><span class="l">Tarif Chaudé ${esc(f.ess)}</span><button type="button" data-t="-1" aria-label="Tarif moins">−</button><b id="tv">${f.tarif}</b><button type="button" data-t="1" aria-label="Tarif plus">+</button></div>
    ${mode==='pieds'?`<label class="f" style="max-width:160px"><span class="l">N° arbre</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label>`:''}
@@ -205,11 +229,11 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    ${byClass?`<div><span class="muted">Classe de diamètre (cm)${mode==='diam'?' · un appui = une tige':''}</span><div class="grid-cl" id="cl">${classes.map(c=>{const k=cntCl[c]||0;return `<button type="button" data-c="${c}" class="${S.flash===c?'flash ':''}${(mode!=='diam'&&f.d===c)?'sel':''}">${c}${k?`<small>${k}</small>`:''}</button>`;}).join('')}</div></div>`
    :`<label class="f" style="max-width:200px"><span class="l">Diamètre à 1,30 m (cm)</span><input class="big" id="d" type="number" inputmode="numeric" value="${f.d??''}" placeholder="cm"></label>`}
    ${mode!=='diam'?`<label class="f" style="max-width:200px"><span class="l">Hauteur (m)${mode==='classes'?' · optionnel':''}</span><input class="big" id="h" type="number" inputmode="decimal" step="0.5" value="${f.h??''}" placeholder="m"></label>
-   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<p class="muted" style="margin:0">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p></div>`:''}
+   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<div class="row"><p class="muted grow" style="margin:0">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p>${addBtn('q')}</div></div>`:''}
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
-  bindChips();onChip(e=>{if(e.target.dataset.chips==='sl'){f.sl=e.detail||null;if(!ed){l.slCur=f.sl;save();}return;}if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
+  bindChips();bindAddRef(l,(k,v)=>{if(k==='ess'){f.ess=v;if(!ed)f.tarif=tarifDef(l,v);}render();});onChip(e=>{if(e.target.dataset.chips==='sl'){f.sl=e.detail||null;if(!ed){l.slCur=f.sl;save();}return;}if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
   $('#main').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{f.tarif=clampT(f.tarif+Number(b.dataset.t));$('#tv').textContent=f.tarif;if(!ed){l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();}});
   if($('#num'))$('#num').oninput=e=>f.num=e.target.value;if($('#n'))$('#n').oninput=e=>f.n=Math.max(1,Math.round(num(e.target.value)||1));
   if($('#d'))$('#d').oninput=e=>f.d=num(e.target.value);if($('#h'))$('#h').oninput=e=>f.h=num(e.target.value);
@@ -295,6 +319,21 @@ V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);c
   html+=`<tr class="tot"><td colspan="${l.type==='grumes'?6:4}">Total</td><td class="n">${f3(r.tot.v)}</td><td></td><td class="n">${r.tot.m!=null?f2(r.tot.m):'—'}</td></tr></table></div>`;
   $('#main').innerHTML=html;if($('#slf'))$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};
   foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportPDF(l,sl);$('#xlsx').onclick=()=>exportXLSX(l,sl);};
+
+/* --- Essences et qualités du lot --- */
+V.lotRef=()=>{const l=S.lot,p=S.params;head('Essences et qualités',l.chantier);
+  const usedE=uniqL(l.type==='grumes'?l.grumes.map(g=>g.ess):l.arbres.map(a=>a.ess));
+  const usedQ=uniqL(l.type==='grumes'?l.grumes.flatMap(g=>g.billons.map(b=>b.q)):l.arbres.flatMap(a=>(a.tr||[]).map(t=>t.q)));
+  $('#main').innerHTML=`<p class="muted">Touchez pour sélectionner ou retirer. Les codes déjà utilisés dans le lot restent toujours affichés à la saisie.</p>
+  <h2>Essences</h2>${multi('essSel',p.essences,lotEss(l))}<h2>Qualités</h2>${multi('qualSel',p.qualites,lotQual(l))}
+  <h2>Nouveau code</h2><div class="row"><input id="newE" placeholder="Essence (ex. AUL)" style="flex:1" autocapitalize="characters"><button class="btn" id="addE">Ajouter</button></div>
+  <div class="row" style="margin-top:8px"><input id="newQ" placeholder="Qualité (ex. C+)" style="flex:1" autocapitalize="characters"><button class="btn" id="addQ">Ajouter</button></div>`;
+  bindMulti();
+  const persist=()=>{l.essSel=uniqL([...readMulti('essSel'),...usedE]);l.qualSel=uniqL([...readMulti('qualSel'),...usedQ]);save();};
+  $('#main').querySelectorAll('[data-multi]').forEach(c=>c.addEventListener('click',persist));
+  const addNew=(inp,isE)=>{const v=$(inp).value.trim().toUpperCase();if(!v)return;const all=isE?p.essences:p.qualites;if(!all.includes(v)){all.push(v);saveParams();}persist();const k=isE?'essSel':'qualSel';l[k]=uniqL([...l[k],v]);save();render();};
+  $('#addE').onclick=()=>addNew('#newE',true);$('#addQ').onclick=()=>addNew('#newQ',false);
+  foot(`<button class="btn primary big" id="done">Terminé</button>`);$('#done').onclick=()=>{persist();back();};};
 
 /* --- Sous-lots --- */
 V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots||[];const G=l.type==='grumes';
