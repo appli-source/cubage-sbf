@@ -87,7 +87,7 @@ function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addE
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
 function trEditor(list,id){const q=S.params.qualites;return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button></div>`).join('')}
-  <button type="button" class="btn" data-add-tr="${id}">+ tronçon</button></div>`;}
+  <button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button></div>`;}
 function readTr(id){return [...document.querySelectorAll(`#${id} .tr-row`)].map(r=>({h:num(r.querySelector('[data-f=h]').value),q:r.querySelector('[data-f=q]').value})).filter(t=>t.h>0);}
 
 /* ---------- Écrans ---------- */
@@ -184,7 +184,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    ${byClass?`<div><span class="muted">Classe de diamètre (cm)${mode==='diam'?' · un appui = une tige':''}</span><div class="grid-cl" id="cl">${classes.map(c=>`<button type="button" data-c="${c}"${f.d===c?' style="background:var(--accent);color:var(--accent-fg)"':''}>${c}</button>`).join('')}</div></div>`
    :`<label class="f" style="max-width:200px"><span class="l">Diamètre à 1,30 m (cm)</span><input class="big" id="d" type="number" inputmode="numeric" value="${f.d??''}" placeholder="cm"></label>`}
    ${mode!=='diam'?`<label class="f" style="max-width:200px"><span class="l">Hauteur (m)${mode==='classes'?' · optionnel':''}</span><input class="big" id="h" type="number" inputmode="decimal" step="0.5" value="${f.h??''}" placeholder="m"></label>
-   <details${(f.tr&&f.tr.length)?' open':''}><summary>Tronçons de qualité (bas → haut) · optionnel</summary>${trEditor(f.tr||[],'tr')}<p class="muted">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p></details>`:''}
+   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<p class="muted" style="margin:0">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p></div>`:''}
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
@@ -228,8 +228,8 @@ V.tarifs=()=>{const l=S.lot;head('Tarifs Chaudé',l.chantier);const base=S.tarif
   if(!ess.length)html+='<p class="muted">Aucune tige saisie.</p>';
   for(const e of ess){const ta=l.arbres.filter(a=>a.ess===e);const ks=[...new Set(ta.map(kOf))].sort((a,b)=>a-b);const nT=ta.reduce((s,a)=>s+(a.n||1),0);
     html+=`<div class="card stack"><div class="row"><b class="grow">${esc(e)} · ${nT} tiges</b><label class="f" style="flex:0 0 130px"><span class="l">Toute l’essence</span><select data-te="${esc(e)}">${opts(uniq(ta))}</select></label></div>
-    <details><summary>Par classe de ${base==='d'?'diamètre':'circonférence'}</summary><div class="stack">${ks.map(k=>{const tk=ta.filter(a=>kOf(a)===k);const nk=tk.reduce((s,a)=>s+(a.n||1),0);
-      return `<div class="row"><span class="grow">${base==='d'?'Ø '+k+' cm <span class="muted">(C ≈ '+circ(k)+')</span>':'C '+k+' cm <span class="muted">(Ø ≈ '+Math.round(k/Math.PI)+')</span>'} · <span class="muted">${nk} tiges</span></span><select data-tk="${esc(e)}|${k}" style="flex:0 0 100px">${opts(uniq(tk))}</select></div>`;}).join('')}</div></details></div>`;}
+    <div class="stack sec"><span class="sec-t">Par classe de ${base==='d'?'diamètre':'circonférence'}</span>${ks.map(k=>{const tk=ta.filter(a=>kOf(a)===k);const nk=tk.reduce((s,a)=>s+(a.n||1),0);
+      return `<div class="row"><span class="grow">${base==='d'?'Ø '+k+' cm <span class="muted">(C ≈ '+circ(k)+')</span>':'C '+k+' cm <span class="muted">(Ø ≈ '+Math.round(k/Math.PI)+')</span>'} · <span class="muted">${nk} tiges</span></span><select data-tk="${esc(e)}|${k}" style="flex:0 0 100px">${opts(uniq(tk))}</select></div>`;}).join('')}</div></div>`;}
   $('#main').innerHTML=html+'</div>';
   $('#base').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tarifBase=b.dataset.v;render();};
   $('#main').querySelectorAll('[data-te]').forEach(sel=>sel.onchange=()=>{if(!sel.value)return;const e=sel.dataset.te,t=clampT(sel.value);l.arbres.forEach(a=>{if(a.ess===e)a.tarif=t;});l.tarifEss=l.tarifEss||{};l.tarifEss[e]=t;save();toast(e+' : tarif '+t+' appliqué');render();});

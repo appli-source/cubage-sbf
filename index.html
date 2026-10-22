@@ -112,7 +112,14 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .gl-row{display:flex;gap:8px;align-items:flex-end}
 .gl-row>label{flex:1;min-width:0}
 .gl-del{flex:0 0 48px;min-height:48px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--bad);font-weight:700;font-size:18px}
-details summary{cursor:pointer;font-weight:600;min-height:40px;display:flex;align-items:center}
+details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:8px 14px;border:1px solid var(--accent);border-radius:var(--r);background:var(--accent-soft);color:var(--accent);font-weight:600}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"▾";font-size:18px}
+details[open]>summary::after{content:"▴"}
+details[open]>summary{margin-bottom:10px}
+.sec{border-top:1px solid var(--line);padding-top:12px}
+.sec-t{font-weight:700;font-size:15px}
+.btn.add{border:1.5px dashed var(--accent);color:var(--accent);background:var(--accent-soft)}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 <header class="top" id="top"></header>
@@ -122,7 +129,7 @@ details summary{cursor:pointer;font-weight:600;min-height:40px;display:flex;alig
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="calc.js?v=7"></script>
+<script src="app.js?v=7"></script>
 
 </html>
