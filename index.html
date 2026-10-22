@@ -66,7 +66,16 @@ button{font:inherit;cursor:pointer}
 .chip.small{min-height:40px;font-size:14px;min-width:44px;padding:4px 12px}
 .grid-cl{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
 .grid-cl button{min-height:60px;font-size:20px;font-weight:700;border-radius:var(--r);border:1px solid var(--line);background:var(--card);color:var(--fg)}
-.grid-cl button:active{background:var(--accent);color:var(--accent-fg)}
+.grid-cl button{position:relative}
+.grid-cl button:active,.grid-cl button.sel{background:var(--accent);color:var(--accent-fg)}
+.grid-cl button small{position:absolute;top:3px;right:4px;font-size:12px;font-weight:700;line-height:1.4;background:var(--accent);color:var(--accent-fg);border-radius:999px;min-width:20px;padding:0 6px}
+.grid-cl button.flash{animation:flash .8s ease-out}
+@keyframes flash{0%{background:var(--accent);color:var(--accent-fg);transform:scale(.92)}60%{background:var(--accent);color:var(--accent-fg);transform:scale(1)}100%{}}
+.count-bar{display:flex;gap:10px}
+.count-bar>div{flex:1;background:var(--accent);color:var(--accent-fg);border-radius:var(--r);padding:8px 14px}
+.count-bar>div.ess{background:var(--accent-soft);color:var(--fg)}
+.count-bar b{display:block;font-size:32px;line-height:1.1;font-variant-numeric:tabular-nums}
+.count-bar small{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.85}
 .kpi{display:flex;gap:10px;flex-wrap:wrap}
 .kpi>div{flex:1;min-width:90px;background:var(--accent-soft);border-radius:var(--r);padding:8px 12px}
 .kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -132,7 +141,7 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="calc.js?v=11"></script>
+<script src="app.js?v=11"></script>
 
 </html>
