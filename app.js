@@ -36,6 +36,8 @@ const S={params:null,lots:[],grilles:[],screen:'home',lot:null,edit:null,form:{}
 const stepFor=ess=>(S.params.stepParEssence&&S.params.stepParEssence[ess])||S.params.step||5;
 const cls=(ess,d)=>Calc.classe(d,stepFor(ess));
 function lotGrille(lot){return lot.grilleLocal||S.grilles.find(g=>g.id===lot.grilleId)||null;}
+/* Grille applicable à une ligne : celle de son sous-lot si définie, sinon celle du lot */
+function grilleFor(lot,slId){const s=slId&&(lot.sousLots||[]).find(x=>x.id===slId);return (s&&s.grilleId&&S.grilles.find(g=>g.id===s.grilleId))||lotGrille(lot);}
 function prix(grille,ess,q,d){if(!grille)return null;let best=null,bs=-1;for(const l of grille.lignes||[]){
   if(l.ess&&l.ess!==ess)continue;if(l.q&&l.q!==q)continue;if(l.dmin!=null&&d<l.dmin)continue;if(l.dmax!=null&&d>l.dmax)continue;
   const sc=(l.ess?4:0)+(l.q?2:0)+((l.dmin!=null||l.dmax!=null)?1:0);if(sc>bs){bs=sc;best=l;}}return best?best.prix:null;}
@@ -66,13 +68,14 @@ function nextNum(lot){if(lot.type==='grumes'){const m=lot.grumes.reduce((x,g)=>M
   return lot.arbres.reduce((x,a)=>Math.max(x,Number(a.num)||0),0)+1;}
 
 /* ---------- Récapitulatifs ---------- */
-function recap(lot,sl){const rows={},cl={},g=lotGrille(lot);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0});f(r);};
+function recap(lot,sl){const rows={},cl={},g=(sl&&sl!==NONE)?grilleFor(lot,sl):lotGrille(lot);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0,mm:0,vp:0});f(r);};
+  const price=(r,slId,ess,q,d,v)=>{const p=prix(grilleFor(lot,slId),ess,q,d);if(p!=null){r.mm+=p*v;r.vp+=v;}};
   if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(!slMatch(b.sl,sl))continue;const c=cls(gr.ess,b.d),v=volB(b);
-    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=lenM(b);});}}
+    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=lenM(b);price(r,b.sl,gr.ess,b.q||'',b.d,v);});}}
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const c=cls(a.ess,a.d),k=a.ess+'|'+c,x=arbreCalc(lot,a);const t=cl[k]||(cl[k]={ess:a.ess,c,n:0,v:0,sans:0,sh:0,nh:0});t.n+=a.n||1;
-    if(x.v==null){t.sans+=a.n||1;continue;}t.v+=x.v;t.sh+=x.h*(a.n||1);t.nh+=a.n||1;for(const tr of x.tronc)add(a.ess+'|'+tr.q+'|'+c,{ess:a.ess,q:tr.q,c},r=>{r.v+=tr.v;r.n+=a.n||1;});}}
+    if(x.v==null){t.sans+=a.n||1;continue;}t.v+=x.v;t.sh+=x.h*(a.n||1);t.nh+=a.n||1;for(const tr of x.tronc)add(a.ess+'|'+tr.q+'|'+c,{ess:a.ess,q:tr.q,c},r=>{r.v+=tr.v;r.n+=a.n||1;price(r,a.sl,a.ess,tr.q,a.d,tr.v);});}}
   const list=Object.values(rows).sort((a,b)=>a.ess.localeCompare(b.ess)||a.q.localeCompare(b.q)||a.c-b.c);
-  for(const r of list){r.p=prix(g,r.ess,r.q,r.c);r.m=r.p!=null?r.p*r.v:null;r.dm=r.n?r.sd/r.n:null;r.lm=r.n?r.sl/r.n:null;}
+  for(const r of list){r.m=r.vp>0?r.mm:null;r.p=r.vp>0?r.mm/r.vp:null;r.partial=r.vp>0&&r.vp<r.v-1e-9;r.dm=r.n?r.sd/r.n:null;r.lm=r.n?r.sl/r.n:null;}
   const tot={n:list.reduce((s,r)=>s+r.n,0),v:list.reduce((s,r)=>s+r.v,0),m:list.some(r=>r.m!=null)?list.reduce((s,r)=>s+(r.m||0),0):null};
   return{rows:list,tot,classes:Object.values(cl).sort((a,b)=>a.ess.localeCompare(b.ess)||a.c-b.c),grille:g};}
 function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(!slMatch(b.sl,sl))continue;
@@ -310,7 +313,7 @@ function slRecapHtml(l){const G=l.type==='grumes';const rows=slRecapRows(l);let 
 V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);const r=recap(l,sl);
   const slSel=(l.sousLots||[]).length?`<label class="f"><span class="l">Afficher</span><select id="slf"><option value="">Tout le lot</option><option value="*"${sl==='*'?' selected':''}>Par sous-lot (comparatif)</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>Sous-lot : ${esc(s.nom)}</option>`).join('')}<option value="${NONE}"${sl===NONE?' selected':''}>Non affecté</option></select></label>`:'';
   if(sl==='*'){$('#main').innerHTML=slSel+slRecapHtml(l);$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');return;}
-  let html=slSel+`<div class="row" style="margin:8px 0"><span class="muted grow">Grille : <b>${esc(r.grille?r.grille.nom:'aucune')}</b></span><button class="btn" data-go="lotGrille">Changer</button></div>`;
+  let html=slSel+`<div class="row" style="margin:8px 0"><span class="muted grow">Grille : <b>${esc(r.grille?r.grille.nom:'aucune')}</b>${!sl&&(l.sousLots||[]).some(x=>x.grilleId)?' · grilles propres à certains sous-lots':''}</span><button class="btn" data-go="lotGrille">Changer</button></div>`;
   if(l.type==='pied'&&r.classes.length)html+=`<h2>Par essence et classe de diamètre</h2><div class="tbl"><table><tr><th>Ess.</th><th class="n">Classe</th><th class="n">Ø cm</th><th class="n">Tiges</th><th class="n">H moy m</th><th class="n">m³</th><th class="n">m³/tige</th></tr>${classRecap(r).map(c=>c.kind==='c'?`<tr><td>${esc(c.ess)}</td><td class="n">${c.c}</td><td class="n muted">${clsRange(c.ess,c.c)}</td><td class="n">${c.n}${c.sans?` <span class="pill warn">${c.sans} sans H</span>`:''}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`:`<tr class="${c.kind==='t'?'tot':'grp'}"><td colspan="3">${c.kind==='t'?'Total':'Total '+esc(c.ess)}</td><td class="n">${c.n}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`).join('')}</table></div>`;
   {const G=l.type==='grumes';html+=`<h2>Par essence et qualité</h2><div class="tbl"><table><tr><th>Ess.</th><th>Qualité</th><th class="n">${G?'Billons':'Tiges'}</th>${G?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³ moy</th><th class="n">€</th></tr>${qualRecap(r).map(x=>`<tr${x.kind==='q'?'':` class="${x.kind==='t'?'tot':'grp'}"`}><td${x.kind==='q'?'':' colspan="2"'}>${x.kind==='q'?esc(x.ess):(x.kind==='t'?'Total':'Total '+esc(x.ess))}</td>${x.kind==='q'?`<td>${esc(x.q||'·')}</td>`:''}<td class="n">${x.n}</td>${G?`<td class="n">${f1(x.dm)}</td><td class="n">${f2(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.pm!=null?f2(x.pm):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`).join('')}</table></div>`;}
   html+=`<h2>Par essence, qualité et classe</h2><div class="tbl"><table><tr><th>Ess.</th><th>Q</th><th class="n">Cl.</th><th class="n">${l.type==='grumes'?'Billons':'Tiges'}</th>${l.type==='grumes'?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³</th><th class="n">€</th></tr>`;
@@ -339,10 +342,11 @@ V.lotRef=()=>{const l=S.lot,p=S.params;head('Essences et qualités',l.chantier);
 V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots||[];const G=l.type==='grumes';
   const stat=id=>{let n=0,v=0;if(G){for(const g of l.grumes)for(const b of g.billons)if(slMatch(b.sl,id)){n++;v+=volB(b);}}else{for(const a of l.arbres)if(slMatch(a.sl,id)){n+=a.n||1;const x=arbreCalc(l,a);v+=x.v||0;}}return `${n} ${G?'billons':'tiges'} · ${f3(v)} m³`;};
   $('#main').innerHTML=`<p class="muted">Pendant la saisie, choisissez le sous-lot en haut de l’écran : il reste sélectionné pour les ${G?'grumes':'tiges'} suivantes. Ici, vous pouvez aussi affecter après coup.</p>
-  <div class="stack">${l.sousLots.map(s=>`<div class="card stack"><div class="row"><div class="grow"><b>${esc(s.nom)}</b>${s.client?` <span class="muted">· ${esc(s.client)}</span>`:''}<br><span class="muted">${stat(s.id)}</span></div><button type="button" class="chip small" data-del="${s.id}">✕</button></div><button type="button" class="btn primary" data-assign="${s.id}">Affecter des ${G?'grumes':'tiges'}</button></div>`).join('')}
+  <div class="stack">${l.sousLots.map(s=>`<div class="card stack"><div class="row"><div class="grow"><b>${esc(s.nom)}</b>${s.client?` <span class="muted">· ${esc(s.client)}</span>`:''}<br><span class="muted">${stat(s.id)}</span></div><button type="button" class="chip small" data-del="${s.id}">✕</button></div><label class="f"><span class="l">Grille de prix</span><select data-sg="${s.id}"><option value="">Celle du lot</option>${S.grilles.filter(g=>g.type===l.type).map(g=>`<option value="${g.id}"${g.id===s.grilleId?' selected':''}>${esc(g.nom)}</option>`).join('')}</select></label><button type="button" class="btn primary" data-assign="${s.id}">Affecter des ${G?'grumes':'tiges'}</button></div>`).join('')}
   ${l.sousLots.length?`<div class="card"><b>Non affecté</b><br><span class="muted">${stat(NONE)}</span></div>`:''}</div>
-  <h2>Nouveau sous-lot</h2><div class="card stack"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client</span><input id="cli"></label><button class="btn primary" id="add">Ajouter</button></div>`;
-  $('#add').onclick=()=>{const n=$('#nom').value.trim();if(!n)return;l.sousLots.push({id:uid(),nom:n,client:$('#cli').value.trim()});save();render();};
+  <h2>Nouveau sous-lot</h2><div class="card stack"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client</span><input id="cli"></label><label class="f"><span class="l">Grille de prix</span><select id="slg"><option value="">Celle du lot</option>${S.grilles.filter(g=>g.type===l.type).map(g=>`<option value="${g.id}">${esc(g.nom)}</option>`).join('')}</select></label><button class="btn primary" id="add">Ajouter</button></div>`;
+  $('#main').querySelectorAll('[data-sg]').forEach(x=>x.onchange=()=>{const s1=l.sousLots.find(y=>y.id===x.dataset.sg);s1.grilleId=x.value||null;save();toast('Grille de '+s1.nom+' : '+(x.value?x.selectedOptions[0].textContent:'celle du lot'));});
+  $('#add').onclick=()=>{const n=$('#nom').value.trim();if(!n)return;l.sousLots.push({id:uid(),nom:n,client:$('#cli').value.trim(),grilleId:$('#slg').value||null});save();render();};
   $('#main').querySelectorAll('[data-assign]').forEach(b=>b.onclick=()=>{S.hist.push('sousLots');go('slAssign',{slTarget:b.dataset.assign});});
   $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(!b.dataset.c){b.textContent='Suppr. ?';b.dataset.c='1';return;}const id=b.dataset.del;l.sousLots=l.sousLots.filter(s=>s.id!==id);if(l.slCur===id)l.slCur=null;l.grumes.forEach(g=>g.billons.forEach(x=>{if(x.sl===id)x.sl=null;}));l.arbres.forEach(a=>{if(a.sl===id)a.sl=null;});save();render();});foot('');};
 
@@ -376,7 +380,7 @@ V.grille=()=>{const e=S.gEdit;const g=e.local?S.lot.grilleLocal:S.grilles.find(x
   const p=S.params;g.lignes=g.lignes||[];
   const qOpts=[...p.qualites,...(g.type==='pied'&&!p.qualites.includes(resteQ())?[resteQ()]:[])];
   $('#main').innerHTML=`<label class="f"><span class="l">Nom</span><input id="nom" value="${esc(g.nom)}"></label>
-  <p class="muted" style="margin:10px 0">Un champ vide s’applique à toutes les essences, qualités ou diamètres. La ligne la plus précise l’emporte.</p>
+  <p class="muted" style="margin:10px 0">Un champ vide s’applique à toutes les essences, qualités ou diamètres. Ø min et Ø max portent sur le diamètre mesuré (médian pour les grumes, à 1,30 m sur pied), bornes incluses : par ex. 30 à 39 puis 40 à 49. La ligne la plus précise l’emporte.</p>
   <div class="stack">${g.lignes.map((l,i)=>`<div class="card gl" data-gl="${i}">
    <div class="gl-row"><label class="f"><span class="l">Essence</span><select data-f="ess"><option value="">Toutes</option>${p.essences.map(x=>`<option${x===l.ess?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
    <label class="f"><span class="l">Qualité</span><select data-f="q"><option value="">Toutes</option>${qOpts.map(x=>`<option${x===l.q?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
@@ -481,7 +485,7 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
 
 /* ---------- Synchronisation ---------- */
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier:l.chantier||'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
-  const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||''}));
+  const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||'',grille:(S.grilles.find(g=>g.id===s.grilleId)||{}).nom||''}));
   const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
   for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons)BILLON.push({lot_id:l.id,grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:Math.round(volB(b)*10000)/10000,sous_lot_id:b.sl||''});}
   for(const a of l.arbres){const x=arbreCalc(l,a);ARBRE.push({lot_id:l.id,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
