@@ -339,9 +339,19 @@ V.params=()=>{const p=S.params;head('Paramètres');
 
 /* ---------- Exports ---------- */
 const fname=(l,ext)=>((l.chantier||'lot').replace(/[^\w\-]+/g,'_')+'_'+l.date+'.'+ext);
-async function shareFile(blob,name){const file=new File([blob],name,{type:blob.type});
-  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return;}}catch(e){if(e&&e.name==='AbortError')return;}
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);toast('Fichier '+name);}
+/* Export : téléchargement direct (dossier Téléchargements, sans choix d'emplacement) puis fenêtre Ouvrir / Partager */
+let lastUrl=null;
+function shareFile(blob,name){if(lastUrl)URL.revokeObjectURL(lastUrl);const url=lastUrl=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  const isPdf=/\.pdf$/i.test(name),kind=isPdf?'PDF':/\.xlsx$/i.test(name)?'Excel':'Fichier';
+  const file=new File([blob],name,{type:blob.type});const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+  const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mt">
+   <b id="mt">${kind} enregistré</b><p class="muted" style="margin:0">${esc(name)}<br>Dossier Téléchargements du téléphone.</p>
+   <div class="stack"><button type="button" class="btn primary big" id="mOpen">Ouvrir</button>${canShare?'<button type="button" class="btn big" id="mShare">Partager (mail, WhatsApp…)</button>':''}<button type="button" class="btn" id="mClose">Fermer</button></div></div>`;
+  document.body.appendChild(m);const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
+  m.querySelector('#mOpen').onclick=()=>{const w=window.open(url,'_blank');if(!w)location.href=url;close();};
+  if(canShare)m.querySelector('#mShare').onclick=async()=>{try{await navigator.share({files:[file],title:name});}catch(e){}close();};}
 function exportXLSX(l,sl){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}const r=recap(l,sl),li=listing(l,sl);const wb=XLSX.utils.book_new();
   const lot=[['Chantier',l.chantier||''],['Date',l.date],['Opérateur',l.operateur||''],['Type',l.type==='grumes'?'Grumes bord de route':'Bois sur pied'],['Tarif Chaudé par défaut',l.type==='pied'?l.tarif:''],['Sous-lot',sl?slName(l,sl):'Tout le lot'],['Grille de prix',r.grille?r.grille.nom:''],['Volume total m³',Math.round(r.tot.v*1000)/1000],['Montant €',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']];
   (l.sousLots||[]).forEach(s=>lot.push(['Sous-lot '+s.nom,s.client||'']));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lot),'Lot');
