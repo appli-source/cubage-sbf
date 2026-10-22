@@ -46,6 +46,12 @@ const tarifOf=(lot,a)=>clampT(a.tarif||lot.tarif||8);
 const tarifDef=(lot,ess)=>clampT((lot.tarifEss&&lot.tarifEss[ess])||lot.tarif||8);
 const circ=d=>Math.round(Math.PI*d);
 const clsRange=(ess,c)=>{const s=stepFor(ess);return (c-Math.floor(s/2))+'–'+(c+Math.ceil(s/2)-1);};
+function qualRecap(r){const m={};for(const x of r.rows){const k=x.ess+'|'+x.q;const t=m[k]||(m[k]={ess:x.ess,q:x.q,n:0,v:0,sd:0,sl:0,m:0,hasM:false});t.n+=x.n;t.v+=x.v;t.sd+=x.sd||0;t.sl+=x.sl||0;if(x.m!=null){t.m+=x.m;t.hasM=true;}}
+  const list=Object.values(m).sort((a,b)=>a.ess.localeCompare(b.ess)||a.q.localeCompare(b.q));const out=[];
+  const fin=(t,kind)=>({...t,kind,dm:t.n&&t.sd?t.sd/t.n:null,lm:t.n&&t.sl?t.sl/t.n:null,m:t.hasM?t.m:null,pm:t.hasM&&t.v?t.m/t.v:null});
+  const sum=(arr,ess)=>arr.reduce((a,t)=>({ess,q:'',n:a.n+t.n,v:a.v+t.v,sd:a.sd+t.sd,sl:a.sl+t.sl,m:a.m+t.m,hasM:a.hasM||t.hasM}),{ess,q:'',n:0,v:0,sd:0,sl:0,m:0,hasM:false});
+  for(const e of [...new Set(list.map(t=>t.ess))]){const sub=list.filter(t=>t.ess===e);out.push(...sub.map(t=>fin(t,'q')));if(sub.length>1)out.push(fin(sum(sub,e),'e'));}
+  out.push(fin(sum(list,'Total'),'t'));return out;}
 function classRecap(r){const out=[];const byE={};for(const c of r.classes){c.hm=c.nh?c.sh/c.nh:null;c.vt=c.nh?c.v/c.nh:null;(byE[c.ess]=byE[c.ess]||[]).push(c);}
   const agg=(list,ess)=>{const n=list.reduce((s,c)=>s+c.n,0),v=list.reduce((s,c)=>s+c.v,0),sh=list.reduce((s,c)=>s+c.sh,0),nh=list.reduce((s,c)=>s+c.nh,0),sans=list.reduce((s,c)=>s+c.sans,0);return{ess,n,v,sans,hm:nh?sh/nh:null,vt:nh?v/nh:null};};
   for(const e of Object.keys(byE)){out.push(...byE[e].map(c=>({...c,kind:'c'})));out.push({...agg(byE[e],e),kind:'e'});}
@@ -88,7 +94,8 @@ function go(screen,o){S.screen=screen;Object.assign(S,o||{});render();window.scr
 function back(){const h=S.hist;if(h.length){go(h.pop());}else go('home');}
 function chips(name,vals,cur,small){return `<div class="chips" data-chips="${name}">${vals.map(v=>`<button type="button" class="chip${small?' small':''}${v===cur?' on':''}" data-v="${esc(v)}">${esc(v||'—')}</button>`).join('')}</div>`;}
 function chipVal(name){const b=document.querySelector(`[data-chips="${name}"] .chip.on`);return b?b.dataset.v:'';}
-function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;c.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');c.dispatchEvent(new CustomEvent('chip',{bubbles:true,detail:b.dataset.v}));}));}
+let chipCb=null;const onChip=cb=>{chipCb=cb;};
+function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;c.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(chipCb)chipCb({target:c,detail:b.dataset.v});}));}
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
 function trEditor(list,id){const q=S.params.qualites;return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button></div>`).join('')}
@@ -158,7 +165,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   <button type="button" class="btn big block" id="addB">+ Billon</button>
   <div class="muted">Grume : <b>${f3(gv)} m³</b></div></div>`;
   bindChips();
-  $('#main').addEventListener('chip',e=>{const n=e.target.dataset.chips;if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
+  onChip(e=>{const n=e.target.dataset.chips;if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
   $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);});
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
@@ -172,7 +179,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
     f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();});
     if(ed){Object.assign(g,{num:numS,ess:f.ess,billons:f.billons});save();S.form={};S.edit=null;back();return;}
-    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:f.billons});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³');render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
+    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³');render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
   if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
 
 /* --- Saisie sur pied --- */
@@ -193,7 +200,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
-  bindChips();$('#main').addEventListener('chip',e=>{if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
+  bindChips();onChip(e=>{if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
   $('#main').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{f.tarif=clampT(f.tarif+Number(b.dataset.t));$('#tv').textContent=f.tarif;if(!ed){l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();}});
   if($('#num'))$('#num').oninput=e=>f.num=e.target.value;if($('#n'))$('#n').oninput=e=>f.n=Math.max(1,Math.round(num(e.target.value)||1));
   if($('#d'))$('#d').oninput=e=>f.d=num(e.target.value);if($('#h'))$('#h').oninput=e=>f.h=num(e.target.value);
@@ -263,6 +270,7 @@ V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);c
   const slSel=(l.sousLots||[]).length?`<select id="slf"><option value="">Tout le lot</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>${esc(s.nom)}</option>`).join('')}</select>`:'';
   let html=slSel+`<div class="row" style="margin:8px 0"><span class="muted grow">Grille : <b>${esc(r.grille?r.grille.nom:'aucune')}</b></span><button class="btn" data-go="lotGrille">Changer</button></div>`;
   if(l.type==='pied'&&r.classes.length)html+=`<h2>Par essence et classe de diamètre</h2><div class="tbl"><table><tr><th>Ess.</th><th class="n">Classe</th><th class="n">Ø cm</th><th class="n">Tiges</th><th class="n">H moy m</th><th class="n">m³</th><th class="n">m³/tige</th></tr>${classRecap(r).map(c=>c.kind==='c'?`<tr><td>${esc(c.ess)}</td><td class="n">${c.c}</td><td class="n muted">${clsRange(c.ess,c.c)}</td><td class="n">${c.n}${c.sans?` <span class="pill warn">${c.sans} sans H</span>`:''}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`:`<tr class="${c.kind==='t'?'tot':'grp'}"><td colspan="3">${c.kind==='t'?'Total':'Total '+esc(c.ess)}</td><td class="n">${c.n}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`).join('')}</table></div>`;
+  {const G=l.type==='grumes';html+=`<h2>Par essence et qualité</h2><div class="tbl"><table><tr><th>Ess.</th><th>Qualité</th><th class="n">${G?'Billons':'Tiges'}</th>${G?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³ moy</th><th class="n">€</th></tr>${qualRecap(r).map(x=>`<tr${x.kind==='q'?'':` class="${x.kind==='t'?'tot':'grp'}"`}><td${x.kind==='q'?'':' colspan="2"'}>${x.kind==='q'?esc(x.ess):(x.kind==='t'?'Total':'Total '+esc(x.ess))}</td>${x.kind==='q'?`<td>${esc(x.q||'·')}</td>`:''}<td class="n">${x.n}</td>${G?`<td class="n">${f1(x.dm)}</td><td class="n">${f2(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.pm!=null?f2(x.pm):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`).join('')}</table></div>`;}
   html+=`<h2>Par essence, qualité et classe</h2><div class="tbl"><table><tr><th>Ess.</th><th>Q</th><th class="n">Cl.</th><th class="n">${l.type==='grumes'?'Billons':'Tiges'}</th>${l.type==='grumes'?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³</th><th class="n">€</th></tr>`;
   let pe='';for(const x of r.rows){if(x.ess!==pe){pe=x.ess;const sub=r.rows.filter(y=>y.ess===pe);html+=`<tr class="grp"><td colspan="${l.type==='grumes'?6:4}">${esc(pe)}</td><td class="n">${f3(sub.reduce((s,y)=>s+y.v,0))}</td><td></td><td class="n">${sub.some(y=>y.m!=null)?f2(sub.reduce((s,y)=>s+(y.m||0),0)):''}</td></tr>`;}
     html+=`<tr><td>${esc(x.ess)}</td><td>${esc(x.q||'·')}</td><td class="n">${x.c}</td><td class="n">${x.n}</td>${l.type==='grumes'?`<td class="n">${f1(x.dm)}</td><td class="n">${f1(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.p!=null?f2(x.p):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`;}
@@ -360,18 +368,22 @@ function exportXLSX(l,sl){if(!window.XLSX){toast('Module Excel non chargé (ouvr
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(L),'Listing');
   const R=l.type==='grumes'?[['Essence','Qualité','Classe','Billons','Ø moyen','L moyenne','Volume m³','Prix €/m³','Montant €'],...r.rows.map(x=>[x.ess,x.q,x.c,x.n,x.dm,x.lm,Math.round(x.v*1000)/1000,x.p,x.m!=null?Math.round(x.m*100)/100:''])]
     :[['Essence','Qualité','Classe','Tiges','Volume m³','Prix €/m³','Montant €'],...r.rows.map(x=>[x.ess,x.q,x.c,x.n,Math.round(x.v*1000)/1000,x.p,x.m!=null?Math.round(x.m*100)/100:''])];
-  R.push(['Total','','',r.tot.n,...(l.type==='grumes'?['','']:[]),Math.round(r.tot.v*1000)/1000,'',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(R),'Récapitulatif');
+  R.push(['Total','','',r.tot.n,...(l.type==='grumes'?['','']:[]),Math.round(r.tot.v*1000)/1000,'',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']);const G=l.type==='grumes';XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Essence','Qualité',G?'Billons':'Tiges',...(G?['Ø moyen cm','L moyenne m']:[]),'Volume m³','Prix moyen €/m³','Montant €'],...qualRecap(r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total':'Total '+x.ess),x.kind==='q'?x.q:'',x.n,...(G?[x.dm!=null?Math.round(x.dm*10)/10:'',x.lm!=null?Math.round(x.lm*100)/100:'']:[]),Math.round(x.v*1000)/1000,x.pm!=null?Math.round(x.pm*100)/100:'',x.m!=null?Math.round(x.m*100)/100:''])]),'Récap qualités');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(R),'Récap classes');
   if(l.type==='pied')XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Essence','Classe','Diamètres cm','Tiges','Sans hauteur','Hauteur moyenne m','Volume m³','m³/tige'],...classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?Math.round(c.hm*10)/10:'',Math.round(c.v*1000)/1000,c.vt!=null?Math.round(c.vt*1000)/1000:''])]),'Classes');
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});shareFile(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fname(l,'xlsx'));}
 function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir une fois en ligne)');return;}const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const r=recap(l,sl),li=listing(l,sl);
   const title=(l.type==='grumes'?'Cubage grumes bord de route':'Estimation bois sur pied')+(sl?' · '+slName(l,sl):'');
   const hdr=()=>{doc.setFontSize(14);doc.text('SBF — '+title,14,16);doc.setFontSize(9);doc.text(`Chantier : ${l.chantier||''}   Date : ${l.date}   Opérateur : ${l.operateur||''}`,14,22);};
   hdr();const fr=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3});const fe=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  doc.setFontSize(11);doc.text('Récapitulatif par essence, qualité et classe'+(r.grille?'  —  grille : '+r.grille.nom:''),14,30);
+  doc.setFontSize(11);doc.text('Récapitulatif par essence et qualité'+(r.grille?'  —  grille : '+r.grille.nom:''),14,30);
+  {const G=l.type==='grumes';const qb=qualRecap(r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total':'Total '+x.ess),x.kind==='q'?(x.q||'·'):'',x.n,...(G?[f1(x.dm),f2(x.lm)]:[]),fr(x.v),fe(x.pm),fe(x.m)]);
+   doc.autoTable({startY:33,head:[['Essence','Qualité',G?'Billons':'Tiges',...(G?['Ø moy','L moy']:[]),'m³','€/m³ moy','€']],body:qb,styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';}});}
+  doc.setFontSize(11);doc.text('Détail par essence, qualité et classe',14,doc.lastAutoTable.finalY+8);
   const head=l.type==='grumes'?[['Essence','Qualité','Classe','Billons','Ø moy','L moy','m³','€/m³','€']]:[['Essence','Qualité','Classe','Tiges','m³','€/m³','€']];
   const body=r.rows.map(x=>l.type==='grumes'?[x.ess,x.q||'·',x.c,x.n,f1(x.dm),f1(x.lm),fr(x.v),fe(x.p),fe(x.m)]:[x.ess,x.q||'·',x.c,x.n,fr(x.v),fe(x.p),fe(x.m)]);
   body.push(l.type==='grumes'?['Total','','',r.tot.n,'','',fr(r.tot.v),'',fe(r.tot.m)]:['Total','','',r.tot.n,fr(r.tot.v),'',fe(r.tot.m)]);
-  doc.autoTable({startY:33,head,body,styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.row.index===body.length-1&&d.section==='body')d.cell.styles.fontStyle='bold';}});
+  doc.autoTable({startY:doc.lastAutoTable.finalY+11,head,body,styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.row.index===body.length-1&&d.section==='body')d.cell.styles.fontStyle='bold';}});
   if(l.type==='pied'&&r.classes.length){doc.autoTable({startY:doc.lastAutoTable.finalY+6,head:[['Essence','Classe','Ø cm','Tiges','Sans H','H moy','m³','m³/tige']],body:classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?f1(c.hm):'',fr(c.v),c.vt!=null?fr(c.vt):'']),didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';},styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});}
   doc.addPage();hdr();doc.setFontSize(11);doc.text('Listing',14,30);
   const lh=l.type==='grumes'?[['N°','Ess.','Q','L m','Ø cm','Cl.','m³','Sous-lot']]:[['N°','Ess.','Ø cm','Cl.','T','Tiges','H m','Tronçons','m³','Sous-lot']];
@@ -398,7 +410,7 @@ async function loadRef(){const url=S.params.syncUrl;if(!url){toast('URL du scrip
   if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}p.refLoaded=today();await saveParams();toast('Référentiel chargé');}catch(e){toast('Échec du chargement : '+e.message);}}
 
 /* ---------- Rendu ---------- */
-function render(){const v=V[S.screen]||V.home;v();
+function render(){chipCb=null;const v=V[S.screen]||V.home;v();
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.hist.push(S.screen);S.form={};S.edit=null;go(b.dataset.go);});
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.slFilter='';S.hist=['home'];go('lot');});}
 (async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
