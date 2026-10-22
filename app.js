@@ -39,7 +39,8 @@ function lotGrille(lot){return lot.grilleLocal||S.grilles.find(g=>g.id===lot.gri
 function prix(grille,ess,q,d){if(!grille)return null;let best=null,bs=-1;for(const l of grille.lignes||[]){
   if(l.ess&&l.ess!==ess)continue;if(l.q&&l.q!==q)continue;if(l.dmin!=null&&d<l.dmin)continue;if(l.dmax!=null&&d>l.dmax)continue;
   const sc=(l.ess?4:0)+(l.q?2:0)+((l.dmin!=null||l.dmax!=null)?1:0);if(sc>bs){bs=sc;best=l;}}return best?best.prix:null;}
-const volB=b=>Calc.volBillon(b.d,(b.l||0)/10);
+const lenM=b=>b.lm!=null?b.lm:((b.l||0)/10);
+const volB=b=>Calc.volBillon(b.d,lenM(b));
 function arbreCalc(lot,a){const k=a.ess+'|'+cls(a.ess,a.d);const ch=(lot.classH||{})[k]||{};
   const h=(a.h!=null&&a.h>0)?a.h:(ch.h||null);const tr=(a.tr&&a.tr.length)?a.tr:(ch.tr||[]);
   const n=a.n||1;if(!h)return{h:null,tr:[],v:null,tronc:[]};
@@ -52,7 +53,7 @@ function nextNum(lot){if(lot.type==='grumes'){const m=lot.grumes.reduce((x,g)=>M
 /* ---------- Récapitulatifs ---------- */
 function recap(lot,sl){const rows={},cl={},g=lotGrille(lot);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0});f(r);};
   if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(sl&&b.sl!==sl)continue;const c=cls(gr.ess,b.d),v=volB(b);
-    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=(b.l||0)/10;});}}
+    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=lenM(b);});}}
   else{for(const a of lot.arbres){if(sl&&a.sl!==sl)continue;const c=cls(a.ess,a.d),k=a.ess+'|'+c,x=arbreCalc(lot,a);const t=cl[k]||(cl[k]={ess:a.ess,c,n:0,v:0,sans:0});t.n+=a.n||1;
     if(x.v==null){t.sans+=a.n||1;continue;}t.v+=x.v;for(const tr of x.tronc)add(a.ess+'|'+tr.q+'|'+c,{ess:a.ess,q:tr.q,c},r=>{r.v+=tr.v;r.n+=a.n||1;});}}
   const list=Object.values(rows).sort((a,b)=>a.ess.localeCompare(b.ess)||a.q.localeCompare(b.q)||a.c-b.c);
@@ -60,7 +61,7 @@ function recap(lot,sl){const rows={},cl={},g=lotGrille(lot);const add=(k,o,f)=>{
   const tot={n:list.reduce((s,r)=>s+r.n,0),v:list.reduce((s,r)=>s+r.v,0),m:list.some(r=>r.m!=null)?list.reduce((s,r)=>s+(r.m||0),0):null};
   return{rows:list,tot,classes:Object.values(cl).sort((a,b)=>a.ess.localeCompare(b.ess)||a.c-b.c),grille:g};}
 function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(sl&&b.sl!==sl)continue;
-    out.push({num:g.num+'.'+b.rang,ess:g.ess,q:b.q||'',l:(b.l||0)/10,d:b.d,c:cls(g.ess,b.d),v:volB(b),sl:slName(lot,b.sl)});}}
+    out.push({num:g.num+'.'+b.rang,ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,b.d),v:volB(b),sl:slName(lot,b.sl)});}}
   else{for(const a of lot.arbres){if(sl&&a.sl!==sl)continue;const x=arbreCalc(lot,a);
     out.push({num:a.num||'',ess:a.ess,d:a.d,c:cls(a.ess,a.d),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
 const slName=(lot,id)=>{const s=(lot.sousLots||[]).find(x=>x.id===id);return s?s.nom:'';};
@@ -137,33 +138,33 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
 /* --- Saisie grumes --- */
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
-  if(!S.form.g){const last=l.grumes[l.grumes.length-1];S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],billons:[{rang:1,l:null,d:null,q:(p.repriseQualite&&last&&last.billons.length)?last.billons[last.billons.length-1].q:''}]};}
+  if(!S.form.g){const last=l.grumes[l.grumes.length-1];S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],billons:[{rang:1,lm:null,d:null,q:(p.repriseQualite&&last&&last.billons.length)?last.billons[last.billons.length-1].q:''}]};}
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Saisie grumes',`${f3(t.v)} m³ · ${t.n} grumes`);
-  const gv=f.billons.reduce((s,b)=>s+(b.d>0&&b.l>0?volB(b):0),0);
+  const gv=f.billons.reduce((s,b)=>s+(b.d>0&&lenM(b)>0?volB(b):0),0);
   $('#main').innerHTML=`<div class="stack">
   <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',p.essences,f.ess,true)}</label></div>
-  ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="muted">${b.d>0&&b.l>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
-   <div class="bill"><label class="f"><span class="l">Longueur (dm)</span><input class="big" type="number" inputmode="numeric" data-f="l" data-i="${i}" value="${b.l??''}" placeholder="dm"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
+  ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="muted">${b.d>0&&lenM(b)>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
+   <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
    <div class="q"><span class="muted">Qualité</span>${chips('q'+i,p.qualites,b.q,true)}</div></div></div>`).join('')}
   <button type="button" class="btn big block" id="addB">+ Billon</button>
   <div class="muted">Grume : <b>${f3(gv)} m³</b></div></div>`;
   bindChips();
   $('#main').addEventListener('chip',e=>{const n=e.target.dataset.chips;if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
-  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);if(e.target.dataset.f==='l'&&b.l>0&&!e.target.dataset.jumped){}});
-  $('#main').querySelectorAll('input[data-f=l]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
+  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);});
+  $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
-  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,l:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=l]')].pop();x&&x.focus();},0);};
+  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};
-  $('#ok').onclick=()=>{const bad=f.billons.find(b=>!(b.l>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
+  $('#ok').onclick=()=>{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
-    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.l=Math.round(b.l);b.id=b.id||uid();});
+    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();});
     if(ed){Object.assign(g,{num:numS,ess:f.ess,billons:f.billons});save();S.form={};S.edit=null;back();return;}
-    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:f.billons});save();S.form={};toast('Grume '+numS+' · '+f3(gv)+' m³');render();setTimeout(()=>{const x=document.querySelector('input[data-f=l]');x&&x.focus();},0);};
-  if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=l]');x&&x.focus();},0);};
+    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:f.billons});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³');render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
+  if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
 
 /* --- Saisie sur pied --- */
 V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id===ed):null;const mode=ed?(a.h?'pieds':'diam'):l.mode;
@@ -214,7 +215,7 @@ V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);
   const slSel=(l.sousLots||[]).length?`<select id="slf"><option value="">Tout le lot</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>${esc(s.nom)}</option>`).join('')}</select>`:'';
   const slOpt=id=>`<option value="">—</option>`+(l.sousLots||[]).map(s=>`<option value="${s.id}"${s.id===id?' selected':''}>${esc(s.nom)}</option>`).join('');
   $('#main').innerHTML=`${slSel}<div class="tbl" style="margin-top:8px"><table>${l.type==='grumes'
-   ?`<tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø cm</th><th class="n">m³</th>${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}<th></th></tr>${l.grumes.map(g=>g.billons.map((b,i)=>(sl&&b.sl!==sl)?'':`<tr><td>${esc(g.num)}.${b.rang}</td><td>${esc(g.ess)}</td><td>${esc(b.q||'')}</td><td class="n">${f1((b.l||0)/10)}</td><td class="n">${b.d}</td><td class="n">${f3(volB(b))}</td>${(l.sousLots||[]).length?`<td><select data-slb="${g.id}|${b.id}" style="min-height:36px;padding:2px 6px">${slOpt(b.sl)}</select></td>`:''}${i===0?`<td><button type="button" class="chip small" data-editg="${g.id}">✎</button> <button type="button" class="chip small" data-delg="${g.id}">✕</button></td>`:'<td></td>'}</tr>`).join('')).join('')}`
+   ?`<tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø cm</th><th class="n">m³</th>${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}<th></th></tr>${l.grumes.map(g=>g.billons.map((b,i)=>(sl&&b.sl!==sl)?'':`<tr><td>${esc(g.num)}.${b.rang}</td><td>${esc(g.ess)}</td><td>${esc(b.q||'')}</td><td class="n">${f2(lenM(b))}</td><td class="n">${b.d}</td><td class="n">${f3(volB(b))}</td>${(l.sousLots||[]).length?`<td><select data-slb="${g.id}|${b.id}" style="min-height:36px;padding:2px 6px">${slOpt(b.sl)}</select></td>`:''}${i===0?`<td><button type="button" class="chip small" data-editg="${g.id}">✎</button> <button type="button" class="chip small" data-delg="${g.id}">✕</button></td>`:'<td></td>'}</tr>`).join('')).join('')}`
    :`<tr><th>N°</th><th>Ess.</th><th class="n">Ø</th><th class="n">Cl.</th><th class="n">Tiges</th><th class="n">H m</th><th>Tronçons</th><th class="n">m³</th>${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}<th></th></tr>${l.arbres.map(a=>{if(sl&&a.sl!==sl)return'';const x=arbreCalc(l,a);return `<tr><td>${esc(a.num||'')}</td><td>${esc(a.ess)}</td><td class="n">${a.d}</td><td class="n">${cls(a.ess,a.d)}</td><td class="n">${a.n||1}</td><td class="n">${x.h?f1(x.h):'—'}</td><td>${esc(x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '))}</td><td class="n">${f3(x.v)}</td>${(l.sousLots||[]).length?`<td><select data-sla="${a.id}" style="min-height:36px;padding:2px 6px">${slOpt(a.sl)}</select></td>`:''}<td><button type="button" class="chip small" data-edita="${a.id}">✎</button> <button type="button" class="chip small" data-dela="${a.id}">✕</button></td></tr>`;}).join('')}`}
    </table></div><p class="muted">${rows.length} lignes · ${f3(rows.reduce((s,r)=>s+(r.v||0),0))} m³</p>`;
   if($('#slf'))$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};
@@ -325,7 +326,7 @@ function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir
   if(l.type==='pied'&&r.classes.length){doc.autoTable({startY:doc.lastAutoTable.finalY+6,head:[['Essence','Classe','Tiges','Sans hauteur','m³']],body:r.classes.map(c=>[c.ess,c.c,c.n,c.sans||'',fr(c.v)]),styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});}
   doc.addPage();hdr();doc.setFontSize(11);doc.text('Listing',14,30);
   const lh=l.type==='grumes'?[['N°','Ess.','Q','L m','Ø cm','Cl.','m³','Sous-lot']]:[['N°','Ess.','Ø cm','Cl.','Tiges','H m','Tronçons','m³','Sous-lot']];
-  const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f1(x.l),x.d,x.c,fr(x.v),x.sl]:[x.num,x.ess,x.d,x.c,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
+  const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f2(x.l),x.d,x.c,fr(x.v),x.sl]:[x.num,x.ess,x.d,x.c,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
   doc.autoTable({startY:33,head:lh,body:lb,styles:{fontSize:7.5,halign:'right'},columnStyles:l.type==='grumes'?{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'},7:{halign:'left'}}:{0:{halign:'left'},1:{halign:'left'},6:{halign:'left'},8:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});
   const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.text(`Page ${i}/${n}`,196,290,{align:'right'});}
   shareFile(doc.output('blob'),fname(l,'pdf'));}
@@ -334,7 +335,7 @@ function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier:l.chantier||'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
   const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||''}));
   const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
-  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons)BILLON.push({lot_id:l.id,grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:(b.l||0)/10,diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:Math.round(volB(b)*10000)/10000,sous_lot_id:b.sl||''});}
+  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons)BILLON.push({lot_id:l.id,grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:Math.round(volB(b)*10000)/10000,sous_lot_id:b.sl||''});}
   for(const a of l.arbres){const x=arbreCalc(l,a);ARBRE.push({lot_id:l.id,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
   return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
