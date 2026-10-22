@@ -130,7 +130,7 @@ let chipCb=null;const onChip=cb=>{chipCb=cb;};
 function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;c.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(chipCb)chipCb({target:c,detail:b.dataset.v});}));}
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
-function trEditor(list,id){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button></div>`).join('')}
+function trEditor(list,id){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button><span class="tvol" data-tv="${i}"></span></div>`).join('')}
   <button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button></div>`;}
 function readTr(id){return [...document.querySelectorAll(`#${id} .tr-row`)].map(r=>({h:num(r.querySelector('[data-f=h]').value),q:r.querySelector('[data-f=q]').value})).filter(t=>t.h>0);}
 
@@ -245,16 +245,19 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    :`<label class="f" style="max-width:200px"><span class="l">Diamètre à 1,30 m (cm)</span><input class="big" id="d" type="number" inputmode="numeric" value="${f.d??''}" placeholder="cm"></label>`}
    ${mode!=='diam'?`<label class="f" style="max-width:200px"><span class="l">Hauteur (m)${mode==='classes'?' · optionnel':''}</span><input class="big" id="h" type="number" inputmode="decimal" step="0.5" value="${f.h??''}" placeholder="m"></label>
    <div class="vbox main"><b id="av">—</b><small id="avs">m³</small></div>
-   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<div class="row"><p class="muted grow" style="margin:0">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p>${addBtn('q')}</div></div>`:''}
+   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<div class="row"><p class="muted grow" style="margin:0" id="trRest">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p>${addBtn('q')}</div></div>`:''}
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
   bindChips();bindAddRef(l,(k,v)=>{if(k==='ess'){f.ess=v;if(!ed)f.tarif=tarifDef(l,v);}render();});onChip(e=>{if(e.target.dataset.chips==='sl'){f.sl=e.detail||null;if(!ed){l.slCur=f.sl;save();}return;}if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
   $('#main').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{f.tarif=clampT(f.tarif+Number(b.dataset.t));$('#tv').textContent=f.tarif;updA();if(!ed){l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();}});
   if($('#num'))$('#num').oninput=e=>f.num=e.target.value;if($('#n'))$('#n').oninput=e=>{f.n=Math.max(1,Math.round(num(e.target.value)||1));updA();};
-  const updA=()=>{const b=$('#av');if(!b)return;const n=f.n||1,ok=f.d>0&&f.h>0;b.textContent=ok?f3(Calc.volChaude(f.d,f.h,f.tarif,n)):'—';$('#avs').textContent='m³'+(n>1?' · '+n+' tiges':' · tige')+' · tarif '+f.tarif;};
+  const updA=()=>{const b=$('#av');if(!b)return;const n=f.n||1,ok=f.d>0&&f.h>0;b.textContent=ok?f3(Calc.volChaude(f.d,f.h,f.tarif,n)):'—';$('#avs').textContent='m³'+(n>1?' · '+n+' tiges':' · tige')+' · tarif '+f.tarif;
+    const rows=[...document.querySelectorAll('#tr .tr-row')];if(!rows.length&&!$('#trRest'))return;const tr=readTr('tr'),res=ok?Calc.volTroncons(f.d,f.h,f.tarif,n,tr):[];let k=0;
+    rows.forEach(r=>{const hh=num(r.querySelector('[data-f=h]').value),sp=r.querySelector('[data-tv]');if(!sp)return;if(hh>0){const x=res[k++];sp.textContent=x?f3(x.v)+' m³':'';}else sp.textContent='';});
+    const rest=$('#trRest');if(rest){const sum=sumTr(tr);if(ok&&sum>f.h+1e-9){rest.innerHTML='<b style="color:var(--bad)">Tronçons : '+f1(sum)+' m > hauteur '+f1(f.h)+' m</b>';}else{const x=(ok&&sum<f.h)?res[res.length-1]:null;rest.textContent=x?'Reste « '+resteQ()+' » : '+f1(x.h)+' m · '+f3(x.v)+' m³':'Le reste jusqu’à la hauteur est compté en « '+resteQ()+' ».';}}};
   if($('#d'))$('#d').oninput=e=>{f.d=num(e.target.value);updA();};if($('#h'))$('#h').oninput=e=>{f.h=num(e.target.value);updA();};updA();
-  bindTr('tr',()=>{f.tr=readTr('tr');});
+  bindTr('tr',()=>{f.tr=readTr('tr');updA();});
   if($('#undo'))$('#undo').onclick=()=>{l.arbres.pop();save();render();};
   const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
     if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;

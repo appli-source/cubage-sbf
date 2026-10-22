@@ -106,7 +106,7 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .msg.good{background:var(--accent-soft);color:var(--good)}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;max-width:90vw;opacity:0;transition:opacity .2s}
 .toast.show{opacity:1}
-.tr-row{display:grid;grid-template-columns:90px 1fr 44px;gap:8px;align-items:center}
+.tr-row{display:grid;grid-template-columns:72px 1fr 44px;gap:8px;align-items:center}
 .tr-row .x{min-height:44px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--bad);font-weight:700}
 .bill{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
 .bill .q{grid-column:1/-1}
@@ -132,6 +132,8 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .vbox b{font-size:28px;line-height:1.15;font-variant-numeric:tabular-nums}
 .vbox small{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.85}
 .vbox.main{background:var(--accent);color:var(--accent-fg)}
+.tvol{grid-column:1/-1;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;margin-top:-2px}
+.tvol:empty{display:none}
 .gl{display:flex;flex-direction:column;gap:8px}
 .gl-row{display:flex;gap:8px;align-items:flex-end}
 .gl-row>label{flex:1;min-width:0}
@@ -153,7 +155,7 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="calc.js?v=21"></script>
+<script src="app.js?v=21"></script>
 
 </html>
