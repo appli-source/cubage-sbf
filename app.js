@@ -173,7 +173,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   $('#chantier').oninput=e=>{l.chantier=e.target.value;save();};$('#date').onchange=e=>{l.date=e.target.value;save();};$('#op').oninput=e=>{l.operateur=e.target.value;save();};
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
-  $('#pdf').onclick=()=>exportPDF(l);$('#xlsx').onclick=()=>exportXLSX(l);$('#json').onclick=()=>shareFile(new Blob([JSON.stringify(l,null,1)],{type:'application/json'}),fname(l,'json'));
+  $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(new Blob([JSON.stringify(l,null,1)],{type:'application/json'}),fname(l,'json'));
   $('#sync').onclick=()=>syncLot(l);
   $('#delLot').onclick=e=>{if(e.target.dataset.c){S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
   foot('');};
@@ -309,7 +309,7 @@ function slRecapHtml(l){const G=l.type==='grumes';const rows=slRecapRows(l);let 
     return `<tr class="${x.kind==='t'?'tot':'grp'}"><td colspan="3">${x.kind==='t'?'Total lot':'Total '+esc(x.sl)}</td><td class="n">${x.n}</td><td class="n">${f3(x.v)}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`;}).join('')}</table></div>`;}
 V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);const r=recap(l,sl);
   const slSel=(l.sousLots||[]).length?`<label class="f"><span class="l">Afficher</span><select id="slf"><option value="">Tout le lot</option><option value="*"${sl==='*'?' selected':''}>Par sous-lot (comparatif)</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>Sous-lot : ${esc(s.nom)}</option>`).join('')}<option value="${NONE}"${sl===NONE?' selected':''}>Non affecté</option></select></label>`:'';
-  if(sl==='*'){$('#main').innerHTML=slSel+slRecapHtml(l);$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportPDF(l,'');$('#xlsx').onclick=()=>exportXLSX(l,'');return;}
+  if(sl==='*'){$('#main').innerHTML=slSel+slRecapHtml(l);$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');return;}
   let html=slSel+`<div class="row" style="margin:8px 0"><span class="muted grow">Grille : <b>${esc(r.grille?r.grille.nom:'aucune')}</b></span><button class="btn" data-go="lotGrille">Changer</button></div>`;
   if(l.type==='pied'&&r.classes.length)html+=`<h2>Par essence et classe de diamètre</h2><div class="tbl"><table><tr><th>Ess.</th><th class="n">Classe</th><th class="n">Ø cm</th><th class="n">Tiges</th><th class="n">H moy m</th><th class="n">m³</th><th class="n">m³/tige</th></tr>${classRecap(r).map(c=>c.kind==='c'?`<tr><td>${esc(c.ess)}</td><td class="n">${c.c}</td><td class="n muted">${clsRange(c.ess,c.c)}</td><td class="n">${c.n}${c.sans?` <span class="pill warn">${c.sans} sans H</span>`:''}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`:`<tr class="${c.kind==='t'?'tot':'grp'}"><td colspan="3">${c.kind==='t'?'Total':'Total '+esc(c.ess)}</td><td class="n">${c.n}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`).join('')}</table></div>`;
   {const G=l.type==='grumes';html+=`<h2>Par essence et qualité</h2><div class="tbl"><table><tr><th>Ess.</th><th>Qualité</th><th class="n">${G?'Billons':'Tiges'}</th>${G?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³ moy</th><th class="n">€</th></tr>${qualRecap(r).map(x=>`<tr${x.kind==='q'?'':` class="${x.kind==='t'?'tot':'grp'}"`}><td${x.kind==='q'?'':' colspan="2"'}>${x.kind==='q'?esc(x.ess):(x.kind==='t'?'Total':'Total '+esc(x.ess))}</td>${x.kind==='q'?`<td>${esc(x.q||'·')}</td>`:''}<td class="n">${x.n}</td>${G?`<td class="n">${f1(x.dm)}</td><td class="n">${f2(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.pm!=null?f2(x.pm):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`).join('')}</table></div>`;}
@@ -318,7 +318,7 @@ V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);c
     html+=`<tr><td>${esc(x.ess)}</td><td>${esc(x.q||'·')}</td><td class="n">${x.c}</td><td class="n">${x.n}</td>${l.type==='grumes'?`<td class="n">${f1(x.dm)}</td><td class="n">${f1(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.p!=null?f2(x.p):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`;}
   html+=`<tr class="tot"><td colspan="${l.type==='grumes'?6:4}">Total</td><td class="n">${f3(r.tot.v)}</td><td></td><td class="n">${r.tot.m!=null?f2(r.tot.m):'—'}</td></tr></table></div>`;
   $('#main').innerHTML=html;if($('#slf'))$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};
-  foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportPDF(l,sl);$('#xlsx').onclick=()=>exportXLSX(l,sl);};
+  foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportAsk(l,'pdf',sl);$('#xlsx').onclick=()=>exportAsk(l,'xlsx',sl);};
 
 /* --- Essences et qualités du lot --- */
 V.lotRef=()=>{const l=S.lot,p=S.params;head('Essences et qualités',l.chantier);
@@ -418,10 +418,12 @@ V.params=()=>{const p=S.params;head('Paramètres');
     for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}toast(lots.length+' lot(s) importé(s)');render();}catch(x){toast('Fichier illisible');}};foot('');};
 
 /* ---------- Exports ---------- */
-const fname=(l,ext)=>((l.chantier||'lot').replace(/[^\w\-]+/g,'_')+'_'+l.date+'.'+ext);
+const safe=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'');
+const fname=(l,ext,sl)=>(safe(l.chantier||'lot')+(sl?'_'+safe(slName(l,sl)):'')+'_'+l.date+'.'+ext);
 /* Export : téléchargement direct (dossier Téléchargements, sans choix d'emplacement) puis fenêtre Ouvrir / Partager */
 let lastUrl=null;
-function shareFile(blob,name){if(lastUrl)URL.revokeObjectURL(lastUrl);const url=lastUrl=URL.createObjectURL(blob);
+function shareFile(blob,name,quiet){if(quiet){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return;}
+  if(lastUrl)URL.revokeObjectURL(lastUrl);const url=lastUrl=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
   const isPdf=/\.pdf$/i.test(name),kind=isPdf?'PDF':/\.xlsx$/i.test(name)?'Excel':'Fichier';
   const file=new File([blob],name,{type:blob.type});const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
@@ -432,7 +434,18 @@ function shareFile(blob,name){if(lastUrl)URL.revokeObjectURL(lastUrl);const url=
   m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
   m.querySelector('#mOpen').onclick=()=>{const w=window.open(url,'_blank');if(!w)location.href=url;close();};
   if(canShare)m.querySelector('#mShare').onclick=async()=>{try{await navigator.share({files:[file],title:name});}catch(e){}close();};}
-function exportXLSX(l,sl){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}const r=recap(l,sl),li=listing(l,sl);const wb=XLSX.utils.book_new();
+/* Choix de l'export quand le lot a des sous-lots */
+function exportAsk(l,kind,cur){const fn=kind==='pdf'?exportPDF:exportXLSX;const sls=l.sousLots||[];
+  if(!sls.length){fn(l,'');return;}
+  const has=id=>l.type==='grumes'?l.grumes.some(g=>g.billons.some(b=>slMatch(b.sl,id))):l.arbres.some(a=>slMatch(a.sl,id));
+  const opts=[{id:'',lab:'Tout le lot (avec récap par sous-lot)'},...sls.filter(s=>has(s.id)).map(s=>({id:s.id,lab:'Sous-lot : '+s.nom})),...(has(NONE)?[{id:NONE,lab:'Non affecté'}]:[])];
+  const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Exporter en ${kind==='pdf'?'PDF':'Excel'}</b>
+   <div class="stack">${opts.map(o=>`<button type="button" class="btn${o.id===(cur&&cur!=='*'?cur:'')?' primary':''}" data-x="${o.id}">${esc(o.lab)}</button>`).join('')}
+   <button type="button" class="btn add" id="xAll">Chaque sous-lot dans un fichier séparé</button><button type="button" class="btn" id="mClose">Annuler</button></div></div>`;
+  document.body.appendChild(m);const close=()=>m.remove();m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
+  m.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{close();fn(l,b.dataset.x);});
+  m.querySelector('#xAll').onclick=()=>{close();const ids=opts.filter(o=>o.id).map(o=>o.id);ids.forEach((id,i)=>setTimeout(()=>{fn(l,id,true);if(i===ids.length-1)toast(ids.length+' fichiers enregistrés dans Téléchargements');},i*700));};}
+function exportXLSX(l,sl,quiet){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}const r=recap(l,sl),li=listing(l,sl);const wb=XLSX.utils.book_new();
   const lot=[['Chantier',l.chantier||''],['Date',l.date],['Opérateur',l.operateur||''],['Type',l.type==='grumes'?'Grumes bord de route':'Bois sur pied'],['Tarif Chaudé par défaut',l.type==='pied'?l.tarif:''],['Sous-lot',sl?slName(l,sl):'Tout le lot'],['Grille de prix',r.grille?r.grille.nom:''],['Volume total m³',Math.round(r.tot.v*1000)/1000],['Montant €',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']];
   (l.sousLots||[]).forEach(s=>lot.push(['Sous-lot '+s.nom,s.client||'']));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lot),'Lot');
   const L=l.type==='grumes'?[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Sous-lot'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.sl])]
@@ -444,8 +457,8 @@ function exportXLSX(l,sl){if(!window.XLSX){toast('Module Excel non chargé (ouvr
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(R),'Récap classes');
   if(!sl&&(l.sousLots||[]).length)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Sous-lot','Essence','Qualité',G?'Billons':'Tiges','Volume m³','Montant €'],...slRecapRows(l).map(x=>[x.kind==='q'?x.sl:(x.kind==='t'?'Total lot':'Total '+x.sl),x.kind==='q'?x.ess:'',x.kind==='q'?x.q:'',x.n,Math.round(x.v*1000)/1000,x.m!=null?Math.round(x.m*100)/100:''])]),'Récap sous-lots');
   if(l.type==='pied')XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Essence','Classe','Diamètres cm','Tiges','Sans hauteur','Hauteur moyenne m','Volume m³','m³/tige'],...classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?Math.round(c.hm*10)/10:'',Math.round(c.v*1000)/1000,c.vt!=null?Math.round(c.vt*1000)/1000:''])]),'Classes');
-  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});shareFile(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fname(l,'xlsx'));}
-function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir une fois en ligne)');return;}const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const r=recap(l,sl),li=listing(l,sl);
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});shareFile(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fname(l,'xlsx',sl),quiet);}
+function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (ouvrir une fois en ligne)');return;}const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const r=recap(l,sl),li=listing(l,sl);
   const title=(l.type==='grumes'?'Cubage grumes bord de route':'Estimation bois sur pied')+(sl?' · '+slName(l,sl):'');
   const hdr=()=>{doc.setFontSize(14);doc.text('SBF — '+title,14,16);doc.setFontSize(9);doc.text(`Chantier : ${l.chantier||''}   Date : ${l.date}   Opérateur : ${l.operateur||''}`,14,22);};
   hdr();const fr=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3});const fe=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -464,7 +477,7 @@ function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir
   const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f2(x.l),x.d,x.c,fr(x.v),x.sl]:[x.num,x.ess,x.d,x.c,x.t,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
   doc.autoTable({startY:33,head:lh,body:lb,styles:{fontSize:7.5,halign:'right'},columnStyles:l.type==='grumes'?{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'},7:{halign:'left'}}:{0:{halign:'left'},1:{halign:'left'},7:{halign:'left'},9:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});
   const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.text(`Page ${i}/${n}`,196,290,{align:'right'});}
-  shareFile(doc.output('blob'),fname(l,'pdf'));}
+  shareFile(doc.output('blob'),fname(l,'pdf',sl),quiet);}
 
 /* ---------- Synchronisation ---------- */
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier:l.chantier||'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
