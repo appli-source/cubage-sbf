@@ -67,19 +67,22 @@ function nextNum(lot){if(lot.type==='grumes'){const m=lot.grumes.reduce((x,g)=>M
 
 /* ---------- Récapitulatifs ---------- */
 function recap(lot,sl){const rows={},cl={},g=lotGrille(lot);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0});f(r);};
-  if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(sl&&b.sl!==sl)continue;const c=cls(gr.ess,b.d),v=volB(b);
+  if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(!slMatch(b.sl,sl))continue;const c=cls(gr.ess,b.d),v=volB(b);
     add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=lenM(b);});}}
-  else{for(const a of lot.arbres){if(sl&&a.sl!==sl)continue;const c=cls(a.ess,a.d),k=a.ess+'|'+c,x=arbreCalc(lot,a);const t=cl[k]||(cl[k]={ess:a.ess,c,n:0,v:0,sans:0,sh:0,nh:0});t.n+=a.n||1;
+  else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const c=cls(a.ess,a.d),k=a.ess+'|'+c,x=arbreCalc(lot,a);const t=cl[k]||(cl[k]={ess:a.ess,c,n:0,v:0,sans:0,sh:0,nh:0});t.n+=a.n||1;
     if(x.v==null){t.sans+=a.n||1;continue;}t.v+=x.v;t.sh+=x.h*(a.n||1);t.nh+=a.n||1;for(const tr of x.tronc)add(a.ess+'|'+tr.q+'|'+c,{ess:a.ess,q:tr.q,c},r=>{r.v+=tr.v;r.n+=a.n||1;});}}
   const list=Object.values(rows).sort((a,b)=>a.ess.localeCompare(b.ess)||a.q.localeCompare(b.q)||a.c-b.c);
   for(const r of list){r.p=prix(g,r.ess,r.q,r.c);r.m=r.p!=null?r.p*r.v:null;r.dm=r.n?r.sd/r.n:null;r.lm=r.n?r.sl/r.n:null;}
   const tot={n:list.reduce((s,r)=>s+r.n,0),v:list.reduce((s,r)=>s+r.v,0),m:list.some(r=>r.m!=null)?list.reduce((s,r)=>s+(r.m||0),0):null};
   return{rows:list,tot,classes:Object.values(cl).sort((a,b)=>a.ess.localeCompare(b.ess)||a.c-b.c),grille:g};}
-function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(sl&&b.sl!==sl)continue;
+function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(!slMatch(b.sl,sl))continue;
     out.push({num:g.num+'.'+b.rang,ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,b.d),v:volB(b),sl:slName(lot,b.sl)});}}
-  else{for(const a of lot.arbres){if(sl&&a.sl!==sl)continue;const x=arbreCalc(lot,a);
+  else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const x=arbreCalc(lot,a);
     out.push({num:a.num||'',ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
-const slName=(lot,id)=>{const s=(lot.sousLots||[]).find(x=>x.id===id);return s?s.nom:'';};
+const NONE='__none';
+const slMatch=(x,sl)=>!sl||(sl===NONE?!x:x===sl);
+const slChips=(l,cur)=>`<div class="chips" data-chips="sl"><button type="button" class="chip small${!cur?' on':''}" data-v="">Aucun</button>${l.sousLots.map(s=>`<button type="button" class="chip small${cur===s.id?' on':''}" data-v="${s.id}">${esc(s.nom)}</button>`).join('')}</div>`;
+const slName=(lot,id)=>{if(id===NONE)return 'Non affecté';const s=(lot.sousLots||[]).find(x=>x.id===id);return s?s.nom:'';};
 
 /* ---------- Persistance ---------- */
 let saveT=null;
@@ -154,18 +157,21 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
 /* --- Saisie grumes --- */
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
-  if(!S.form.g){const last=l.grumes[l.grumes.length-1];S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],billons:[{rang:1,lm:null,d:null,q:(p.repriseQualite&&last&&last.billons.length)?last.billons[last.billons.length-1].q:''}]};}
+  if(!S.form.g){const last=l.grumes[l.grumes.length-1];S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],sl:l.slCur||null,billons:[{rang:1,lm:null,d:null,q:(p.repriseQualite&&last&&last.billons.length)?last.billons[last.billons.length-1].q:''}]};}
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Saisie grumes',`${f3(t.v)} m³ · ${t.n} grumes`);
+  if(ed&&f.sl===undefined){const u=[...new Set(f.billons.map(b=>b.sl||null))];f.sl=u.length===1?u[0]:'mixte';}
+  const hasSL=(l.sousLots||[]).length>0;
   const gv=f.billons.reduce((s,b)=>s+(b.d>0&&lenM(b)>0?volB(b):0),0);
   $('#main').innerHTML=`<div class="stack">
   <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',p.essences,f.ess,true)}</label></div>
+  ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
   ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="muted">${b.d>0&&lenM(b)>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
    <div class="q"><span class="muted">Qualité</span>${chips('q'+i,p.qualites,b.q,true)}</div></div></div>`).join('')}
   <button type="button" class="btn big block" id="addB">+ Billon</button>
   <div class="muted">Grume : <b>${f3(gv)} m³</b></div></div>`;
   bindChips();
-  onChip(e=>{const n=e.target.dataset.chips;if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
+  onChip(e=>{const n=e.target.dataset.chips;if(n==='sl'){f.sl=e.detail||null;f.slSet=true;if(!ed){l.slCur=f.sl;save();}}else if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
   $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);});
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
@@ -177,14 +183,14 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#ok').onclick=()=>{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
-    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();});
-    if(ed){Object.assign(g,{num:numS,ess:f.ess,billons:f.billons});save();S.form={};S.edit=null;back();return;}
-    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³');render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
+    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
+    if(ed){Object.assign(g,{num:numS,ess:f.ess,billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
+    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
   if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
 
 /* --- Saisie sur pied --- */
 V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id===ed):null;const mode=ed?(a.h?'pieds':'diam'):l.mode;
-  if(!S.form.a){const last=l.arbres[l.arbres.length-1];S.form.a=ed?JSON.parse(JSON.stringify(a)):{num:nextNum(l),ess:last?last.ess:p.essences[0],d:null,h:null,n:1,tr:[]};if(ed)S.form.a.tarif=tarifOf(l,a);else S.form.a.tarif=tarifDef(l,S.form.a.ess);}
+  if(!S.form.a){const last=l.arbres[l.arbres.length-1];S.form.a=ed?JSON.parse(JSON.stringify(a)):{num:nextNum(l),ess:last?last.ess:p.essences[0],d:null,h:null,n:1,tr:[]};if(ed)S.form.a.tarif=tarifOf(l,a);else{S.form.a.tarif=tarifDef(l,S.form.a.ess);S.form.a.sl=l.slCur||null;}}
   const f=S.form.a,t=lotTotals(l);head(ed?'Modifier tige':'Saisie sur pied',`${f3(t.v)} m³ · ${t.n} tiges`);
   const classes=[];for(let c=p.classMin;c<=p.classMax;c+=stepFor(f.ess))classes.push(c);
   const byClass=mode!=='pieds'&&(p.saisieDiam==='classe'||mode==='classes');
@@ -192,6 +198,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   $('#main').innerHTML=`<div class="stack">
    ${ed?'':`<div class="count-bar"><div><b>${t.n}</b><small>tiges au total</small></div><div class="ess"><b>${nEss}</b><small>${esc(f.ess)}</small></div></div>`}
    <div class="row"><label class="f"><span class="l">Essence</span>${chips('ess',p.essences,f.ess,true)}</label></div>
+   ${(l.sousLots||[]).length?`<div class="sl-box"><span class="l">Sous-lot</span>${slChips(l,f.sl||null)}</div>`:''}
    <div class="tarif-row"><span class="l">Tarif Chaudé ${esc(f.ess)}</span><button type="button" data-t="-1" aria-label="Tarif moins">−</button><b id="tv">${f.tarif}</b><button type="button" data-t="1" aria-label="Tarif plus">+</button></div>
    ${mode==='pieds'?`<label class="f" style="max-width:160px"><span class="l">N° arbre</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label>`:''}
    ${mode==='classes'?`<label class="f" style="max-width:200px"><span class="l">Nombre de tiges</span><input class="big" id="n" type="number" inputmode="numeric" value="${f.n||1}"></label>`:''}
@@ -202,14 +209,14 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
-  bindChips();onChip(e=>{if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
+  bindChips();onChip(e=>{if(e.target.dataset.chips==='sl'){f.sl=e.detail||null;if(!ed){l.slCur=f.sl;save();}return;}if(e.target.dataset.chips==='ess'){f.ess=e.detail;if(!ed)f.tarif=tarifDef(l,f.ess);render();}});
   $('#main').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{f.tarif=clampT(f.tarif+Number(b.dataset.t));$('#tv').textContent=f.tarif;if(!ed){l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();}});
   if($('#num'))$('#num').oninput=e=>f.num=e.target.value;if($('#n'))$('#n').oninput=e=>f.n=Math.max(1,Math.round(num(e.target.value)||1));
   if($('#d'))$('#d').oninput=e=>f.d=num(e.target.value);if($('#h'))$('#h').oninput=e=>f.h=num(e.target.value);
   bindTr('tr',()=>{f.tr=readTr('tr');});
   if($('#undo'))$('#undo').onclick=()=>{l.arbres.pop();save();render();};
   const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
-    if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:a?a.sl:null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
+    if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
     if(ed){Object.assign(a,rec);save();S.form={};S.edit=null;back();return;}
     l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();};
   S.flash=null;
@@ -269,8 +276,16 @@ V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);
   foot('');};
 
 /* --- Récapitulatif --- */
+function slGroups(l){return [...(l.sousLots||[]).map(s=>({id:s.id,nom:s.nom+(s.client?' ('+s.client+')':'')})),{id:NONE,nom:'Non affecté'}];}
+function slRecapRows(l){const out=[];let tn=0,tv=0,tm=0,hasM=false;for(const g of slGroups(l)){const r=recap(l,g.id);if(!r.rows.length)continue;const q=qualRecap(r).filter(x=>x.kind==='q');
+    q.forEach(x=>out.push({kind:'q',sl:g.nom,ess:x.ess,q:x.q,n:x.n,v:x.v,m:x.m}));out.push({kind:'s',sl:g.nom,n:r.tot.n,v:r.tot.v,m:r.tot.m});tn+=r.tot.n;tv+=r.tot.v;if(r.tot.m!=null){tm+=r.tot.m;hasM=true;}}
+  out.push({kind:'t',sl:'Total lot',n:tn,v:tv,m:hasM?tm:null});return out;}
+function slRecapHtml(l){const G=l.type==='grumes';const rows=slRecapRows(l);let prev='';
+  return `<h2>Récapitulatif par sous-lot</h2><div class="tbl"><table><tr><th>Sous-lot</th><th>Ess.</th><th>Q</th><th class="n">${G?'Billons':'Tiges'}</th><th class="n">m³</th><th class="n">€</th></tr>${rows.map(x=>{if(x.kind==='q'){const first=x.sl!==prev;prev=x.sl;return `<tr><td>${first?'<b>'+esc(x.sl)+'</b>':''}</td><td>${esc(x.ess)}</td><td>${esc(x.q||'·')}</td><td class="n">${x.n}</td><td class="n">${f3(x.v)}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`;}
+    return `<tr class="${x.kind==='t'?'tot':'grp'}"><td colspan="3">${x.kind==='t'?'Total lot':'Total '+esc(x.sl)}</td><td class="n">${x.n}</td><td class="n">${f3(x.v)}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`;}).join('')}</table></div>`;}
 V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);const r=recap(l,sl);
-  const slSel=(l.sousLots||[]).length?`<select id="slf"><option value="">Tout le lot</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>${esc(s.nom)}</option>`).join('')}</select>`:'';
+  const slSel=(l.sousLots||[]).length?`<label class="f"><span class="l">Afficher</span><select id="slf"><option value="">Tout le lot</option><option value="*"${sl==='*'?' selected':''}>Par sous-lot (comparatif)</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>Sous-lot : ${esc(s.nom)}</option>`).join('')}<option value="${NONE}"${sl===NONE?' selected':''}>Non affecté</option></select></label>`:'';
+  if(sl==='*'){$('#main').innerHTML=slSel+slRecapHtml(l);$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportPDF(l,'');$('#xlsx').onclick=()=>exportXLSX(l,'');return;}
   let html=slSel+`<div class="row" style="margin:8px 0"><span class="muted grow">Grille : <b>${esc(r.grille?r.grille.nom:'aucune')}</b></span><button class="btn" data-go="lotGrille">Changer</button></div>`;
   if(l.type==='pied'&&r.classes.length)html+=`<h2>Par essence et classe de diamètre</h2><div class="tbl"><table><tr><th>Ess.</th><th class="n">Classe</th><th class="n">Ø cm</th><th class="n">Tiges</th><th class="n">H moy m</th><th class="n">m³</th><th class="n">m³/tige</th></tr>${classRecap(r).map(c=>c.kind==='c'?`<tr><td>${esc(c.ess)}</td><td class="n">${c.c}</td><td class="n muted">${clsRange(c.ess,c.c)}</td><td class="n">${c.n}${c.sans?` <span class="pill warn">${c.sans} sans H</span>`:''}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`:`<tr class="${c.kind==='t'?'tot':'grp'}"><td colspan="3">${c.kind==='t'?'Total':'Total '+esc(c.ess)}</td><td class="n">${c.n}</td><td class="n">${f1(c.hm)}</td><td class="n">${f3(c.v)}</td><td class="n">${f3(c.vt)}</td></tr>`).join('')}</table></div>`;
   {const G=l.type==='grumes';html+=`<h2>Par essence et qualité</h2><div class="tbl"><table><tr><th>Ess.</th><th>Qualité</th><th class="n">${G?'Billons':'Tiges'}</th>${G?'<th class="n">Ø moy</th><th class="n">L moy</th>':''}<th class="n">m³</th><th class="n">€/m³ moy</th><th class="n">€</th></tr>${qualRecap(r).map(x=>`<tr${x.kind==='q'?'':` class="${x.kind==='t'?'tot':'grp'}"`}><td${x.kind==='q'?'':' colspan="2"'}>${x.kind==='q'?esc(x.ess):(x.kind==='t'?'Total':'Total '+esc(x.ess))}</td>${x.kind==='q'?`<td>${esc(x.q||'·')}</td>`:''}<td class="n">${x.n}</td>${G?`<td class="n">${f1(x.dm)}</td><td class="n">${f2(x.lm)}</td>`:''}<td class="n">${f3(x.v)}</td><td class="n">${x.pm!=null?f2(x.pm):'—'}</td><td class="n">${x.m!=null?f2(x.m):'—'}</td></tr>`).join('')}</table></div>`;}
@@ -282,11 +297,26 @@ V.recap=()=>{const l=S.lot,sl=S.slFilter||'';head('Récapitulatif',l.chantier);c
   foot(`<button class="btn" id="pdf">PDF</button><button class="btn" id="xlsx">Excel</button>`);$('#pdf').onclick=()=>exportPDF(l,sl);$('#xlsx').onclick=()=>exportXLSX(l,sl);};
 
 /* --- Sous-lots --- */
-V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots||[];
-  $('#main').innerHTML=`<p class="muted">Un sous-lot affecte une partie du lot à un client. L’affectation se fait ligne par ligne dans le listing.</p><div class="list">${l.sousLots.map(s=>`<div class="item"><div class="t"><b>${esc(s.nom)}</b><small>${esc(s.client||'')}</small></div><button type="button" class="chip small" data-del="${s.id}">✕</button></div>`).join('')}</div>
-  <div class="card stack" style="margin-top:12px"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client</span><input id="cli"></label><button class="btn primary" id="add">Ajouter</button></div>`;
+V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots||[];const G=l.type==='grumes';
+  const stat=id=>{let n=0,v=0;if(G){for(const g of l.grumes)for(const b of g.billons)if(slMatch(b.sl,id)){n++;v+=volB(b);}}else{for(const a of l.arbres)if(slMatch(a.sl,id)){n+=a.n||1;const x=arbreCalc(l,a);v+=x.v||0;}}return `${n} ${G?'billons':'tiges'} · ${f3(v)} m³`;};
+  $('#main').innerHTML=`<p class="muted">Pendant la saisie, choisissez le sous-lot en haut de l’écran : il reste sélectionné pour les ${G?'grumes':'tiges'} suivantes. Ici, vous pouvez aussi affecter après coup.</p>
+  <div class="stack">${l.sousLots.map(s=>`<div class="card stack"><div class="row"><div class="grow"><b>${esc(s.nom)}</b>${s.client?` <span class="muted">· ${esc(s.client)}</span>`:''}<br><span class="muted">${stat(s.id)}</span></div><button type="button" class="chip small" data-del="${s.id}">✕</button></div><button type="button" class="btn primary" data-assign="${s.id}">Affecter des ${G?'grumes':'tiges'}</button></div>`).join('')}
+  ${l.sousLots.length?`<div class="card"><b>Non affecté</b><br><span class="muted">${stat(NONE)}</span></div>`:''}</div>
+  <h2>Nouveau sous-lot</h2><div class="card stack"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client</span><input id="cli"></label><button class="btn primary" id="add">Ajouter</button></div>`;
   $('#add').onclick=()=>{const n=$('#nom').value.trim();if(!n)return;l.sousLots.push({id:uid(),nom:n,client:$('#cli').value.trim()});save();render();};
-  $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const id=b.dataset.del;l.sousLots=l.sousLots.filter(s=>s.id!==id);l.grumes.forEach(g=>g.billons.forEach(x=>{if(x.sl===id)x.sl=null;}));l.arbres.forEach(a=>{if(a.sl===id)a.sl=null;});save();render();});foot('');};
+  $('#main').querySelectorAll('[data-assign]').forEach(b=>b.onclick=()=>{S.hist.push('sousLots');go('slAssign',{slTarget:b.dataset.assign});});
+  $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(!b.dataset.c){b.textContent='Suppr. ?';b.dataset.c='1';return;}const id=b.dataset.del;l.sousLots=l.sousLots.filter(s=>s.id!==id);if(l.slCur===id)l.slCur=null;l.grumes.forEach(g=>g.billons.forEach(x=>{if(x.sl===id)x.sl=null;}));l.arbres.forEach(a=>{if(a.sl===id)a.sl=null;});save();render();});foot('');};
+
+/* --- Affectation à un sous-lot --- */
+V.slAssign=()=>{const l=S.lot,id=S.slTarget,G=l.type==='grumes';const s0=l.sousLots.find(x=>x.id===id);if(!s0){back();return;}head('Affecter à '+s0.nom,l.chantier);
+  const items=G?l.grumes.map(g=>{const u=[...new Set(g.billons.map(b=>b.sl||null))];return{id:g.id,num:g.num,lab:`${g.num} · ${g.ess}`,sub:g.billons.map(b=>b.q||'·').join('/')+' · '+f3(g.billons.reduce((x,b)=>x+volB(b),0))+' m³',sl:u.length===1?u[0]:'mixte'};})
+    :l.arbres.map((a,i)=>({id:a.id,num:a.num||String(i+1),lab:`${a.num?a.num+' · ':''}${a.ess} Ø${a.d}${(a.n||1)>1?' ×'+a.n:''}`,sub:a.h?a.h+' m':'',sl:a.sl||null}));
+  const setSl=(itemId,v)=>{if(G){const g=l.grumes.find(x=>x.id===itemId);g.billons.forEach(b=>b.sl=v);}else{l.arbres.find(x=>x.id===itemId).sl=v;}};
+  $('#main').innerHTML=`${G?`<div class="card stack"><b>Par plage de numéros</b><div class="row"><label class="f"><span class="l">Du n°</span><input id="r1" type="text" inputmode="numeric"></label><label class="f"><span class="l">Au n°</span><input id="r2" type="text" inputmode="numeric"></label></div><button type="button" class="btn primary" id="range">Affecter la plage à ${esc(s0.nom)}</button></div>`:''}
+  <h2>Toucher pour affecter ou retirer</h2><div class="list">${items.map(it=>{const on=it.sl===id;return `<button type="button" class="item${on?' on':''}" data-it="${it.id}"><span class="tick">${on?'✓':''}</span><div class="t"><b>${esc(it.lab)}</b><small>${esc(it.sub)}</small></div><span class="pill${it.sl&&!on?' warn':''}">${on?esc(s0.nom):it.sl==='mixte'?'réparti':it.sl?esc(slName(l,it.sl)):'—'}</span></button>`;}).join('')||'<p class="muted">Rien à affecter.</p>'}</div>`;
+  $('#main').querySelectorAll('[data-it]').forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.it);setSl(it.id,it.sl===id?null:id);save();render();});
+  if($('#range'))$('#range').onclick=()=>{const a=Number(($('#r1').value||'').replace(/\D/g,'')),z=Number(($('#r2').value||'').replace(/\D/g,''))||a;if(!a){toast('Indiquez un n° de début');return;}let n=0;for(const it of items){const k=Number(it.num);if(k>=Math.min(a,z)&&k<=Math.max(a,z)){setSl(it.id,id);n++;}}save();toast(n+' grume(s) affectée(s) à '+s0.nom);render();};
+  foot(`<button class="btn primary big" id="done">Terminé</button>`);$('#done').onclick=back;};
 
 /* --- Grille du lot --- */
 V.lotGrille=()=>{const l=S.lot;head('Grille du lot',l.chantier);
@@ -373,6 +403,7 @@ function exportXLSX(l,sl){if(!window.XLSX){toast('Module Excel non chargé (ouvr
     :[['Essence','Qualité','Classe','Tiges','Volume m³','Prix €/m³','Montant €'],...r.rows.map(x=>[x.ess,x.q,x.c,x.n,Math.round(x.v*1000)/1000,x.p,x.m!=null?Math.round(x.m*100)/100:''])];
   R.push(['Total','','',r.tot.n,...(l.type==='grumes'?['','']:[]),Math.round(r.tot.v*1000)/1000,'',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']);const G=l.type==='grumes';XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Essence','Qualité',G?'Billons':'Tiges',...(G?['Ø moyen cm','L moyenne m']:[]),'Volume m³','Prix moyen €/m³','Montant €'],...qualRecap(r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total':'Total '+x.ess),x.kind==='q'?x.q:'',x.n,...(G?[x.dm!=null?Math.round(x.dm*10)/10:'',x.lm!=null?Math.round(x.lm*100)/100:'']:[]),Math.round(x.v*1000)/1000,x.pm!=null?Math.round(x.pm*100)/100:'',x.m!=null?Math.round(x.m*100)/100:''])]),'Récap qualités');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(R),'Récap classes');
+  if(!sl&&(l.sousLots||[]).length)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Sous-lot','Essence','Qualité',G?'Billons':'Tiges','Volume m³','Montant €'],...slRecapRows(l).map(x=>[x.kind==='q'?x.sl:(x.kind==='t'?'Total lot':'Total '+x.sl),x.kind==='q'?x.ess:'',x.kind==='q'?x.q:'',x.n,Math.round(x.v*1000)/1000,x.m!=null?Math.round(x.m*100)/100:''])]),'Récap sous-lots');
   if(l.type==='pied')XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Essence','Classe','Diamètres cm','Tiges','Sans hauteur','Hauteur moyenne m','Volume m³','m³/tige'],...classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?Math.round(c.hm*10)/10:'',Math.round(c.v*1000)/1000,c.vt!=null?Math.round(c.vt*1000)/1000:''])]),'Classes');
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});shareFile(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fname(l,'xlsx'));}
 function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir une fois en ligne)');return;}const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const r=recap(l,sl),li=listing(l,sl);
@@ -388,6 +419,7 @@ function exportPDF(l,sl){if(!window.jspdf){toast('Module PDF non chargé (ouvrir
   body.push(l.type==='grumes'?['Total','','',r.tot.n,'','',fr(r.tot.v),'',fe(r.tot.m)]:['Total','','',r.tot.n,fr(r.tot.v),'',fe(r.tot.m)]);
   doc.autoTable({startY:doc.lastAutoTable.finalY+11,head,body,styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.row.index===body.length-1&&d.section==='body')d.cell.styles.fontStyle='bold';}});
   if(l.type==='pied'&&r.classes.length){doc.autoTable({startY:doc.lastAutoTable.finalY+6,head:[['Essence','Classe','Ø cm','Tiges','Sans H','H moy','m³','m³/tige']],body:classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?f1(c.hm):'',fr(c.v),c.vt!=null?fr(c.vt):'']),didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';},styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});}
+  if(!sl&&(l.sousLots||[]).length){doc.addPage();hdr();doc.setFontSize(11);doc.text('Récapitulatif par sous-lot',14,30);doc.autoTable({startY:33,head:[['Sous-lot','Essence','Qualité',l.type==='grumes'?'Billons':'Tiges','m³','€']],body:slRecapRows(l).map(x=>[x.kind==='q'?x.sl:(x.kind==='t'?'Total lot':'Total '+x.sl),x.kind==='q'?x.ess:'',x.kind==='q'?(x.q||'·'):'',x.n,fr(x.v),fe(x.m)]),styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';}});}
   doc.addPage();hdr();doc.setFontSize(11);doc.text('Listing',14,30);
   const lh=l.type==='grumes'?[['N°','Ess.','Q','L m','Ø cm','Cl.','m³','Sous-lot']]:[['N°','Ess.','Ø cm','Cl.','T','Tiges','H m','Tronçons','m³','Sous-lot']];
   const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f2(x.l),x.d,x.c,fr(x.v),x.sl]:[x.num,x.ess,x.d,x.c,x.t,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
