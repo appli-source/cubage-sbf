@@ -198,17 +198,19 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   const hasSL=(l.sousLots||[]).length>0;
   const gv=f.billons.reduce((s,b)=>s+(b.d>0&&lenM(b)>0?volB(b):0),0);
   $('#main').innerHTML=`<div class="stack">
+  <div class="count-bar"><div><b id="gv">${f3(gv)}</b><small>m³ grume</small></div><div class="ess"><b>${f3(t.v)}</b><small>m³ lot · ${t.n} grume${t.n>1?'s':''}</small></div></div>
   <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
   ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
-  ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="muted">${b.d>0&&lenM(b)>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
+  ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><span class="bv" data-bv="${i}">${b.d>0&&lenM(b)>0?f3(volB(b))+' m³':''}</span>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
    <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div></div></div>`).join('')}
   <button type="button" class="btn big block" id="addB">+ Billon</button>
-  <div class="muted">Grume : <b>${f3(gv)} m³</b></div></div>`;
+  </div>`;
   bindChips();bindAddRef(l,(k,v,i)=>{if(k==='ess')f.ess=v;else if(i!=null&&f.billons[Number(i)])f.billons[Number(i)].q=v;render();});
   onChip(e=>{const n=e.target.dataset.chips;if(n==='sl'){f.sl=e.detail||null;f.slSet=true;if(!ed){l.slCur=f.sl;save();}}else if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
-  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);});
+  const updV=()=>{let tot=0;f.billons.forEach((b,i)=>{const ok=b.d>0&&lenM(b)>0,v=ok?volB(b):0;tot+=v;const el=document.querySelector(`[data-bv="${i}"]`);if(el)el.textContent=ok?f3(v)+' m³':'';});const g=$('#gv');if(g)g.textContent=f3(tot);};
+  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);updV();});
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
   $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
