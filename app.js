@@ -171,7 +171,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   <button class="btn primary big block" data-go="${l.type==='grumes'?'saisieG':'saisieP'}">Saisir</button>
   ${l.type==='pied'?'<div class="row"><button class="btn big grow" data-go="hauteurs">Hauteurs par classe</button><button class="btn big grow" data-go="tarifs">Tarifs Chaudé</button></div>':''}
   <div class="row"><button class="btn big grow" data-go="listing">Listing</button><button class="btn big grow" data-go="recap">Récapitulatif</button></div>
-  <button class="btn block" data-go="lotRef">Essences et qualités du lot (${lotEss(l).length} · ${lotQual(l).length})</button>
+  <button class="btn block" data-go="lotRef">Essences (${lotEss(l).length}) et qualités (${lotQual(l).length})</button>
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Sauvegarde JSON</button></div>
