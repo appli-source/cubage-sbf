@@ -147,11 +147,11 @@ V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>
   <button class="tile light" data-go="lots"><b>Liste des lots</b><small>${ls.length} lot${ls.length>1?'s':''} · recherche par chantier, commune, date</small></button>
   <button class="tile light" data-go="grilles"><b>Grilles de prix</b><small>${ng} grille${ng>1?'s':''} ${m==='grumes'?'grumes':'sur pied'}</small></button></div>`;foot('');};
 V.lots=()=>{const m=S.mod||'grumes';head('Lots · '+MODS[m].t);const qy=S.lotSearch||'';
-  $('#main').innerHTML=`<input id="lsq" type="search" placeholder="Rechercher : chantier, commune, dépt, date, opérateur…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="lsl"></div>`;
+  $('#main').innerHTML=`<input id="lsq" type="search" placeholder="Rechercher : n° Xylolink, chantier, commune, dépt, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="lsl"></div>`;
   const draw=()=>{const words=($('#lsq').value||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(Boolean);
-    const ls=S.lots.filter(l=>l.type===m).filter(l=>{const hay=[l.chantier,l.commune,l.dept,l.date,l.date&&l.date.split('-').reverse().join('/'),l.operateur,...(l.sousLots||[]).map(x=>x.nom)].join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');return words.every(w=>hay.includes(w));})
+    const ls=S.lots.filter(l=>l.type===m).filter(l=>{const hay=[l.xylo,l.chantier,l.commune,l.dept,l.date,l.date&&l.date.split('-').reverse().join('/'),l.operateur,...(l.sousLots||[]).map(x=>x.nom)].join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');return words.every(w=>hay.includes(w));})
       .sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
-    $('#lsl').innerHTML=ls.length?ls.map(l=>{const t=lotTotals(l);return `<button class="item" data-open="${l.id}"><div class="t"><b>${esc(l.chantier||'Sans nom')}</b><small>${esc(l.date.split('-').reverse().join('/'))}${l.commune?' · '+esc(l.commune)+(l.dept?' ('+esc(l.dept)+')':''):''} · ${m==='grumes'?t.n+' grumes':t.n+' tiges'} · ${syncLab(l)}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):`<p class="muted">${words.length?'Aucun lot ne correspond.':'Aucun lot. Créez le premier.'}</p>`;
+    $('#lsl').innerHTML=ls.length?ls.map(l=>{const t=lotTotals(l);return `<button class="item" data-open="${l.id}"><div class="t"><b>${l.xylo?esc(l.xylo)+' · ':''}${esc(l.chantier||'Sans nom')}</b><small>${esc(l.date.split('-').reverse().join('/'))}${l.commune?' · '+esc(l.commune)+(l.dept?' ('+esc(l.dept)+')':''):''} · ${m==='grumes'?t.n+' grumes':t.n+' tiges'} · ${syncLab(l)}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):`<p class="muted">${words.length?'Aucun lot ne correspond.':'Aucun lot. Créez le premier.'}</p>`;
     $('#lsl').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.slFilter='';S.hist.push('lots');go('lot');});};
   $('#lsq').oninput=()=>{S.lotSearch=$('#lsq').value;draw();};draw();foot('');};
 
@@ -164,6 +164,7 @@ const gpsBlock=g=>`<div class="stack"><span class="l-sec">Point GPS</span><div c
 
 V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.params;S.newGps=S.newGps||null;const prevLot=type=>[...S.lots].filter(x=>x.type===type).sort((a,b)=>(b.created||'').localeCompare(a.created||''))[0];const pl=prevLot(m0)||prevLot(m0==='grumes'?'pied':'grumes');
   $('#main').innerHTML=`<div class="stack card">
+  ${m0==='grumes'?'<label class="f"><span class="l">N° chantier Xylolink *</span><input id="xylo" placeholder="Obligatoire" autocapitalize="characters"></label>':''}
   <label class="f"><span class="l">Chantier / propriétaire</span><input id="chantier" placeholder="Nom du chantier"></label>
   <div class="row"><label class="f" style="flex:2"><span class="l">Commune (option)</span><input id="commune" placeholder="Commune"></label><label class="f" style="flex:1"><span class="l">Dépt</span><input id="dept" inputmode="numeric" maxlength="3" placeholder="72"></label></div>
   ${gpsBlock(S.newGps)}
@@ -179,14 +180,14 @@ V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.
   bindMulti();
   $('#gpsBtn').onclick=()=>captureGps(g=>{S.newGps=g;$('#gpsTxt').textContent=gpsTxt(g);$('#gpsBtn').textContent='Relever à nouveau';toast('Position relevée');});
   foot(`<button class="btn primary big" id="create">Créer le lot</button>`);
-  $('#create').onclick=()=>{const type=m0;const lot={id:uid(),type,chantier:$('#chantier').value.trim(),commune:$('#commune').value.trim(),dept:$('#dept').value.trim(),gps:S.newGps||null,date:$('#date').value,operateur:$('#op').value.trim(),
+  $('#create').onclick=()=>{const type=m0;const xylo=$('#xylo')?$('#xylo').value.trim():'';if(type==='grumes'&&!xylo){toast('Le n° de chantier Xylolink est obligatoire');$('#xylo').focus();return;}const lot={id:uid(),type,xylo,chantier:$('#chantier').value.trim(),commune:$('#commune').value.trim(),dept:$('#dept').value.trim(),gps:S.newGps||null,date:$('#date').value,operateur:$('#op').value.trim(),
     numDepart:Number($('#numDepart').value)||1,tarif:Math.min(20,Math.max(1,Number($('#tarif').value)||8)),mode:$('#mode').value,grilleId:$('#grille').value||null,grilleLocal:null,
     sousLots:[],grumes:[],arbres:[],classH:{},essSel:readMulti('essSel'),qualSel:readMulti('qualSel'),sync:'new',created:new Date().toISOString()};
     if(!lot.essSel.length){toast('Choisissez au moins une essence');return;}
     if($('#op').value.trim()){S.params.operateur=$('#op').value.trim();saveParams();}
     S.newGps=null;S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home','module','lots'];go('lot');};};
 
-V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes'?'Grumes':'Sur pied')+' · '+l.date);
+V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes'?'Grumes'+(l.xylo?' · Xylolink '+l.xylo:' · n° Xylolink manquant'):'Sur pied')+' · '+l.date);
   const g=lotGrille(l);
   $('#main').innerHTML=`<div class="kpi"><div><b>${f3(t.v)}</b><small>m³</small></div><div><b>${t.n}</b><small>${l.type==='grumes'?'grumes':'tiges'}</small></div>${l.type==='grumes'?`<div><b>${t.nb}</b><small>billons</small></div>`:`<div><b>${t.sans||0}</b><small>sans hauteur</small></div>`}</div>
   <div class="stack" style="margin-top:12px">
@@ -199,13 +200,13 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Sauvegarde JSON</button></div>
   <button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}
   <h2>Lot</h2>
-  <div class="card stack"><div class="row"><label class="f"><span class="l">Chantier</span><input id="chantier" value="${esc(l.chantier||'')}"></label><label class="f"><span class="l">Date</span><input id="date" type="date" value="${esc(l.date)}"></label></div>
+  <div class="card stack">${l.type==='grumes'?`<label class="f"><span class="l">N° chantier Xylolink *</span><input id="xylo" value="${esc(l.xylo||'')}" autocapitalize="characters"${l.xylo?'':' style="border-color:var(--bad)"'}></label>`:''}<div class="row"><label class="f"><span class="l">Chantier</span><input id="chantier" value="${esc(l.chantier||'')}"></label><label class="f"><span class="l">Date</span><input id="date" type="date" value="${esc(l.date)}"></label></div>
   <div class="row"><label class="f" style="flex:2"><span class="l">Commune</span><input id="commune" value="${esc(l.commune||'')}"></label><label class="f" style="flex:1"><span class="l">Dépt</span><input id="dept" inputmode="numeric" maxlength="3" value="${esc(l.dept||'')}"></label></div>
   ${gpsBlock(l.gps)}
   <div class="row"><label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(l.operateur||'')}"></label>${l.type==='pied'?`<label class="f"><span class="l">Tarif par défaut</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="${l.tarif}"></label>`:''}</div>
   ${l.type==='pied'?`<label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam"${l.mode==='diam'?' selected':''}>Diamètre seul</option><option value="classes"${l.mode==='classes'?' selected':''}>Classes avec effectifs</option><option value="pieds"${l.mode==='pieds'?' selected':''}>Pied à pied numéroté</option></select></label>`:''}
   <button class="btn danger" id="delLot">Supprimer ce lot</button></div></div>`;
-  $('#chantier').oninput=e=>{l.chantier=e.target.value;save();};$('#date').onchange=e=>{l.date=e.target.value;save();};$('#op').oninput=e=>{l.operateur=e.target.value;save();};$('#commune').oninput=e=>{l.commune=e.target.value;save();};$('#dept').oninput=e=>{l.dept=e.target.value;save();};
+  $('#chantier').oninput=e=>{l.chantier=e.target.value;save();};$('#date').onchange=e=>{l.date=e.target.value;save();};$('#op').oninput=e=>{l.operateur=e.target.value;save();};$('#commune').oninput=e=>{l.commune=e.target.value;save();};if($('#xylo'))$('#xylo').oninput=e=>{l.xylo=e.target.value.trim();e.target.style.borderColor=l.xylo?'':'var(--bad)';save();};$('#dept').oninput=e=>{l.dept=e.target.value;save();};
   $('#gpsBtn').onclick=()=>captureGps(g=>{l.gps=g;save();toast('Position relevée');render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
@@ -494,7 +495,7 @@ function exportAsk(l,kind,cur){const fn=kind==='pdf'?exportPDF:exportXLSX;const 
   m.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{close();fn(l,b.dataset.x);});
   m.querySelector('#xAll').onclick=()=>{close();const ids=opts.filter(o=>o.id).map(o=>o.id);ids.forEach((id,i)=>setTimeout(()=>{fn(l,id,true);if(i===ids.length-1)toast(ids.length+' fichiers enregistrés dans Téléchargements');},i*700));};}
 function exportXLSX(l,sl,quiet){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}const r=recap(l,sl),li=listing(l,sl);const wb=XLSX.utils.book_new();
-  const lot=[['Chantier',l.chantier||''],['Commune',(l.commune||'')+(l.dept?' ('+l.dept+')':'')],['GPS',l.gps?l.gps.lat+', '+l.gps.lon:''],['Date',l.date],['Opérateur',l.operateur||''],['Type',l.type==='grumes'?'Grumes bord de route':'Bois sur pied'],['Tarif Chaudé par défaut',l.type==='pied'?l.tarif:''],['Sous-lot',sl?slName(l,sl):'Tout le lot'],['Grille de prix',r.grille?r.grille.nom:''],['Volume total m³',Math.round(r.tot.v*1000)/1000],['Montant €',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']];
+  const lot=[...(l.type==='grumes'?[['N° chantier Xylolink',l.xylo||'']]:[]),['Chantier',l.chantier||''],['Commune',(l.commune||'')+(l.dept?' ('+l.dept+')':'')],['GPS',l.gps?l.gps.lat+', '+l.gps.lon:''],['Date',l.date],['Opérateur',l.operateur||''],['Type',l.type==='grumes'?'Grumes bord de route':'Bois sur pied'],['Tarif Chaudé par défaut',l.type==='pied'?l.tarif:''],['Sous-lot',sl?slName(l,sl):'Tout le lot'],['Grille de prix',r.grille?r.grille.nom:''],['Volume total m³',Math.round(r.tot.v*1000)/1000],['Montant €',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']];
   (l.sousLots||[]).forEach(s=>lot.push(['Sous-lot '+s.nom,s.client||'']));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lot),'Lot');
   const L=l.type==='grumes'?[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Sous-lot'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.sl])]
     :[['N°','Essence','Diamètre cm','Classe','Tarif Chaudé','Tiges','Hauteur m','Tronçons','Volume m³','Sous-lot'],...li.map(x=>[x.num,x.ess,x.d,x.c,x.t,x.n,x.h,x.tr,x.v!=null?Math.round(x.v*1000)/1000:'',x.sl])];
@@ -511,7 +512,7 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
   /* Les polices PDF standard ne connaissent pas l'espace insécable fine du format français (1 234,56) : remplacée par une espace normale */
   const sp=x=>typeof x==='string'?x.replace(/[\u202f\u00a0]/g,' '):x;const at0=doc.autoTable.bind(doc);doc.autoTable=o=>{o.body=(o.body||[]).map(r=>r.map(sp));o.head=(o.head||[]).map(r=>r.map(sp));return at0(o);};const r=recap(l,sl),li=listing(l,sl);
   const title=(l.type==='grumes'?'Cubage grumes bord de route':'Estimation bois sur pied')+(sl?' · '+slName(l,sl):'');
-  const hdr=()=>{doc.setFontSize(14);doc.text('SBF — '+title,14,16);doc.setFontSize(9);doc.text(`Chantier : ${l.chantier||''}${l.commune?'   Commune : '+l.commune+(l.dept?' ('+l.dept+')':''):''}${l.gps?'   GPS : '+l.gps.lat+', '+l.gps.lon:''}   Date : ${l.date}   Opérateur : ${l.operateur||''}`,14,22);};
+  const hdr=()=>{doc.setFontSize(14);doc.text('SBF — '+title,14,16);doc.setFontSize(9);doc.text(`${l.xylo?'Xylolink : '+l.xylo+'   ':''}Chantier : ${l.chantier||''}${l.commune?'   Commune : '+l.commune+(l.dept?' ('+l.dept+')':''):''}${l.gps?'   GPS : '+l.gps.lat+', '+l.gps.lon:''}   Date : ${l.date}   Opérateur : ${l.operateur||''}`,14,22);};
   hdr();const fr=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3});const fe=v=>v==null?'':Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
   doc.setFontSize(11);doc.text('Récapitulatif par essence et qualité'+(r.grille?'  —  grille : '+r.grille.nom:''),14,30);
   {const G=l.type==='grumes';const qb=qualRecap(r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total':'Total '+x.ess),x.kind==='q'?(x.q||'·'):'',x.n,...(G?[f1(x.dm),f2(x.lm)]:[]),fr(x.v),fe(x.pm),fe(x.m)]);
@@ -532,10 +533,11 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
   shareFile(doc.output('blob'),fname(l,'pdf',sl),quiet);}
 
 /* ---------- Synchronisation ---------- */
-function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier:l.chantier||'',commune:l.commune||'',dept:l.dept||'',gps_lat:l.gps?l.gps.lat:'',gps_lon:l.gps?l.gps.lon:'',gps_precision_m:l.gps?l.gps.acc:'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
+function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',commune:l.commune||'',dept:l.dept||'',gps_lat:l.gps?l.gps.lat:'',gps_lon:l.gps?l.gps.lon:'',gps_precision_m:l.gps?l.gps.acc:'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
   const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||'',grille:(S.grilles.find(g=>g.id===s.grilleId)||{}).nom||''}));
   const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
-  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons)BILLON.push({lot_id:l.id,grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:Math.round(volB(b)*10000)/10000,sous_lot_id:b.sl||''});}
+  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons){const sl=(l.sousLots||[]).find(x=>x.id===b.sl),G0=grilleFor(l,b.sl),L=prixLine(G0,g.ess,b.q||'',b.d),v=Math.round(volB(b)*10000)/10000;
+    BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
   for(const a of l.arbres){const x=arbreCalc(l,a);ARBRE.push({lot_id:l.id,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
   return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
@@ -545,6 +547,7 @@ function statusBox(){const m=document.createElement('div');m.className='modal';m
 async function syncLot(l,quiet){const url=S.params.syncUrl;
   if(!url){if(!quiet){const set=statusBox();set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau.',true,true);}return false;}
   if(!navigator.onLine){l.sync='pending';DB.put('lots',l);if(!quiet){const set=statusBox();set('Pas de réseau','Le lot reste enregistré sur le téléphone. Relancez la sauvegarde quand vous aurez du réseau.',true,true);}return false;}
+  if(l.type==='grumes'&&!l.xylo){if(!quiet){const st=statusBox();st('N° de chantier Xylolink manquant','Renseignez-le dans la fiche du lot avant de sauvegarder sur le Sheet.',true,true);}return false;}
   const set=quiet?null:statusBox();const t=lotTotals(l);const what=l.type==='grumes'?`${t.n} grumes · ${t.nb} billons · ${f3(t.v)} m³`:`${t.n} tiges · ${f3(t.v)} m³`;
   if(set)set('Sauvegarde en cours…',(l.chantier||'Lot')+' · '+what,false);
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),45000);
