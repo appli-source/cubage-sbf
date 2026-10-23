@@ -134,6 +134,13 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .vbox.main{background:var(--accent);color:var(--accent-fg)}
 .tvol{grid-column:1/-1;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;margin-top:-2px}
 .tvol:empty{display:none}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;text-align:left;padding:18px 18px;border-radius:14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);min-height:96px;justify-content:center}
+.tile b{font-size:21px}
+.tile small{font-size:14px;opacity:.85}
+.tile .tile-n{font-size:13px;font-weight:600;margin-top:4px}
+.tile.light{background:var(--card);color:var(--fg);border-color:var(--line)}
+.tile:active{filter:brightness(.92)}
+input[type=search]{width:100%}
 .gl{display:flex;flex-direction:column;gap:8px}
 .gl-row{display:flex;gap:8px;align-items:flex-end}
 .gl-row>label{flex:1;min-width:0}
@@ -155,7 +162,7 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=25"></script>
-<script src="app.js?v=25"></script>
+<script src="calc.js?v=26"></script>
+<script src="app.js?v=26"></script>
 
 </html>
