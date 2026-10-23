@@ -249,8 +249,8 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
     f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
-    if(ed){Object.assign(g,{num:numS,ess:f.ess,billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
-    l.grumes.push({id:uid(),num:numS,ess:f.ess,billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
+    if(ed){Object.assign(g,{num:numS,ess:f.ess,modifie:new Date().toISOString(),billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
+    l.grumes.push({id:uid(),num:numS,ess:f.ess,saisi:new Date().toISOString(),billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
   if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
 
 /* --- Saisie sur pied --- */
@@ -288,7 +288,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
     if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
     if(ed){Object.assign(a,rec);save();S.form={};S.edit=null;back();return;}
-    l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();};
+    rec.saisi=new Date().toISOString();l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();};
   S.flash=null;
   if($('#cl'))$('#cl').onclick=e=>{const b=e.target.closest('button');if(!b)return;f.d=Number(b.dataset.c);if(mode==='diam'&&!ed){S.flash=f.d;try{navigator.vibrate&&navigator.vibrate(30);}catch(x){}commit();}else render();};
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
@@ -533,12 +533,13 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
   shareFile(doc.output('blob'),fname(l,'pdf',sl),quiet);}
 
 /* ---------- Synchronisation ---------- */
+const dLoc=iso=>{if(!iso)return['',''];const d=new Date(iso),p=n=>String(n).padStart(2,'0');return[d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),p(d.getHours())+':'+p(d.getMinutes())];};
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',commune:l.commune||'',dept:l.dept||'',gps_lat:l.gps?l.gps.lat:'',gps_lon:l.gps?l.gps.lon:'',gps_precision_m:l.gps?l.gps.acc:'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
   const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||'',grille:(S.grilles.find(g=>g.id===s.grilleId)||{}).nom||''}));
   const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
   for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons){const sl=(l.sousLots||[]).find(x=>x.id===b.sl),G0=grilleFor(l,b.sl),L=prixLine(G0,g.ess,b.q||'',b.d),v=Math.round(volB(b)*10000)/10000;
-    BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
-  for(const a of l.arbres){const x=arbreCalc(l,a);ARBRE.push({lot_id:l.id,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
+    const [sd,sh]=g.saisi?dLoc(g.saisi):[l.date,''];BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,saisi_le:sd,saisi_heure:sh,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
+  for(const a of l.arbres){const x=arbreCalc(l,a);const [ad,ah]=a.saisi?dLoc(a.saisi):[l.date,''];ARBRE.push({lot_id:l.id,chantier:l.chantier||'',date:l.date,saisi_le:ad,saisi_heure:ah,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
   return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
 /* Fenêtre d'état pour la sauvegarde : en cours, réussie ou en échec */
