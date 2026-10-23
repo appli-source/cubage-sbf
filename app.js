@@ -390,15 +390,15 @@ V.lotGrille=()=>{const l=S.lot;head('Grille du lot',l.chantier);
 
 /* --- Catalogue de grilles --- */
 V.grilles=()=>{head('Grilles de prix');
-  $('#main').innerHTML=`<div class="list">${S.grilles.map(g=>`<button class="item" data-g="${g.id}"><div class="t"><b>${esc(g.nom)} <span class="pill">${g.type}</span></b><small>${(g.lignes||[]).length} lignes</small></div><span class="v">›</span></button>`).join('')||'<p class="muted">Aucune grille.</p>'}</div>
+  $('#main').innerHTML=`<div class="list">${S.grilles.map(g=>`<button class="item" data-g="${g.id}"><div class="t"><b>${esc(g.nom)} <span class="pill">${g.type}</span>${g.src==='sheet'?' <span class="pill">Sheet SBF</span>':''}</b><small>${(g.lignes||[]).length} lignes</small></div><span class="v">›</span></button>`).join('')||'<p class="muted">Aucune grille.</p>'}</div>
   <div class="row" style="margin-top:12px"><button class="btn primary grow" data-new="grumes">+ Grille grumes</button><button class="btn primary grow" data-new="pied">+ Grille sur pied</button></div>`;
   $('#main').querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{S.hist.push('grilles');go('grille',{gEdit:{id:b.dataset.g}});});
   $('#main').querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>{const g={id:uid(),nom:'Nouvelle grille',type:b.dataset.new,lignes:[]};S.grilles.push(g);saveGrille(g);S.hist.push('grilles');go('grille',{gEdit:{id:g.id}});});foot('');};
-V.grille=()=>{const e=S.gEdit;const g=e.local?S.lot.grilleLocal:S.grilles.find(x=>x.id===e.id);const persist=()=>e.local?save():saveGrille(g);head(g.nom,'Prix €/m³ · champs vides = toutes');
+V.grille=()=>{const e=S.gEdit;const g=e.local?S.lot.grilleLocal:S.grilles.find(x=>x.id===e.id);const persist=()=>e.local?save():saveGrille(g);head(g.nom,'Prix €/m³ · champs vides = toutes');const fromSheet=g.src==='sheet'&&!e.local;
   const p=S.params;g.lignes=g.lignes||[];
   const qOpts=[...p.qualites,...(g.type==='pied'&&!p.qualites.includes(resteQ())?[resteQ()]:[])];
   $('#main').innerHTML=`<label class="f"><span class="l">Nom</span><input id="nom" value="${esc(g.nom)}"></label>
-  <p class="muted" style="margin:10px 0">Un champ vide s’applique à toutes les essences, qualités ou diamètres. Ø min et Ø max portent sur le diamètre mesuré (médian pour les grumes, à 1,30 m sur pied), bornes incluses : par ex. 30 à 39 puis 40 à 49. La ligne la plus précise l’emporte.</p>
+  ${fromSheet?'<div class="msg warn" style="margin-top:10px">Grille commune du Sheet SBF : modifiez-la au bureau dans le Sheet. Un changement fait ici sera remplacé au prochain chargement.</div>':''}<p class="muted" style="margin:10px 0">Un champ vide s’applique à toutes les essences, qualités ou diamètres. Ø min et Ø max portent sur le diamètre mesuré (médian pour les grumes, à 1,30 m sur pied), bornes incluses : par ex. 30 à 39 puis 40 à 49. La ligne la plus précise l’emporte.</p>
   <div class="stack">${g.lignes.map((l,i)=>`<div class="card gl" data-gl="${i}">
    <div class="gl-row"><label class="f"><span class="l">Essence</span><select data-f="ess"><option value="">Toutes</option>${p.essences.map(x=>`<option${x===l.ess?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
    <label class="f"><span class="l">Qualité</span><select data-f="q"><option value="">Toutes</option>${qOpts.map(x=>`<option${x===l.q?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
@@ -425,14 +425,14 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <label class="f"><span class="l">Diamètre sur pied (mode diamètre seul)</span><select id="sd"><option value="classe"${p.saisieDiam==='classe'?' selected':''}>Boutons de classes</option><option value="cm"${p.saisieDiam==='cm'?' selected':''}>Saisie au cm</option></select></label>
   <label class="f"><span class="l">Code qualité du reste de tige (au-dessus des tronçons)</span><input id="rq" value="${esc(p.resteQualite||'BI')}" placeholder="BI"></label>
   <label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(p.operateur)}"></label></div>
-  <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label>
-  <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé le ${esc(p.refLoaded)}</span>`:''}</div>
+  <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><p class="muted" style="margin:0">Le plus simple : ouvrir une fois le lien de configuration envoyé par le bureau. Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
+  <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé : ${esc(p.refLoaded)}</span>`:''}</div>
   <div class="card stack"><h2>Données locales</h2><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un lot JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
   </div>`;
   const splitList=v=>v.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
-    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';p.operateur=$('#op').value.trim();p.syncUrl=$('#url').value.trim();saveParams();};
+    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';p.operateur=$('#op').value.trim();p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();saveParams();};
   $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=async()=>{upd();await loadRef();render();};$('#syncAll').onclick=async()=>{upd();for(const l of S.lots)if(l.sync!=='done')await syncLot(l,true);toast('Sauvegarde terminée');render();};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
@@ -514,13 +514,20 @@ function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier:l.chantier||'',
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
   return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
 async function syncLot(l,quiet){const url=S.params.syncUrl;if(!url){toast('Renseignez l’URL du script dans Paramètres');return;}if(!navigator.onLine){toast('Hors ligne : le lot sera à renvoyer');return;}
-  try{const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',lot_id:l.id,rows:lotRows(l)})});
+  try{const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:S.params.syncKey||'',lot_id:l.id,rows:lotRows(l)})});
     const j=await res.json();if(j&&j.ok){l.sync='done';l.synced=new Date().toISOString();await DB.put('lots',l);if(!quiet){toast('Lot sauvegardé sur le Sheet');render();}}else throw new Error(j&&j.error||'réponse invalide');}
   catch(e){l.sync='pending';DB.put('lots',l);toast('Échec de la sauvegarde : '+e.message);}}
-async function loadRef(){const url=S.params.syncUrl;if(!url){toast('URL du script manquante');return;}try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=params');const j=await res.json();const p=S.params;
-  if(j.essences&&j.essences.length)p.essences=j.essences;if(j.qualites&&j.qualites.length)p.qualites=j.qualites;if(j.classes){if(j.classes.step)p.step=j.classes.step;if(j.classes.min)p.classMin=j.classes.min;if(j.classes.max)p.classMax=j.classes.max;if(j.classes.parEssence)p.stepParEssence=j.classes.parEssence;}
-  for(const g of j.grilles||[]){const ex=S.grilles.find(x=>x.id===g.id);if(ex)Object.assign(ex,g);else S.grilles.push(g);await saveGrille(ex||g);}
-  if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}p.refLoaded=today();await saveParams();toast('Référentiel chargé');}catch(e){toast('Échec du chargement : '+e.message);}}
+/* Chargement du référentiel commun (Google Sheet SBF) : essences, qualités, classes, grilles, table Chaudé */
+async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)toast('Adresse du script manquante');return false;}
+  try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=params&key='+encodeURIComponent(S.params.syncKey||''));const j=await res.json();if(j.ok===false)throw new Error(j.error||'refusé');const p=S.params;
+  const usedE=uniqL(S.lots.flatMap(l=>l.essSel||[])),usedQ=uniqL(S.lots.flatMap(l=>l.qualSel||[]));
+  if(j.essences&&j.essences.length)p.essences=uniqL([...j.essences,...usedE.filter(x=>!j.essences.includes(x))]);
+  if(j.qualites&&j.qualites.length)p.qualites=uniqL([...j.qualites,...usedQ.filter(x=>!j.qualites.includes(x))]);
+  if(j.classes){if(j.classes.step)p.step=j.classes.step;if(j.classes.min)p.classMin=j.classes.min;if(j.classes.max)p.classMax=j.classes.max;p.stepParEssence=j.classes.parEssence||{};}
+  for(const g of j.grilles||[]){g.src='sheet';const ex=S.grilles.find(x=>x.id===g.id);if(ex)Object.assign(ex,g);else S.grilles.push(g);await saveGrille(ex||g);}
+  if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}
+  p.refLoaded=new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});await saveParams();if(!silent)toast('Référentiel chargé');return true;}
+  catch(e){if(!silent)toast('Échec du chargement : '+e.message);return false;}}
 
 /* ---------- Rendu ---------- */
 function render(){chipCb=null;const v=V[S.screen]||V.home;v();
@@ -528,5 +535,9 @@ function render(){chipCb=null;const v=V[S.screen]||V.home;v();
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.slFilter='';S.hist=['home'];go('lot');});}
 (async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
   S.lots=(await DB.all('lots'))||[];S.grilles=(await DB.all('grilles'))||[];S.lots.forEach(l=>{l.grumes=l.grumes||[];l.arbres=l.arbres||[];l.sousLots=l.sousLots||[];l.classH=l.classH||{};});
-  render();if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}})();
+  /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
+  let cfgOk=false;try{const m=/^#cfg=(.+)$/.exec(location.hash||'');if(m){const c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));if(c.u){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
+  render();if(cfgOk)toast('Synchronisation configurée');
+  if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();});
+  if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}})();
 })();
