@@ -385,19 +385,25 @@ V.client=()=>{const c=S.cli;if(!c){back();return;}head(c.client||'Lot client',(c
   $('#cdel').onclick=e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : les billons repassent en stock';e.target.dataset.c='1';return;}S.lots=S.lots.filter(x=>x!==c);DB.del('lots',c.id);S.cli=null;back();};foot('');};
 
 V.clientAdd=()=>{const c=S.cli;head('Ajouter à '+(c.client||'lot client'),'Stock des lots du téléphone');const qy=S.cliQ||'';
-  $('#main').innerHTML=`<div class="row"><input id="aq" inputmode="decimal" placeholder="N° grume, n° billon (1234.2) ou plage (1200-1250)" value="${esc(qy)}" style="flex:1"></div><div id="ares" class="stack" style="margin-top:10px"></div>`;
-  const draw=()=>{const res=searchItems($('#aq').value);const box=$('#ares');
-    if(!$('#aq').value.trim()){box.innerHTML='<p class="muted">Tapez un numéro : la recherche porte sur tous les lots de cubage du téléphone.</p>';return;}
-    if(!res.length){box.innerHTML='<p class="muted">Aucun billon trouvé.</p>';return;}
-    const free=res.filter(it=>!it.cut&&!it.client);
-    box.innerHTML=(free.length>1?`<button type="button" class="btn primary" id="addAll">Ajouter les ${free.length} billons disponibles</button>`:'')+'<div class="list">'+res.map(it=>{const mine=it.client===c,blocked=it.cut||(it.client&&!mine);
+  $('#main').innerHTML=`<div class="row"><input id="aq" inputmode="decimal" placeholder="Rechercher : n° grume, billon (1234.2) ou plage (1200-1250)" value="${esc(qy)}" style="flex:1"></div><div id="ares" class="stack" style="margin-top:10px"></div>`;
+  const items=(res,box,extra)=>{const free=res.filter(it=>!it.cut&&!it.client);
+    box.innerHTML=(extra||'')+(free.length>1?`<button type="button" class="btn primary" id="addAll">Ajouter les ${free.length} billons disponibles</button>`:'')+'<div class="list">'+res.map(it=>{const mine=it.client===c,blocked=it.cut||(it.client&&!mine);
       const st=it.cut?'<span class="pill">recoupé</span>':mine?'<span class="pill">dans ce lot ✓</span>':it.client?`<span class="pill warn">vendu · ${esc(it.client.client)}</span>`:'<span class="pill" style="background:var(--card);border:1px solid var(--line)">en stock</span>';
       return `<div class="item${mine?' on':''}" style="${blocked?'opacity:.55':''}"><div class="t"><b>${esc(it.num)} · ${esc(it.ess)} ${esc(it.q||'')}</b><small>${f2(it.lm)} m × Ø${it.d} · ${f3(it.v)} m³ · ${esc(it.orig)}${it.parent?' · issu de '+esc(it.parent):''}</small><div>${st}</div></div>
        ${blocked?'':`<div class="stack" style="gap:6px"><button type="button" class="btn ${mine?'':'primary'}" data-tg="${esc(it.key)}">${mine?'Retirer':'Ajouter'}</button>${mine?'':`<button type="button" class="btn" data-rc="${esc(it.key)}">Recouper</button>`}</div>`}</div>`;}).join('')+'</div>';
     box.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>{const k=b.dataset.tg;c.lignes=c.lignes.includes(k)?c.lignes.filter(x=>x!==k):[...c.lignes,k];save(c);draw();});
     box.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{S.rcKey=b.dataset.rc;S.hist.push('clientAdd');go('recoupe');});
-    if($('#addAll'))$('#addAll').onclick=()=>{for(const it of free)if(!c.lignes.includes(it.key))c.lignes.push(it.key);save(c);toast(free.length+' billon(s) ajouté(s)');draw();};};
-  $('#aq').oninput=()=>{S.cliQ=$('#aq').value;draw();};draw();if(!c.lignes.length)setTimeout(()=>{const x=$('#aq');x&&x.focus();},0);
+    if(box.querySelector('#addAll'))box.querySelector('#addAll').onclick=()=>{for(const it of free)if(!c.lignes.includes(it.key))c.lignes.push(it.key);save(c);toast(free.length+' billon(s) ajouté(s)');draw();};};
+  const draw=()=>{const box=$('#ares'),qv=$('#aq').value.trim();
+    if(qv){const res=searchItems(qv);if(!res.length){box.innerHTML='<p class="muted">Aucun billon trouvé.</p>';return;}items(res,box);return;}
+    const all=stockItems();
+    if(S.cliBrowse){const l0=S.lots.find(x=>x.id===S.cliBrowse);const res=all.filter(it=>it.lotId===S.cliBrowse);
+      items(res,box,`<button type="button" class="btn" id="bk">‹ Tous les lots</button><h2>${esc((l0&&l0.xylo?l0.xylo+' · ':'')+(l0?l0.chantier||'':''))}</h2>`);$('#bk').onclick=()=>{S.cliBrowse=null;draw();};return;}
+    const lots=S.lots.filter(l=>l.type==='grumes').map(l=>{const its=all.filter(it=>it.lotId===l.id),free=its.filter(it=>!it.cut&&!it.client),mine=its.filter(it=>it.client===c);return{l,free,mine,vf:free.reduce((s,x)=>s+x.v,0)};}).filter(x=>x.free.length||x.mine.length)
+      .sort((a,b)=>(b.l.updated||'').localeCompare(a.l.updated||''));
+    box.innerHTML=lots.length?`<h2>Choisir dans un lot</h2><div class="list">${lots.map(x=>`<button class="item" data-bl="${x.l.id}"><div class="t"><b>${esc(x.l.xylo?x.l.xylo+' · ':'')}${esc(x.l.chantier||'Sans nom')}</b><small>${esc((x.l.date||'').split('-').reverse().join('/'))} · ${x.free.length} billon(s) en stock${x.mine.length?' · '+x.mine.length+' dans ce lot':''}</small></div><div class="v">${f3(x.vf)} m³ ›</div></button>`).join('')}</div>`:'<p class="muted">Aucun billon en stock sur ce téléphone.</p>';
+    box.querySelectorAll('[data-bl]').forEach(b=>b.onclick=()=>{S.cliBrowse=b.dataset.bl;draw();});};
+  $('#aq').oninput=()=>{S.cliQ=$('#aq').value;draw();};draw();
   const t=cliTot(c);foot(`<button class="btn primary big" id="done">Terminé · ${t.n} billon(s) · ${f3(t.v)} m³</button>`);$('#done').onclick=back;};
 
 V.recoupe=()=>{const c=S.cli;const it=stockItems().find(x=>x.key===S.rcKey);if(!it||it.cut||it.client){toast('Billon indisponible');back();return;}
