@@ -136,7 +136,7 @@ async function veille(on){try{if(on){if(navigator.wakeLock&&!V.wake){V.wake=awai
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(V.etat==='ecoute'||V.etat==='pause')){veille(true);if(V.ctx&&V.ctx.state==='suspended')V.ctx.resume().catch(()=>{});}});
 
 /* ---------- Démarrage / arrêt ---------- */
-async function demarrer(){if(V.chargement)return;V.chargement=true;
+async function demarrer(){if(V.chargement)return;V.chargement=true;try{const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur();}catch(e){} // ferme le clavier
   try{const AC=window.AudioContext||window.webkitAudioContext;if(!V.ctx)V.ctx=new AC();V.ctx.resume().catch(()=>{}); // dans le geste utilisateur (iOS)
     if(!V.model&&!dejaCharge()&&!confirm('Première activation du mode vocal : téléchargement du modèle de reconnaissance (42 Mo, une seule fois, conservé sur ce téléphone). Continuer ?')){V.chargement=false;return;}
     dire('Mode vocal'); // 1re synthèse vocale dans le geste utilisateur : la débloque sur iPhone
@@ -246,7 +246,7 @@ function apresRendu(){if(!V.bound&&(V.etat==='ecoute'||V.etat==='pause'||V.etat=
 function setEtat(e,msg){V.etat=e;V.msg=msg||'';majBloc();}
 
 function majPartiel(){const el=$('#vocPart');if(el)el.textContent=V.partiel?'… '+V.partiel:'';}
-function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=V.etat,gr=h.mode==='grumes';
+function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=V.etat,gr=h.mode==='grumes';el.classList.toggle('sticky',e==='ecoute'||e==='pause');
   const nomsE=(h.essences||[]).map(c=>{const m=motsDe(c,h.mots);return m.length?`<b>${esc(m[0])}</b> <span class="muted">${esc(c)}</span>`:`<span class="muted">${esc(c)} (aucun mot)</span>`;}).join(' · ');
   const nomsQ=gr?(h.qualites||[]).map(c=>{const m=motsQ(c,h.motsQ);return m.length?`<b>${esc(m[0])}</b> <span class="muted">${esc(c)}</span>`:`<span class="muted">${esc(c)} (aucun mot)</span>`;}).join(' · '):'';
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
@@ -255,7 +255,7 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   else{const aide=gr?'Dites « chêne, cé a, dix par cinquante » · « suivante » = grume suivante · « annule »':'Dites « chêne quarante », puis « trente-cinq »… « annule » retire la dernière tige';
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc(V.pend?V.cur+' '+(V.curQ||'—')+' · '+fmtL(V.pend.L)+' m · Ø ?':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
-    <div class="voc-help muted">${nomsE}${nomsQ?'<br>'+nomsQ:''}</div></div>`;
+    <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
     $('#vocPause').onclick=()=>{V.pause=!V.pause;setEtat(V.pause?'pause':'ecoute','');};}
   const b=$('#vocBtn');if(b)b.onclick=basculer;}
 
