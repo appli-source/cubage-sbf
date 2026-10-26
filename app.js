@@ -44,7 +44,11 @@ function prixLine(grille,ess,q,d){if(!grille)return null;let best=null,bs=-1;for
   const sc=(l.ess?4:0)+(l.q?2:0)+((l.dmin!=null||l.dmax!=null)?1:0);if(sc>bs&&l.prix!=null){bs=sc;best=l;}}return best;}
 const trancheLab=l=>!l?'sans prix':(l.dmin!=null&&l.dmax!=null)?l.dmin+'–'+l.dmax+' cm':l.dmin!=null?l.dmin+' cm et +':l.dmax!=null?'jusqu’à '+l.dmax+' cm':'tous Ø';
 const lenM=b=>b.lm!=null?b.lm:((b.l||0)/10);
-const volB=b=>Calc.volBillon(b.d,lenM(b));
+/* Réductions (réfactions) : rl en cm sur la longueur, rd en cm sur le diamètre. Le cubage utilise les dimensions réduites, le listing garde les vraies. */
+const redL=b=>(b.rl>0?b.rl:0)/100;const redD=b=>b.rd>0?b.rd:0;
+const cubL=b=>Math.max(0,lenM(b)-redL(b));const cubD=b=>Math.max(0,(b.d||0)-redD(b));
+const redTxt=b=>[b.rl>0?'L −'+f2(b.rl/100)+' m':'',b.rd>0?'Ø −'+b.rd+' cm':''].filter(Boolean).join(' · ');
+const volB=b=>Calc.volBillon(cubD(b),cubL(b));
 const clampT=v=>Math.min(20,Math.max(1,Math.round(Number(v)||1)));
 const tarifOf=(lot,a)=>clampT(a.tarif||lot.tarif||8);
 const tarifDef=(lot,ess)=>clampT((lot.tarifEss&&lot.tarifEss[ess])||lot.tarif||8);
@@ -73,8 +77,8 @@ function nextNum(lot){if(lot.type==='grumes'){const m=lot.grumes.reduce((x,g)=>M
 function recap(lot,sl){const rows={},cl={},g=(sl&&sl!==NONE)?grilleFor(lot,sl):lotGrille(lot);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0,mm:0,vp:0});f(r);};
   const pr={};const price=(r,slId,ess,q,d,v,n)=>{const G0=grilleFor(lot,slId),L=prixLine(G0,ess,q,d),p=L?L.prix:null;if(p!=null){r.mm+=p*v;r.vp+=v;}
     const k=ess+'|'+q+'|'+(G0?G0.id:'')+'|'+(L?G0.lignes.indexOf(L):'x');const t=pr[k]||(pr[k]={ess,q,gNom:G0?G0.nom:'',tr:trancheLab(L),dmin:L&&L.dmin!=null?L.dmin:-1,p,n:0,v:0,m:0});t.n+=n;t.v+=v;if(p!=null)t.m+=p*v;};
-  if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(!slMatch(b.sl,sl))continue;const c=cls(gr.ess,b.d),v=volB(b);
-    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=b.d;r.sl+=lenM(b);price(r,b.sl,gr.ess,b.q||'',b.d,v,1);});}}
+  if(lot.type==='grumes'){for(const gr of lot.grumes)for(const b of gr.billons){if(!slMatch(b.sl,sl))continue;const c=cls(gr.ess,cubD(b)),v=volB(b);
+    add(gr.ess+'|'+(b.q||'')+'|'+c,{ess:gr.ess,q:b.q||'',c},r=>{r.n++;r.v+=v;r.sd+=cubD(b);r.sl+=cubL(b);price(r,b.sl,gr.ess,b.q||'',cubD(b),v,1);});}}
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const c=cls(a.ess,a.d),k=a.ess+'|'+c,x=arbreCalc(lot,a);const t=cl[k]||(cl[k]={ess:a.ess,c,n:0,v:0,sans:0,sh:0,nh:0});t.n+=a.n||1;
     if(x.v==null){t.sans+=a.n||1;continue;}t.v+=x.v;t.sh+=x.h*(a.n||1);t.nh+=a.n||1;for(const tr of x.tronc)add(a.ess+'|'+tr.q+'|'+c,{ess:a.ess,q:tr.q,c},r=>{r.v+=tr.v;r.n+=a.n||1;price(r,a.sl,a.ess,tr.q,a.d,tr.v,a.n||1);});}}
   const list=Object.values(rows).sort((a,b)=>a.ess.localeCompare(b.ess)||a.q.localeCompare(b.q)||a.c-b.c);
@@ -87,7 +91,7 @@ function priceRecap(r){const multiG=new Set(r.prices.filter(x=>x.gNom).map(x=>x.
   const sum=(a,ess)=>({ess,kind:ess==='Total'?'t':'e',n:a.reduce((s,x)=>s+x.n,0),v:a.reduce((s,x)=>s+x.v,0),m:a.some(x=>x.m!=null)?a.reduce((s,x)=>s+(x.m||0),0):null});
   for(const e of Object.keys(byE)){out.push(...byE[e]);if(byE[e].length>1)out.push(sum(byE[e],e));}out.push(sum(r.prices.map(x=>({...x,m:x.p!=null?x.m:null})),'Total'));return out;}
 function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(!slMatch(b.sl,sl))continue;
-    out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,b.d),v:volB(b),sl:slName(lot,b.sl),o:g.orig||''});}}
+    out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,cubD(b)),v:volB(b),sl:slName(lot,b.sl),o:g.orig||'',red:redTxt(b)});}}
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const x=arbreCalc(lot,a);
     out.push({num:a.num||'',ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
 const uniqL=a=>[...new Set(a.filter(Boolean))];
@@ -236,7 +240,8 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
   ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
-   <div class="vbox"><b data-bv="${i}">${b.d>0&&lenM(b)>0?f3(volB(b)):'—'}</b><small>m³ billon</small></div>
+   <label class="f"><span class="l">Réduction L (cm)</span><input type="text" inputmode="numeric" data-f="rl" data-i="${i}" value="${b.rl>0?b.rl:''}" placeholder="0"></label><label class="f"><span class="l">Réduction Ø (cm)</span><input type="text" inputmode="numeric" data-f="rd" data-i="${i}" value="${b.rd>0?b.rd:''}" placeholder="0"></label>
+   <div class="vbox"><b data-bv="${i}">${b.d>0&&lenM(b)>0?f3(volB(b)):'—'}</b><small data-bc="${i}">${(b.rl>0||b.rd>0)?'m³ · cubé '+f2(cubL(b))+' m × Ø'+cubD(b):'m³ billon'}</small></div>
    <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div></div></div>`).join('')}
   <div class="vbox main"><b id="gv">${f3(gv)}</b><small>m³ grume${f.billons.length>1?' · '+f.billons.length+' billons':''}</small></div>
   <button type="button" class="btn big block" id="addB">+ Billon</button>
@@ -244,20 +249,20 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   bindChips();bindAddRef(l,(k,v,i)=>{if(k==='ess')f.ess=v;else if(i!=null&&f.billons[Number(i)])f.billons[Number(i)].q=v;render();});
   onChip(e=>{const n=e.target.dataset.chips;if(n==='sl'){f.sl=e.detail||null;f.slSet=true;if(!ed){l.slCur=f.sl;save();}}else if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
-  const updV=()=>{let tot=0;f.billons.forEach((b,i)=>{const ok=b.d>0&&lenM(b)>0,v=ok?volB(b):0;tot+=v;const el=document.querySelector(`[data-bv="${i}"]`);if(el)el.textContent=ok?f3(v):'—';});const g=$('#gv');if(g)g.textContent=f3(tot);};
-  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)];b[e.target.dataset.f]=num(e.target.value);updV();});
+  const updV=()=>{let tot=0;f.billons.forEach((b,i)=>{const ok=b.d>0&&lenM(b)>0,v=ok?volB(b):0;tot+=v;const el=document.querySelector(`[data-bv="${i}"]`);if(el)el.textContent=ok?f3(v):'—';const ec=document.querySelector(`[data-bc="${i}"]`);if(ec)ec.textContent=(b.rl>0||b.rd>0)?'m³ · cubé '+f2(cubL(b))+' m × Ø'+cubD(b):'m³ billon';});const g=$('#gv');if(g)g.textContent=f3(tot);};
+  $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)],k=e.target.dataset.f;let v=num(e.target.value);if((k==='rl'||k==='rd')&&v!=null)v=Math.abs(v);b[k]=v;updV();});
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
   $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};
-  $('#ok').onclick=()=>{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
+  $('#ok').onclick=()=>{try{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
-    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
+    f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.rl=b.rl>0?Math.round(b.rl):0;b.rd=b.rd>0?Math.round(b.rd):0;if(b.rl>=b.lm*100||b.rd>=b.d){toast('Réduction supérieure à la dimension du billon '+b.rang);throw new Error('red');}b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
     if(ed){Object.assign(g,{num:numS,ess:f.ess,modifie:new Date().toISOString(),billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
-    l.grumes.push({id:uid(),num:numS,ess:f.ess,saisi:new Date().toISOString(),billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
+    l.grumes.push({id:uid(),num:numS,ess:f.ess,saisi:new Date().toISOString(),billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);}catch(e){if(e.message!=='red')throw e;}};
   if(!ed)setTimeout(()=>{const x=document.querySelector('input[data-f=lm]');x&&x.focus();},0);};
 
 /* --- Saisie sur pied --- */
@@ -341,7 +346,7 @@ V.tarifs=()=>{const l=S.lot;head('Tarifs Chaudé',l.chantier);const base=S.tarif
    hors éléments recoupés et hors éléments déjà affectés à un lot client. */
 function stockItems(){const items=[];const rcs=[];
   for(const l of S.lots){if(l.type!=='grumes')continue;const orig=(l.xylo?l.xylo+' · ':'')+(l.chantier||'');
-    for(const g of l.grumes)for(const b of g.billons)items.push({key:l.id+'|'+b.id,lotId:l.id,id:b.id,num:g.num+'.'+b.rang,base:String(g.num),ess:g.ess,q:b.q||'',lm:lenM(b),d:b.d,v:volB(b),orig,lot:l});
+    for(const g of l.grumes)for(const b of g.billons)items.push({key:l.id+'|'+b.id,lotId:l.id,id:b.id,num:g.num+'.'+b.rang,base:String(g.num),ess:g.ess,q:b.q||'',lm:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,red:redTxt(b),v:volB(b),orig,lot:l});
     for(const rc of l.recoupes||[]){rcs.push(rc.parentKey);for(const p of rc.pieces)items.push({key:l.id+'|'+p.id,lotId:l.id,id:p.id,num:p.num,base:String(p.num).split('.')[0],ess:rc.ess,q:p.q||'',lm:p.lm,d:p.d,v:Calc.volBillon(p.d,p.lm),orig,lot:l,parent:rc.parentNum});}}
   const cut=new Set(rcs);const sold={};for(const c of S.lots)if(c.type==='client')for(const k of c.lignes||[])sold[k]=c;
   for(const it of items){it.cut=cut.has(it.key);it.client=sold[it.key]||null;}return items;}
@@ -351,7 +356,7 @@ function searchItems(qy){const all=stockItems();const t=(qy||'').trim().replace(
   if(t.includes('.'))return all.filter(it=>it.num===t||String(it.num).startsWith(t+'.'));
   return all.filter(it=>it.base===t);}
 function clientVirtual(c){const by=new Map(stockItems().map(it=>[it.key,it]));const grumes=[];
-  for(const k of c.lignes||[]){const it=by.get(k);if(!it)continue;grumes.push({id:it.key,num:it.base,ess:it.ess,orig:it.orig,billons:[{id:it.key,rang:'',label:String(it.num),lm:it.lm,d:it.d,q:it.q}]});}
+  for(const k of c.lignes||[]){const it=by.get(k);if(!it)continue;grumes.push({id:it.key,num:it.base,ess:it.ess,orig:it.orig,billons:[{id:it.key,rang:'',label:String(it.num),lm:it.lm,d:it.d,rl:it.rl||0,rd:it.rd||0,q:it.q}]});}
   return{id:c.id,type:'grumes',isClient:true,chantier:'Lot client '+(c.client||''),date:c.date,operateur:c.ref?'Réf. '+c.ref:'',grilleId:c.grilleId,grilleLocal:null,sousLots:[],grumes,arbres:[],xylo:''};}
 const cliTot=c=>{const v=clientVirtual(c);const r=recap(v,'');return{n:v.grumes.length,v:r.tot.v,m:r.tot.m};};
 
@@ -396,7 +401,7 @@ V.clientAdd=()=>{const c=S.cli;head('Ajouter à '+(c.client||'lot client'),'Stoc
   const items=(res,box,extra)=>{const free=res.filter(it=>!it.cut&&!it.client);
     box.innerHTML=(extra||'')+(free.length>1?`<button type="button" class="btn primary" id="addAll">Ajouter les ${free.length} billons disponibles</button>`:'')+'<div class="list">'+res.map(it=>{const mine=it.client===c,blocked=it.cut||(it.client&&!mine);
       const st=it.cut?'<span class="pill">recoupé</span>':mine?'<span class="pill">dans ce lot ✓</span>':it.client?`<span class="pill warn">vendu · ${esc(it.client.client)}</span>`:'<span class="pill" style="background:var(--card);border:1px solid var(--line)">en stock</span>';
-      return `<div class="item${mine?' on':''}" style="${blocked?'opacity:.55':''}"><div class="t"><b>${esc(it.num)} · ${esc(it.ess)} ${esc(it.q||'')}</b><small>${f2(it.lm)} m × Ø${it.d} · ${f3(it.v)} m³ · ${esc(it.orig)}${it.parent?' · issu de '+esc(it.parent):''}</small><div>${st}</div></div>
+      return `<div class="item${mine?' on':''}" style="${blocked?'opacity:.55':''}"><div class="t"><b>${esc(it.num)} · ${esc(it.ess)} ${esc(it.q||'')}</b><small>${f2(it.lm)} m × Ø${it.d}${it.red?' ('+esc(it.red)+')':''} · ${f3(it.v)} m³ · ${esc(it.orig)}${it.parent?' · issu de '+esc(it.parent):''}</small><div>${st}</div></div>
        ${blocked?'':`<div class="stack" style="gap:6px"><button type="button" class="btn ${mine?'':'primary'}" data-tg="${esc(it.key)}">${mine?'Retirer':'Ajouter'}</button>${mine?'':`<button type="button" class="btn" data-rc="${esc(it.key)}">Recouper</button>`}</div>`}</div>`;}).join('')+'</div>';
     box.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>{const k=b.dataset.tg;c.lignes=c.lignes.includes(k)?c.lignes.filter(x=>x!==k):[...c.lignes,k];save(c);draw();});
     box.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{S.rcKey=b.dataset.rc;S.hist.push('clientAdd');go('recoupe');});
@@ -441,14 +446,14 @@ V.recoupe=()=>{const c=S.cli;const it=stockItems().find(x=>x.key===S.rcKey);if(!
     ps.forEach((p,i)=>{if(p.add)c.lignes.push(lot.id+'|'+pieces[i].id);});save(c);S.rcForm=null;toast('Recoupe enregistrée');back();};};
 
 /* --- Listing --- */
-V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);const rows=listing(l,sl);const st=l.type==='grumes'&&!l.isClient?lotStatus(l):{};const hasSt=Object.values(st).some(x=>x.cut||x.client);
+V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);const rows=listing(l,sl);const st=l.type==='grumes'&&!l.isClient?lotStatus(l):{};const hasSt=Object.values(st).some(x=>x.cut||x.client);const hasRed=l.type==='grumes'&&l.grumes.some(g=>g.billons.some(b=>b.rl>0||b.rd>0));
   const slSel=(l.sousLots||[]).length?`<select id="slf"><option value="">Tout le lot</option>${l.sousLots.map(s=>`<option value="${s.id}"${s.id===sl?' selected':''}>${esc(s.nom)}</option>`).join('')}</select>`:'';
   const slOpt=id=>`<option value="">—</option>`+(l.sousLots||[]).map(s=>`<option value="${s.id}"${s.id===id?' selected':''}>${esc(s.nom)}</option>`).join('');
   $('#main').innerHTML=`${slSel}<div class="tbl" style="margin-top:8px"><table>${l.type==='grumes'
-   ?`<tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø cm</th><th class="n">m³</th>${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}${hasSt?'<th>Statut</th>':''}<th></th></tr>${l.grumes.map(g=>g.billons.map((b,i)=>{if(sl&&b.sl!==sl)return'';const it=st[l.id+'|'+b.id]||{};const stx=it.cut?'<span class="pill">recoupé</span>':it.client?`<span class="pill warn">vendu · ${esc(it.client.client)}</span>`:'';
+   ?`<tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø cm</th><th class="n">m³</th>${hasRed?'<th>Réduction</th>':''}${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}${hasSt?'<th>Statut</th>':''}<th></th></tr>${l.grumes.map(g=>g.billons.map((b,i)=>{if(sl&&b.sl!==sl)return'';const it=st[l.id+'|'+b.id]||{};const stx=it.cut?'<span class="pill">recoupé</span>':it.client?`<span class="pill warn">vendu · ${esc(it.client.client)}</span>`:'';
      const rc=(l.recoupes||[]).find(r=>r.parentKey===l.id+'|'+b.id);
-     return `<tr${it.cut?' class="cut"':''}><td>${esc(g.num)}.${b.rang}</td><td>${esc(g.ess)}</td><td>${esc(b.q||'')}</td><td class="n">${f2(lenM(b))}</td><td class="n">${b.d}</td><td class="n">${f3(volB(b))}</td>${(l.sousLots||[]).length?`<td><select data-slb="${g.id}|${b.id}" style="min-height:36px;padding:2px 6px">${slOpt(b.sl)}</select></td>`:''}${hasSt?`<td>${stx}</td>`:''}${i===0?`<td><button type="button" class="chip small" data-editg="${g.id}">✎</button> ${it.cut||it.client?'':`<button type="button" class="chip small" data-delg="${g.id}">✕</button>`}</td>`:'<td></td>'}</tr>`+
-     (rc?rc.pieces.map(p=>{const pi=st[l.id+'|'+p.id]||{};const ps=pi.cut?'<span class="pill">recoupé</span>':pi.client?`<span class="pill warn">vendu · ${esc(pi.client.client)}</span>`:'<span class="pill" style="background:var(--card);border:1px solid var(--line)">en stock</span>';return `<tr class="piece"><td>↳ ${esc(p.num)}</td><td>${esc(rc.ess)}</td><td>${esc(p.q||'')}</td><td class="n">${f2(p.lm)}</td><td class="n">${p.d}</td><td class="n">${f3(Calc.volBillon(p.d,p.lm))}</td>${(l.sousLots||[]).length?'<td></td>':''}<td>${ps}</td><td></td></tr>`;}).join(''):'');}).join('')).join('')}`
+     return `<tr${it.cut?' class="cut"':''}><td>${esc(g.num)}.${b.rang}</td><td>${esc(g.ess)}</td><td>${esc(b.q||'')}</td><td class="n">${f2(lenM(b))}</td><td class="n">${b.d}</td><td class="n">${f3(volB(b))}</td>${hasRed?`<td class="muted">${esc(redTxt(b))}</td>`:''}${(l.sousLots||[]).length?`<td><select data-slb="${g.id}|${b.id}" style="min-height:36px;padding:2px 6px">${slOpt(b.sl)}</select></td>`:''}${hasSt?`<td>${stx}</td>`:''}${i===0?`<td><button type="button" class="chip small" data-editg="${g.id}">✎</button> ${it.cut||it.client?'':`<button type="button" class="chip small" data-delg="${g.id}">✕</button>`}</td>`:'<td></td>'}</tr>`+
+     (rc?rc.pieces.map(p=>{const pi=st[l.id+'|'+p.id]||{};const ps=pi.cut?'<span class="pill">recoupé</span>':pi.client?`<span class="pill warn">vendu · ${esc(pi.client.client)}</span>`:'<span class="pill" style="background:var(--card);border:1px solid var(--line)">en stock</span>';return `<tr class="piece"><td>↳ ${esc(p.num)}</td><td>${esc(rc.ess)}</td><td>${esc(p.q||'')}</td><td class="n">${f2(p.lm)}</td><td class="n">${p.d}</td><td class="n">${f3(Calc.volBillon(p.d,p.lm))}</td>${hasRed?'<td></td>':''}${(l.sousLots||[]).length?'<td></td>':''}<td>${ps}</td><td></td></tr>`;}).join(''):'');}).join('')).join('')}`
    :`<tr><th>N°</th><th>Ess.</th><th class="n">Ø</th><th class="n">Cl.</th><th class="n">T</th><th class="n">Tiges</th><th class="n">H m</th><th>Tronçons</th><th class="n">m³</th>${(l.sousLots||[]).length?'<th>Sous-lot</th>':''}<th></th></tr>${l.arbres.map(a=>{if(sl&&a.sl!==sl)return'';const x=arbreCalc(l,a);return `<tr><td>${esc(a.num||'')}</td><td>${esc(a.ess)}</td><td class="n">${a.d}</td><td class="n">${cls(a.ess,a.d)}</td><td class="n">${tarifOf(l,a)}</td><td class="n">${a.n||1}</td><td class="n">${x.h?f1(x.h):'—'}</td><td>${esc(x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '))}</td><td class="n">${f3(x.v)}</td>${(l.sousLots||[]).length?`<td><select data-sla="${a.id}" style="min-height:36px;padding:2px 6px">${slOpt(a.sl)}</select></td>`:''}<td><button type="button" class="chip small" data-edita="${a.id}">✎</button> <button type="button" class="chip small" data-dela="${a.id}">✕</button></td></tr>`;}).join('')}`}
    </table></div><p class="muted">${rows.length} lignes · ${f3(rows.reduce((s,r)=>s+(r.v||0),0))} m³</p>`;
   if($('#slf'))$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};
@@ -612,7 +617,7 @@ function exportAsk(l,kind,cur){const fn=kind==='pdf'?exportPDF:exportXLSX;const 
 function exportXLSX(l,sl,quiet){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}const r=recap(l,sl),li=listing(l,sl);const wb=XLSX.utils.book_new();
   const lot=[...(l.type==='grumes'?[['N° chantier Xylolink',l.xylo||'']]:[]),['Chantier',l.chantier||''],['Commune',(l.commune||'')+(l.dept?' ('+l.dept+')':'')],['GPS',l.gps?l.gps.lat+', '+l.gps.lon:''],['Date',l.date],['Opérateur',l.operateur||''],['Type',l.type==='grumes'?'Grumes bord de route':'Bois sur pied'],['Tarif Chaudé par défaut',l.type==='pied'?l.tarif:''],['Sous-lot',sl?slName(l,sl):'Tout le lot'],['Grille de prix',r.grille?r.grille.nom:''],['Volume total m³',Math.round(r.tot.v*1000)/1000],['Montant €',r.tot.m!=null?Math.round(r.tot.m*100)/100:'']];
   (l.sousLots||[]).forEach(s=>lot.push(['Sous-lot '+s.nom,s.client||'']));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lot),'Lot');
-  const L=l.type==='grumes'?(l.isClient?[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Origine'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.o])]:[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Sous-lot'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.sl])])
+  const L=l.type==='grumes'?(l.isClient?[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Réduction','Origine'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.red,x.o])]:[['N°','Essence','Qualité','Longueur m','Diamètre cm','Classe','Volume m³','Réduction','Sous-lot'],...li.map(x=>[x.num,x.ess,x.q,x.l,x.d,x.c,Math.round(x.v*1000)/1000,x.red,x.sl])])
     :[['N°','Essence','Diamètre cm','Classe','Tarif Chaudé','Tiges','Hauteur m','Tronçons','Volume m³','Sous-lot'],...li.map(x=>[x.num,x.ess,x.d,x.c,x.t,x.n,x.h,x.tr,x.v!=null?Math.round(x.v*1000)/1000:'',x.sl])];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(L),'Listing');
   const R=l.type==='grumes'?[['Essence','Qualité','Classe','Billons','Ø moyen','L moyenne','Volume m³','Prix €/m³','Montant €'],...r.rows.map(x=>[x.ess,x.q,x.c,x.n,x.dm,x.lm,Math.round(x.v*1000)/1000,x.p,x.m!=null?Math.round(x.m*100)/100:''])]
@@ -641,9 +646,9 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
   if(l.type==='pied'&&r.classes.length){doc.autoTable({startY:doc.lastAutoTable.finalY+6,head:[['Essence','Classe','Ø cm','Tiges','Sans H','H moy','m³','m³/tige']],body:classRecap(r).map(c=>[c.kind==='c'?c.ess:(c.kind==='t'?'Total':'Total '+c.ess),c.kind==='c'?c.c:'',c.kind==='c'?clsRange(c.ess,c.c):'',c.n,c.sans||'',c.hm!=null?f1(c.hm):'',fr(c.v),c.vt!=null?fr(c.vt):'']),didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';},styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});}
   if(!sl&&(l.sousLots||[]).length){doc.addPage();hdr();doc.setFontSize(11);doc.text('Récapitulatif par sous-lot',14,30);doc.autoTable({startY:33,head:[['Sous-lot','Essence','Qualité',l.type==='grumes'?'Billons':'Tiges','m³','€']],body:slRecapRows(l).map(x=>[x.kind==='q'?x.sl:(x.kind==='t'?'Total lot':'Total '+x.sl),x.kind==='q'?x.ess:'',x.kind==='q'?(x.q||'·'):'',x.n,fr(x.v),fe(x.m)]),styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'}},headStyles:{fillColor:[31,77,43]},didParseCell:d=>{if(d.section==='body'&&String(d.row.raw[0]).startsWith('Total'))d.cell.styles.fontStyle='bold';}});}
   doc.addPage();hdr();doc.setFontSize(11);doc.text('Listing',14,30);
-  const lh=l.type==='grumes'?[['N°','Ess.','Q','L m','Ø cm','Cl.','m³',l.isClient?'Origine':'Sous-lot']]:[['N°','Ess.','Ø cm','Cl.','T','Tiges','H m','Tronçons','m³','Sous-lot']];
-  const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f2(x.l),x.d,x.c,fr(x.v),l.isClient?x.o:x.sl]:[x.num,x.ess,x.d,x.c,x.t,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
-  doc.autoTable({startY:33,head:lh,body:lb,styles:{fontSize:7.5,halign:'right'},columnStyles:l.type==='grumes'?{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'},7:{halign:'left'}}:{0:{halign:'left'},1:{halign:'left'},7:{halign:'left'},9:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});
+  const lh=l.type==='grumes'?[['N°','Ess.','Q','L m','Ø cm','Cl.','m³','Réduction',l.isClient?'Origine':'Sous-lot']]:[['N°','Ess.','Ø cm','Cl.','T','Tiges','H m','Tronçons','m³','Sous-lot']];
+  const lb=li.map(x=>l.type==='grumes'?[x.num,x.ess,x.q,f2(x.l),x.d,x.c,fr(x.v),x.red,l.isClient?x.o:x.sl]:[x.num,x.ess,x.d,x.c,x.t,x.n,x.h!=null?f1(x.h):'',x.tr,fr(x.v),x.sl]);
+  doc.autoTable({startY:33,head:lh,body:lb,styles:{fontSize:7.5,halign:'right'},columnStyles:l.type==='grumes'?{0:{halign:'left'},1:{halign:'left'},2:{halign:'left'},7:{halign:'left'},8:{halign:'left'}}:{0:{halign:'left'},1:{halign:'left'},7:{halign:'left'},9:{halign:'left'}},headStyles:{fillColor:[31,77,43]}});
   const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.text(`Page ${i}/${n}`,196,290,{align:'right'});}
   shareFile(doc.output('blob'),fname(l,'pdf',sl),quiet);}
 
@@ -652,8 +657,8 @@ const dLoc=iso=>{if(!iso)return['',''];const d=new Date(iso),p=n=>String(n).padS
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',commune:l.commune||'',dept:l.dept||'',gps_lat:l.gps?l.gps.lat:'',gps_lon:l.gps?l.gps.lon:'',gps_precision_m:l.gps?l.gps.acc:'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
   const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||'',grille:(S.grilles.find(g=>g.id===s.grilleId)||{}).nom||''}));
   const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
-  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons){const sl=(l.sousLots||[]).find(x=>x.id===b.sl),G0=grilleFor(l,b.sl),L=prixLine(G0,g.ess,b.q||'',b.d),v=Math.round(volB(b)*10000)/10000;
-    const [sd,sh]=g.saisi?dLoc(g.saisi):[l.date,''];BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,saisi_le:sd,saisi_heure:sh,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,classe:cls(g.ess,b.d),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
+  for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons){const sl=(l.sousLots||[]).find(x=>x.id===b.sl),G0=grilleFor(l,b.sl),L=prixLine(G0,g.ess,b.q||'',cubD(b)),v=Math.round(volB(b)*10000)/10000;
+    const [sd,sh]=g.saisi?dLoc(g.saisi):[l.date,''];BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,saisi_le:sd,saisi_heure:sh,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,reduction_l_cm:b.rl||0,reduction_d_cm:b.rd||0,longueur_cubee_m:cubL(b),diametre_cube_cm:cubD(b),classe:cls(g.ess,cubD(b)),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
   for(const a of l.arbres){const x=arbreCalc(l,a);const [ad,ah]=a.saisi?dLoc(a.saisi):[l.date,''];ARBRE.push({lot_id:l.id,chantier:l.chantier||'',date:l.date,saisi_le:ad,saisi_heure:ah,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
   return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
