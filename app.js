@@ -121,14 +121,15 @@ const slName=(lot,id)=>{if(id===NONE)return 'Non affecté';const s=(lot.sousLots
 
 /* ---------- Persistance ---------- */
 let saveT=null;
-function save(lot){lot=lot||S.lot;if(!lot)return;lot.updated=new Date().toISOString();if(lot.sync==='done')lot.sync='pending';
+function save(lot){lot=lot||S.lot;if(!lot)return;if(lot.readonly){toast('Lot en lecture seule : modification ignorée');return;}lot.updated=new Date().toISOString();if(lot.sync==='done')lot.sync='pending';
   clearTimeout(saveT);saveT=setTimeout(()=>DB.put('lots',lot).catch(()=>toast('Erreur d’enregistrement local')),80);}
 const saveParams=()=>DB.put('params',S.params);
 const saveGrille=g=>DB.put('grilles',g);
 
 /* ---------- UI helpers ---------- */
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
-function go(screen,o){S.screen=screen;Object.assign(S,o||{});render();window.scrollTo(0,0);}
+const EDIT_SCREENS=['saisieG','saisieP','hauteurs','tarifs','sousLots','slAssign','lotGrille','lotRef','recoupe'];
+function go(screen,o){if(EDIT_SCREENS.includes(screen)&&S.lot&&S.lot.readonly&&!(o&&o.force)){toast('Lot en lecture seule (envoyé à un collègue)');return;}S.screen=screen;Object.assign(S,o||{});render();window.scrollTo(0,0);}
 function back(){const h=S.hist;if(h.length){go(h.pop());}else go('home');}
 function chips(name,vals,cur,small){return `<div class="chips" data-chips="${name}">${vals.map(v=>`<button type="button" class="chip${small?' small':''}${v===cur?' on':''}" data-v="${esc(v)}">${esc(v||'—')}</button>`).join('')}</div>`;}
 function chipVal(name){const b=document.querySelector(`[data-chips="${name}"] .chip.on`);return b?b.dataset.v:'';}
@@ -207,14 +208,14 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   const g=lotGrille(l);
   $('#main').innerHTML=`<div class="kpi"><div><b>${f3(t.v)}</b><small>m³</small></div><div><b>${t.n}</b><small>${l.type==='grumes'?'grumes':'tiges'}</small></div>${l.type==='grumes'?`<div><b>${t.nb}</b><small>billons</small></div>`:`<div><b>${t.sans||0}</b><small>sans hauteur</small></div>`}</div>
   <div class="stack" style="margin-top:12px">
-  <button class="btn primary big block" data-go="${l.type==='grumes'?'saisieG':'saisieP'}">Saisir</button>
+  ${l.readonly?`<div class="msg warn">Lot envoyé à un collègue le ${esc(new Date(l.sentAt||l.updated).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))} · lecture seule sur ce téléphone (consultation et exports possibles).<br><button type="button" class="btn" id="takeBack" style="margin-top:8px">Reprendre la main sur ce lot</button></div>`:`<button class="btn primary big block" data-go="${l.type==='grumes'?'saisieG':'saisieP'}">Saisir</button>`}
   ${l.type==='pied'?'<div class="row"><button class="btn big grow" data-go="hauteurs">Hauteurs par classe</button><button class="btn big grow" data-go="tarifs">Tarifs Chaudé</button></div>':''}
   <div class="row"><button class="btn big grow" data-go="listing">Listing</button><button class="btn big grow" data-go="recap">Récapitulatif</button></div>
   <button class="btn block" data-go="lotRef">Essences (${lotEss(l).length}) et qualités (${lotQual(l).length})</button>
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Envoyer à un collègue</button></div>
-  ${l.test?'<span class="pill warn">Lot d’essai : jamais envoyé sur le Sheet SBF</span>':`<button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}`}
+  ${l.test?'<span class="pill warn">Lot d’essai : jamais envoyé sur le Sheet SBF</span>':l.readonly?'<span class="pill warn">Lecture seule : la sauvegarde sur le Sheet revient au collègue qui a reçu le lot</span>':`<button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}`}
   ${(l.type==='grumes'&&!l.isClient)?(()=>{const st=lotStatus(l);const its=Object.values(st);const cut=its.filter(x=>x.cut),sold=its.filter(x=>x.client&&!x.cut),free=its.filter(x=>!x.cut&&!x.client);if(!cut.length&&!sold.length)return'';
     const sum=a=>a.reduce((s,x)=>s+x.v,0);const byC={};for(const x of sold){const k=x.client.client;byC[k]=byC[k]||{n:0,v:0};byC[k].n++;byC[k].v+=x.v;}
     return `<h2>Stock et ventes</h2><div class="card stack"><div class="kpi"><div><b>${free.length}</b><small>en stock · ${f3(sum(free))} m³</small></div><div><b>${sold.length}</b><small>vendus · ${f3(sum(sold))} m³</small></div><div><b>${cut.length}</b><small>recoupés</small></div></div>
@@ -233,9 +234,12 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   $('#gpsBtn').onclick=()=>captureGps(g=>{l.gps=g;save();toast('Position relevée');render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
-  $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(lotFile(l),fname(l,'json'));
+  $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(lotFile(l),fname(l,'json'),false,()=>{if(l.readonly)return;const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Lot envoyé à un collègue</b><p class="muted" style="margin:0">Pour éviter que deux téléphones modifient le même lot (le dernier sauvegardé écrase l’autre), votre copie peut passer en lecture seule et être archivée. Vous pourrez « reprendre la main » plus tard si besoin.</p><div class="stack"><button type="button" class="btn primary big" id="aYes">Archiver ma copie (recommandé)</button><button type="button" class="btn" id="aNo">Garder ma copie modifiable</button></div></div>`;document.body.appendChild(m);
+    m.querySelector('#aYes').onclick=()=>{l.readonly=true;l.sentAt=new Date().toISOString();l.archive=true;DB.put('lots',l);m.remove();toast('Copie archivée (lecture seule)');back();};m.querySelector('#aNo').onclick=()=>m.remove();});
   if($('#sync'))$('#sync').onclick=()=>syncLot(l);
   $('#arch').onclick=()=>{l.archive=!l.archive;DB.put('lots',l);toast(l.archive?'Lot archivé':'Lot remis en cours');back();};
+  if($('#takeBack'))$('#takeBack').onclick=e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : ce téléphone redevient responsable du lot';e.target.dataset.c='1';return;}l.readonly=false;l.archive=false;delete l.sentAt;l.sync='pending';DB.put('lots',l);toast('Vous avez repris la main');render();};
+  if(l.readonly)$('#main').querySelectorAll('input,select').forEach(i=>i.disabled=true);
   $('#delLot').onclick=e=>{if(e.target.dataset.c){S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
   foot('');};
 
@@ -695,15 +699,15 @@ const safe=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').repl
 const fname=(l,ext,sl)=>(safe(l.chantier||'lot')+(sl?'_'+safe(slName(l,sl)):'')+'_'+l.date+'.'+ext);
 /* Export : téléchargement direct (dossier Téléchargements, sans choix d'emplacement) puis fenêtre Ouvrir / Partager */
 let lastUrl=null;
-function shareFile(blob,name,quiet){if(quiet){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return;}
+function shareFile(blob,name,quiet,onClose){if(quiet){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return;}
   if(lastUrl)URL.revokeObjectURL(lastUrl);const url=lastUrl=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
   const isPdf=/\.pdf$/i.test(name),isJson=/\.json$/i.test(name),kind=isPdf?'PDF':/\.xlsx$/i.test(name)?'Excel':isJson?'Lot (fichier)':'Fichier';
   const file=new File([blob],name,{type:blob.type});const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
   const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mt">
    <b id="mt">${kind} enregistré</b><p class="muted" style="margin:0">${esc(name)}<br>${isJson?'Envoyez-le au collègue avec « Partager » ; sur son téléphone il l’ouvre par « Importer un lot reçu ».':'Dossier Téléchargements du téléphone.'}</p>
-   <div class="stack"><button type="button" class="btn primary big" id="mOpen">Ouvrir</button>${canShare?'<button type="button" class="btn big" id="mShare">Partager (mail, WhatsApp…)</button>':''}<button type="button" class="btn" id="mClose">Fermer</button></div></div>`;
-  document.body.appendChild(m);const close=()=>m.remove();
+   <div class="stack"><button type="button" class="btn ${canShare&&isJson?'':'primary '}big" id="mOpen"${isJson?' hidden':''}>Ouvrir</button>${canShare?`<button type="button" class="btn ${isJson?'primary ':''}big" id="mShare">Partager (mail, WhatsApp…)</button>`:''}<button type="button" class="btn" id="mClose">Fermer</button></div></div>`;
+  document.body.appendChild(m);const close=()=>{m.remove();if(onClose)onClose();};
   m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
   m.querySelector('#mOpen').onclick=()=>{const w=window.open(url,'_blank');if(!w)location.href=url;close();};
   if(canShare)m.querySelector('#mShare').onclick=async()=>{try{await navigator.share({files:[file],title:name});}catch(e){}close();};}
@@ -776,7 +780,7 @@ function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo
 /* Fenêtre d'état pour la sauvegarde : en cours, réussie ou en échec */
 function statusBox(){const m=document.createElement('div');m.className='modal';m.innerHTML='<div class="modal-box"><b id="sbT"></b><p id="sbM" style="margin:0"></p><button type="button" class="btn primary big" id="sbOk" hidden>OK</button></div>';document.body.appendChild(m);
   const set=(t,msg,done,bad)=>{m.querySelector('#sbT').textContent=t;m.querySelector('#sbT').style.color=bad?'var(--bad)':'';m.querySelector('#sbM').textContent=msg;m.querySelector('#sbOk').hidden=!done;};m.querySelector('#sbOk').onclick=()=>m.remove();return set;}
-async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.test){if(!quiet){const set=statusBox();set('Lot d’essai','Ce lot a été créé comme lot d’essai : il n’est jamais envoyé sur le Sheet.',true,true);}return false;}
+async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.readonly){if(!quiet){const set=statusBox();set('Lot en lecture seule','Ce lot a été envoyé à un collègue : c’est lui qui le sauvegarde. « Reprendre la main » dans la fiche du lot si nécessaire.',true,true);}return false;}if(l.test){if(!quiet){const set=statusBox();set('Lot d’essai','Ce lot a été créé comme lot d’essai : il n’est jamais envoyé sur le Sheet.',true,true);}return false;}
   if(!url){if(!quiet){const set=statusBox();set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau.',true,true);}return false;}
   if(!navigator.onLine){l.sync='pending';DB.put('lots',l);if(!quiet){const set=statusBox();set('Pas de réseau','Le lot reste enregistré sur le téléphone. Relancez la sauvegarde quand vous aurez du réseau.',true,true);}return false;}
   if(l.type==='grumes'&&!l.xylo){if(!quiet){const st=statusBox();st('N° de chantier Xylolink manquant','Renseignez-le dans la fiche du lot avant de sauvegarder sur le Sheet.',true,true);}return false;}
@@ -798,7 +802,7 @@ async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onL
     const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
 /* Boutons « Sauvegarder les lots » et « Mettre à jour depuis le Sheet » (accueil et Paramètres) */
-const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
+const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!l.readonly&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
 async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
   if(!navigator.onLine){set('Pas de réseau','Les lots restent enregistrés sur le téléphone. Relancez quand vous aurez du réseau.',true,true);return;}
   const todo=lotsToSync();if(!todo.length){set('✓ Tout est déjà sauvegardé','Aucun lot modifié depuis la dernière sauvegarde sur le Sheet SBF.',true);return;}
@@ -817,7 +821,7 @@ async function importLotFile(file){let j;try{j=JSON.parse(await file.text());}ca
   let n=0,rep=0,last=null;for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}
   for(const l of lots){const ex=S.lots.find(x=>x.id===l.id);if(ex){const when=d=>d?new Date(d).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'?';
       if(!confirm('Le lot « '+(l.chantier||l.client||l.id)+' » existe déjà sur ce téléphone (modifié le '+when(ex.updated)+'). Le remplacer par la version reçue (modifiée le '+when(l.updated)+') ?'))continue;S.lots[S.lots.indexOf(ex)]=l;rep++;}else{S.lots.push(l);n++;}
-    if(l.sync==='done')l.sync='pending';await DB.put('lots',l);last=l;}
+    if(l.sync==='done')l.sync='pending';l.readonly=false;l.archive=false;delete l.sentAt;await DB.put('lots',l);last=l;}
   const set=statusBox();set('✓ Fichier importé',(n?n+' lot(s) ajouté(s)':'')+(n&&rep?' · ':'')+(rep?rep+' lot(s) remplacé(s)':'')+(!n&&!rep?'Aucun lot importé.':'')+'\nLe lot vous appartient maintenant : pensez à le sauvegarder sur le Sheet.',true);
   if(last&&lots.length===1&&last.type!=='client'){S.lot=last;S.mod=last.type;S.hist=['home','module','lots'];go('lot');}else render();}
 /* Récupération des lots depuis le Sheet (changement de téléphone) */
