@@ -141,6 +141,9 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .tile.light{background:var(--card);color:var(--fg);border-color:var(--line)}
 .tile:active{filter:brightness(.92)}
 input[type=search]{width:100%}
+tr.cut td{color:var(--muted);text-decoration:line-through}
+tr.cut td:last-child,tr.cut td .pill{text-decoration:none}
+tr.piece td{background:var(--accent-soft)}
 .gl{display:flex;flex-direction:column;gap:8px}
 .gl-row{display:flex;gap:8px;align-items:flex-end}
 .gl-row>label{flex:1;min-width:0}
@@ -162,7 +165,7 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=30"></script>
-<script src="app.js?v=30"></script>
+<script src="calc.js?v=31"></script>
+<script src="app.js?v=31"></script>
 
 </html>
