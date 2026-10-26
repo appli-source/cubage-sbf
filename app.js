@@ -156,7 +156,9 @@ V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>
   $('#main').innerHTML=`<div class="stack"><button class="tile" data-go="newLot"><b>+ Ajouter un lot</b><small>${m==='grumes'?'Cubage de grumes bord de route':'Inventaire de bois sur pied'}</small></button>
   <button class="tile light" data-go="lots"><b>Liste des lots</b><small>${ls.length} lot${ls.length>1?'s':''} · recherche par chantier, commune, date</small></button>
   ${m==='grumes'?`<button class="tile light" data-go="clients"><b>Lots clients</b><small>${S.lots.filter(l=>l.type==='client').length} lot(s) client · vente de billons, recoupe</small></button>`:''}
-  <button class="tile light" data-go="grilles"><b>Grilles de prix</b><small>${ng} grille${ng>1?'s':''} ${m==='grumes'?'grumes':'sur pied'}</small></button></div>`;foot('');};
+  <button class="tile light" data-go="grilles"><b>Grilles de prix</b><small>${ng} grille${ng>1?'s':''} ${m==='grumes'?'grumes':'sur pied'}</small></button>
+  <label class="tile light" for="impM" style="cursor:pointer"><b>Importer un lot reçu</b><small>Fichier .json envoyé par un collègue (mail, WhatsApp, AirDrop…)</small></label><input id="impM" type="file" accept=".json,application/json" hidden></div>`;
+  $('#impM').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};
 V.lots=()=>{const m=S.mod||'grumes';head('Lots · '+MODS[m].t);const qy=S.lotSearch||'';
   $('#main').innerHTML=`<input id="lsq" type="search" placeholder="Rechercher : n° Xylolink, chantier, commune, dépt, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="lsl"></div>`;
   const draw=()=>{const words=($('#lsq').value||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(Boolean);
@@ -211,7 +213,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   <button class="btn block" data-go="lotRef">Essences (${lotEss(l).length}) et qualités (${lotQual(l).length})</button>
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
-  <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Sauvegarde JSON</button></div>
+  <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Envoyer à un collègue</button></div>
   ${l.test?'<span class="pill warn">Lot d’essai : jamais envoyé sur le Sheet SBF</span>':`<button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}`}
   ${(l.type==='grumes'&&!l.isClient)?(()=>{const st=lotStatus(l);const its=Object.values(st);const cut=its.filter(x=>x.cut),sold=its.filter(x=>x.client&&!x.cut),free=its.filter(x=>!x.cut&&!x.client);if(!cut.length&&!sold.length)return'';
     const sum=a=>a.reduce((s,x)=>s+x.v,0);const byC={};for(const x of sold){const k=x.client.client;byC[k]=byC[k]||{n:0,v:0};byC[k].n++;byC[k].v+=x.v;}
@@ -231,7 +233,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   $('#gpsBtn').onclick=()=>captureGps(g=>{l.gps=g;save();toast('Position relevée');render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
-  $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(new Blob([JSON.stringify(l,null,1)],{type:'application/json'}),fname(l,'json'));
+  $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(lotFile(l),fname(l,'json'));
   if($('#sync'))$('#sync').onclick=()=>syncLot(l);
   $('#arch').onclick=()=>{l.archive=!l.archive;DB.put('lots',l);toast(l.archive?'Lot archivé':'Lot remis en cours');back();};
   $('#delLot').onclick=e=>{if(e.target.dataset.c){S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
@@ -686,8 +688,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
   $('#restoreMe').onclick=()=>{upd();restoreUI(false);};$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
-  $('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const lots=j.lots||(j.id&&j.type?[j]:[]);for(const l of lots){if(!S.lots.find(x=>x.id===l.id)){S.lots.push(l);await DB.put('lots',l);}}
-    for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}toast(lots.length+' lot(s) importé(s)');render();}catch(x){toast('Fichier illisible');}};foot('');};
+  $('#imp').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};
 
 /* ---------- Exports ---------- */
 const safe=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'');
@@ -697,10 +698,10 @@ let lastUrl=null;
 function shareFile(blob,name,quiet){if(quiet){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return;}
   if(lastUrl)URL.revokeObjectURL(lastUrl);const url=lastUrl=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
-  const isPdf=/\.pdf$/i.test(name),kind=isPdf?'PDF':/\.xlsx$/i.test(name)?'Excel':'Fichier';
+  const isPdf=/\.pdf$/i.test(name),isJson=/\.json$/i.test(name),kind=isPdf?'PDF':/\.xlsx$/i.test(name)?'Excel':isJson?'Lot (fichier)':'Fichier';
   const file=new File([blob],name,{type:blob.type});const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
   const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mt">
-   <b id="mt">${kind} enregistré</b><p class="muted" style="margin:0">${esc(name)}<br>Dossier Téléchargements du téléphone.</p>
+   <b id="mt">${kind} enregistré</b><p class="muted" style="margin:0">${esc(name)}<br>${isJson?'Envoyez-le au collègue avec « Partager » ; sur son téléphone il l’ouvre par « Importer un lot reçu ».':'Dossier Téléchargements du téléphone.'}</p>
    <div class="stack"><button type="button" class="btn primary big" id="mOpen">Ouvrir</button>${canShare?'<button type="button" class="btn big" id="mShare">Partager (mail, WhatsApp…)</button>':''}<button type="button" class="btn" id="mClose">Fermer</button></div></div>`;
   document.body.appendChild(m);const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
@@ -809,6 +810,16 @@ async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Sync
 async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
   set('Lecture du Sheet SBF…','',false);const ok=await loadRef(true);const i=S.refInfo||{};
   if(ok)set('✓ Mise à jour depuis le Sheet',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) de prix · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec de la mise à jour',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();}
+/* Partage de lot entre téléphones : fichier .json (lot + grilles utilisées) */
+function lotFile(l){const gids=[l.grilleId,...(l.sousLots||[]).map(x=>x.grilleId)].filter(Boolean);return new Blob([JSON.stringify({app:'cubage-sbf',lot:l,grilles:S.grilles.filter(g=>gids.includes(g.id))},null,1)],{type:'application/json'});}
+async function importLotFile(file){let j;try{j=JSON.parse(await file.text());}catch(e){toast('Fichier illisible');return;}
+  const lots=j.lots||(j.lot?[j.lot]:(j.id&&j.type?[j]:[]));if(!lots.length){toast('Aucun lot dans ce fichier');return;}
+  let n=0,rep=0,last=null;for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}
+  for(const l of lots){const ex=S.lots.find(x=>x.id===l.id);if(ex){const when=d=>d?new Date(d).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'?';
+      if(!confirm('Le lot « '+(l.chantier||l.client||l.id)+' » existe déjà sur ce téléphone (modifié le '+when(ex.updated)+'). Le remplacer par la version reçue (modifiée le '+when(l.updated)+') ?'))continue;S.lots[S.lots.indexOf(ex)]=l;rep++;}else{S.lots.push(l);n++;}
+    if(l.sync==='done')l.sync='pending';await DB.put('lots',l);last=l;}
+  const set=statusBox();set('✓ Fichier importé',(n?n+' lot(s) ajouté(s)':'')+(n&&rep?' · ':'')+(rep?rep+' lot(s) remplacé(s)':'')+(!n&&!rep?'Aucun lot importé.':'')+'\nLe lot vous appartient maintenant : pensez à le sauvegarder sur le Sheet.',true);
+  if(last&&lots.length===1&&last.type!=='client'){S.lot=last;S.mod=last.type;S.hist=['home','module','lots'];go('lot');}else render();}
 /* Récupération des lots depuis le Sheet (changement de téléphone) */
 async function restoreUI(all){const set=statusBox();const url=S.params.syncUrl;if(!url){set('Synchronisation non configurée','Ouvrez d’abord le lien de configuration envoyé par le bureau.',true,true);return;}
   const me=(S.params.operateur||'').trim().toLowerCase();set('Lecture du Sheet SBF…',all?'Tous les lots sauvegardés':'Lots de l’opérateur « '+(S.params.operateur||'?')+' »',false);
