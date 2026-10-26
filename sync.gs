@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.3 (envois groupés, écriture par blocs).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.4 (récupération des lots sur un nouveau téléphone).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -10,7 +10,7 @@ const CLE = 'A_REMPLACER';
 const CLE_BUREAU = 'A_REMPLACER_BUREAU';
 
 // Onglets de sauvegarde des lots (remplacés lot par lot à chaque envoi)
-const TABLES = ['LOT','SOUS_LOT','GRUME','BILLON','ARBRE','TRONCON','RECOUPE'];
+const TABLES = ['LOT','SOUS_LOT','GRUME','BILLON','ARBRE','TRONCON','RECOUPE','LOT_JSON'];
 // Onglets des lots clients (remplacés lot client par lot client)
 const TABLES_CLIENT = ['LOT_CLIENT','LOT_CLIENT_LIGNE'];
 
@@ -44,6 +44,7 @@ function doGet(e) {
   if (!role) return out_({ ok:false, error:'clé refusée' });
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (p.action === 'params') return out_(params_(ss, role));
+  if (p.action === 'restore') return out_(restore_(ss, p.operateur));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
   return out_({ ok:true, info:'Cubage SBF : script actif', role: role });
 }
@@ -132,6 +133,19 @@ function params_(ss, role) {
   rows('DMM',21).forEach(r => { const d = Number(r[0]); if (d >= 6 && d <= 100) res.dmm[d] = r.slice(1,21).map(Number); });
   sheetRows_(ss, 'LOT_CLIENT').forEach(r => res.clientStatuts[String(r.client_id)] = String(r.statut || ''));
   return res;
+}
+function restore_(ss, operateur) {
+  // Lots complets (onglet LOT_JSON) et lots clients (colonne json de LOT_CLIENT), pour un opérateur ou tous
+  const op = String(operateur || '').trim().toLowerCase();
+  const info = {}; sheetRows_(ss, 'LOT').forEach(r => info[String(r.lot_id)] = r);
+  const parts = {}; sheetRows_(ss, 'LOT_JSON').forEach(r => { const id = String(r.lot_id); (parts[id] = parts[id] || []).push(r); });
+  const lots = [];
+  Object.keys(parts).forEach(id => { const i = info[id] || {}; if (op && String(i.operateur || '').trim().toLowerCase() !== op) return;
+    const ps = parts[id].sort((a, b) => Number(a.part) - Number(b.part)); if (ps.length !== Number(ps[0].total || ps.length)) return;
+    lots.push({ lot_id: id, operateur: i.operateur || '', chantier: i.chantier || '', date: i.date || '', type: i.type || '', updated: i.updated || '', json: ps.map(p => String(p.data || '')).join('') }); });
+  const clients = sheetRows_(ss, 'LOT_CLIENT').filter(r => r.json && (!op || String(r.operateur || '').trim().toLowerCase() === op))
+    .map(r => ({ client_id: String(r.client_id), operateur: r.operateur || '', client: r.client || '', statut: r.statut || '', updated_at: r.updated_at || '', json: String(r.json) }));
+  return { ok:true, lots: lots, clients: clients };
 }
 function stock_(ss) {
   const pick = (r, cols) => { const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? '' : r[c]); return o; };

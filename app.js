@@ -137,8 +137,8 @@ function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addE
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
 if(window.visualViewport){const fixFoot=()=>{const f=$('#foot');if(!f)return;const vv=window.visualViewport;const off=window.innerHeight-(vv.height+vv.offsetTop);f.style.transform=off>2?`translateY(-${off}px)`:'';};window.visualViewport.addEventListener('resize',fixFoot);window.visualViewport.addEventListener('scroll',fixFoot);}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
-function trEditor(list,id){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button><span class="tvol" data-tv="${i}"></span></div>`).join('')}
-  <button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button></div>`;}
+function trEditor(list,id,noBtn){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}"${noBtn?' data-nobtn="1"':''}>${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button><span class="tvol" data-tv="${i}"></span></div>`).join('')}
+  ${noBtn?'':`<button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button>`}</div>`;}
 function readTr(id){return [...document.querySelectorAll(`#${id} .tr-row`)].map(r=>({h:num(r.querySelector('[data-f=h]').value),q:r.querySelector('[data-f=q]').value})).filter(t=>t.h>0);}
 
 /* ---------- Écrans ---------- */
@@ -146,7 +146,7 @@ const V={};
 const MODS={grumes:{t:'Cubage bord de route',s:'Grumes et billons'},pied:{t:'Estimation sur pied',s:'Inventaire et barème Chaudé'}};
 const syncLab=l=>l.sync==='done'?'sauvegardé le '+new Date(l.synced).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):l.sync==='pending'?'à sauvegarder':'non sauvegardé';
 V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operateur:'');
-  const card=m=>{const ls=S.lots.filter(l=>l.type===m),todo=ls.filter(l=>l.sync!=='done').length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
+  const card=m=>{const ls=S.lots.filter(l=>l.type===m&&!l.archive),todo=ls.filter(l=>l.sync!=='done'&&!l.test).length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
   $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button>
   <div class="row" style="gap:8px"><button class="btn big" id="hSync" style="flex:1">☁ Sauvegarder les lots${(()=>{const n=lotsToSync().length;return n?` <span class="pill warn">${n}</span>`:'';})()}</button><button class="btn big" id="hRef" style="flex:1">⟳ Mettre à jour depuis le Sheet</button></div>
   <small class="muted" style="text-align:center">Sauvegarder = envoyer vos lots sur le Sheet SBF · Mettre à jour = recevoir essences, qualités, grilles de prix et statuts des ventes</small>
@@ -160,9 +160,11 @@ V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>
 V.lots=()=>{const m=S.mod||'grumes';head('Lots · '+MODS[m].t);const qy=S.lotSearch||'';
   $('#main').innerHTML=`<input id="lsq" type="search" placeholder="Rechercher : n° Xylolink, chantier, commune, dépt, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="lsl"></div>`;
   const draw=()=>{const words=($('#lsq').value||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(Boolean);
-    const ls=S.lots.filter(l=>l.type===m).filter(l=>{const hay=[l.xylo,l.chantier,l.commune,l.dept,l.date,l.date&&l.date.split('-').reverse().join('/'),l.operateur,...(l.sousLots||[]).map(x=>x.nom)].join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');return words.every(w=>hay.includes(w));})
+    const nArch=S.lots.filter(l=>l.type===m&&l.archive).length;
+    const ls=S.lots.filter(l=>l.type===m&&(S.showArch?l.archive:!l.archive)).filter(l=>{const hay=[l.xylo,l.chantier,l.commune,l.dept,l.date,l.date&&l.date.split('-').reverse().join('/'),l.operateur,...(l.sousLots||[]).map(x=>x.nom)].join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');return words.every(w=>hay.includes(w));})
       .sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
-    $('#lsl').innerHTML=ls.length?ls.map(l=>{const t=lotTotals(l);return `<button class="item" data-open="${l.id}"><div class="t"><b>${l.xylo?esc(l.xylo)+' · ':''}${esc(l.chantier||'Sans nom')}</b><small>${esc(l.date.split('-').reverse().join('/'))}${l.commune?' · '+esc(l.commune)+(l.dept?' ('+esc(l.dept)+')':''):''} · ${m==='grumes'?t.n+' grumes':t.n+' tiges'} · ${syncLab(l)}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):`<p class="muted">${words.length?'Aucun lot ne correspond.':'Aucun lot. Créez le premier.'}</p>`;
+    $('#lsl').innerHTML=(nArch||S.showArch?`<button type="button" class="btn block" id="tgArch" style="margin-bottom:8px">${S.showArch?'‹ Retour aux lots en cours':'Voir les lots archivés ('+nArch+')'}</button>`:'')+(ls.length?ls.map(l=>{const t=lotTotals(l);return `<button class="item" data-open="${l.id}"><div class="t"><b>${l.test?'<span class="pill warn">ESSAI</span> ':''}${l.xylo?esc(l.xylo)+' · ':''}${esc(l.chantier||'Sans nom')}</b><small>${esc(l.date.split('-').reverse().join('/'))}${l.commune?' · '+esc(l.commune)+(l.dept?' ('+esc(l.dept)+')':''):''} · ${m==='grumes'?t.n+' grumes':t.n+' tiges'} · ${l.test?'lot d’essai':syncLab(l)}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):`<p class="muted">${words.length?'Aucun lot ne correspond.':S.showArch?'Aucun lot archivé.':'Aucun lot en cours. Créez le premier.'}</p>`);
+    if($('#tgArch'))$('#tgArch').onclick=()=>{S.showArch=!S.showArch;draw();};
     $('#lsl').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.slFilter='';S.hist.push('lots');go('lot');});};
   $('#lsq').oninput=()=>{S.lotSearch=$('#lsq').value;draw();};draw();foot('');};
 
@@ -187,18 +189,19 @@ V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.
   <div class="stack"><span class="l-sec">Qualités du lot</span>${multi('qualSel',p.qualites,[])}</div>
   <p class="muted" style="margin:0">Cochez les essences et qualités du lot : seules celles-ci apparaîtront à la saisie. Le bouton + permet d’en ajouter en cours de route.</p>
   <label class="f"><span class="l">Grille de prix</span><select id="grille"><option value="">Aucune</option>${S.grilles.filter(g=>g.type===m0).map(g=>`<option value="${g.id}">${esc(g.nom)}</option>`).join('')}</select></label>
+  <label class="row" style="gap:10px"><input id="essai" type="checkbox" style="width:24px;height:24px"><span>Lot d’essai / formation — jamais envoyé sur le Sheet, à supprimer quand on n’en a plus besoin</span></label>
   </div>`;
   bindMulti();
   $('#gpsBtn').onclick=()=>captureGps(g=>{S.newGps=g;$('#gpsTxt').textContent=gpsTxt(g);$('#gpsBtn').textContent='Relever à nouveau';toast('Position relevée');});
   foot(`<button class="btn primary big" id="create">Créer le lot</button>`);
-  $('#create').onclick=()=>{const type=m0;const xylo=$('#xylo')?$('#xylo').value.trim():'';if(type==='grumes'&&!xylo){toast('Le n° de chantier Xylolink est obligatoire');$('#xylo').focus();return;}const lot={id:uid(),type,xylo,chantier:$('#chantier').value.trim(),commune:$('#commune').value.trim(),dept:$('#dept').value.trim(),gps:S.newGps||null,date:$('#date').value,operateur:$('#op').value.trim(),
+  $('#create').onclick=()=>{const type=m0;const xylo=$('#xylo')?$('#xylo').value.trim():'';const test=$('#essai').checked;if(type==='grumes'&&!xylo&&!test){toast('Le n° de chantier Xylolink est obligatoire');$('#xylo').focus();return;}const lot={id:uid(),type,xylo,test,chantier:$('#chantier').value.trim(),commune:$('#commune').value.trim(),dept:$('#dept').value.trim(),gps:S.newGps||null,date:$('#date').value,operateur:$('#op').value.trim(),
     numDepart:Number($('#numDepart').value)||1,tarif:Math.min(20,Math.max(1,Number($('#tarif').value)||8)),mode:$('#mode').value,grilleId:$('#grille').value||null,grilleLocal:null,
     sousLots:[],grumes:[],arbres:[],classH:{},essSel:readMulti('essSel'),qualSel:readMulti('qualSel'),sync:'new',created:new Date().toISOString()};
     if(!lot.essSel.length){toast('Cochez au moins une essence');return;}if(!lot.qualSel.length){toast('Cochez au moins une qualité');return;}
     if($('#op').value.trim()){S.params.operateur=$('#op').value.trim();saveParams();}
     S.newGps=null;S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home','module','lots'];go('lot');};};
 
-V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes'?'Grumes'+(l.xylo?' · Xylolink '+l.xylo:' · n° Xylolink manquant'):'Sur pied')+' · '+l.date);
+V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier||'Lot'),(l.archive?'Archivé · ':'')+(l.type==='grumes'?'Grumes'+(l.xylo?' · Xylolink '+l.xylo:l.test?'':' · n° Xylolink manquant'):'Sur pied')+' · '+l.date);
   const g=lotGrille(l);
   $('#main').innerHTML=`<div class="kpi"><div><b>${f3(t.v)}</b><small>m³</small></div><div><b>${t.n}</b><small>${l.type==='grumes'?'grumes':'tiges'}</small></div>${l.type==='grumes'?`<div><b>${t.nb}</b><small>billons</small></div>`:`<div><b>${t.sans||0}</b><small>sans hauteur</small></div>`}</div>
   <div class="stack" style="margin-top:12px">
@@ -209,7 +212,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Sauvegarde JSON</button></div>
-  <button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}
+  ${l.test?'<span class="pill warn">Lot d’essai : jamais envoyé sur le Sheet SBF</span>':`<button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}`}
   ${(l.type==='grumes'&&!l.isClient)?(()=>{const st=lotStatus(l);const its=Object.values(st);const cut=its.filter(x=>x.cut),sold=its.filter(x=>x.client&&!x.cut),free=its.filter(x=>!x.cut&&!x.client);if(!cut.length&&!sold.length)return'';
     const sum=a=>a.reduce((s,x)=>s+x.v,0);const byC={};for(const x of sold){const k=x.client.client;byC[k]=byC[k]||{n:0,v:0};byC[k].n++;byC[k].v+=x.v;}
     return `<h2>Stock et ventes</h2><div class="card stack"><div class="kpi"><div><b>${free.length}</b><small>en stock · ${f3(sum(free))} m³</small></div><div><b>${sold.length}</b><small>vendus · ${f3(sum(sold))} m³</small></div><div><b>${cut.length}</b><small>recoupés</small></div></div>
@@ -222,13 +225,15 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head(l.chantier||'Lot',(l.type==='grumes
   ${gpsBlock(l.gps)}
   <div class="row"><label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(l.operateur||'')}"></label>${l.type==='pied'?`<label class="f"><span class="l">Tarif par défaut</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="${l.tarif}"></label>`:''}</div>
   ${l.type==='pied'?`<label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam"${l.mode==='diam'?' selected':''}>Diamètre seul</option><option value="classes"${l.mode==='classes'?' selected':''}>Classes avec effectifs</option><option value="pieds"${l.mode==='pieds'?' selected':''}>Pied à pied numéroté</option></select></label>`:''}
-  <button class="btn danger" id="delLot">Supprimer ce lot</button></div></div>`;
+  <div class="row"><button class="btn grow" id="arch"${(!l.archive&&!l.test&&l.sync!=='done')?' disabled':''}>${l.archive?'Désarchiver (remettre en cours)':'Archiver ce lot'}</button><button class="btn danger grow" id="delLot">Supprimer ce lot</button></div>
+  ${(!l.archive&&!l.test&&l.sync!=='done')?'<span class="muted">Archivage possible une fois le lot sauvegardé sur le Sheet. Un lot archivé reste sur le téléphone (liste « lots archivés ») mais n’encombre plus la liste.</span>':''}</div></div>`;
   $('#chantier').oninput=e=>{l.chantier=e.target.value;save();};$('#date').onchange=e=>{l.date=e.target.value;save();};$('#op').oninput=e=>{l.operateur=e.target.value;save();};$('#commune').oninput=e=>{l.commune=e.target.value;save();};if($('#xylo'))$('#xylo').oninput=e=>{l.xylo=e.target.value.trim();e.target.style.borderColor=l.xylo?'':'var(--bad)';save();};$('#dept').oninput=e=>{l.dept=e.target.value;save();};
   $('#gpsBtn').onclick=()=>captureGps(g=>{l.gps=g;save();toast('Position relevée');render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
   $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(new Blob([JSON.stringify(l,null,1)],{type:'application/json'}),fname(l,'json'));
-  $('#sync').onclick=()=>syncLot(l);
+  if($('#sync'))$('#sync').onclick=()=>syncLot(l);
+  $('#arch').onclick=()=>{l.archive=!l.archive;DB.put('lots',l);toast(l.archive?'Lot archivé':'Lot remis en cours');back();};
   $('#delLot').onclick=e=>{if(e.target.dataset.c){S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
   foot('');};
 
@@ -293,7 +298,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    :`<label class="f" style="max-width:200px"><span class="l">Diamètre à 1,30 m (cm)</span><input class="big" id="d" type="number" inputmode="numeric" value="${f.d??''}" placeholder="cm"></label>`}
    ${mode!=='diam'?`<label class="f" style="max-width:200px"><span class="l">Hauteur (m)${mode==='classes'?' · optionnel':''}</span><input class="big" id="h" type="number" inputmode="decimal" step="0.5" value="${f.h??''}" placeholder="m"></label>
    <div class="vbox main"><b id="av">—</b><small id="avs">m³</small></div>
-   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr')}<div class="row"><p class="muted grow" style="margin:0" id="trRest">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p>${addBtn('q')}</div></div>`:''}
+   <div class="stack sec"><span class="sec-t">Tronçons de qualité <span class="muted">(du bas vers le haut, optionnel)</span></span>${trEditor(f.tr||[],'tr',true)}<div class="row"><p class="muted grow" style="margin:0" id="trRest">Le reste jusqu’à la hauteur est compté en « ${esc(resteQ())} ».</p>${addBtn('q')}</div></div>`:''}
    ${mode==='diam'&&!byClass?'':''}
    ${l.arbres.length?`<div class="row"><span class="muted grow">Dernière : ${lastArbre(l)}</span><button type="button" class="btn" id="undo">Annuler dernière</button></div>`:''}
   </div>`;
@@ -305,7 +310,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
     rows.forEach(r=>{const hh=num(r.querySelector('[data-f=h]').value),sp=r.querySelector('[data-tv]');if(!sp)return;if(hh>0){const x=res[k++];sp.textContent=x?f3(x.v)+' m³':'';}else sp.textContent='';});
     const rest=$('#trRest');if(rest){const sum=sumTr(tr);if(ok&&sum>f.h+1e-9){rest.innerHTML='<b style="color:var(--bad)">Tronçons : '+f1(sum)+' m > hauteur '+f1(f.h)+' m</b>';}else{const x=(ok&&sum<f.h)?res[res.length-1]:null;rest.textContent=x?'Reste « '+resteQ()+' » : '+f1(x.h)+' m · '+f3(x.v)+' m³':'Le reste jusqu’à la hauteur est compté en « '+resteQ()+' ».';}}};
   if($('#d'))$('#d').oninput=e=>{f.d=num(e.target.value);updA();};if($('#h'))$('#h').oninput=e=>{f.h=num(e.target.value);updA();};updA();
-  bindTr('tr',()=>{f.tr=readTr('tr');updA();});
+  const rebindTr=()=>bindTr('tr',()=>{f.tr=readTr('tr');updA();});rebindTr();
   if($('#undo'))$('#undo').onclick=()=>{l.arbres.pop();save();render();};
   const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
     if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
@@ -313,12 +318,14 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
     rec.saisi=new Date().toISOString();l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();};
   S.flash=null;
   if($('#cl'))$('#cl').onclick=e=>{const b=e.target.closest('button');if(!b)return;f.d=Number(b.dataset.c);if(mode==='diam'&&!ed){S.flash=f.d;try{navigator.vibrate&&navigator.vibrate(30);}catch(x){}commit();}else render();};
-  foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
+  const hasTr=!!$('#tr');
+  foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${hasTr?'<button type="button" class="btn big" id="addTrF">+ Qualité</button>':''}${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};if($('#ok'))$('#ok').onclick=commit;
+  if($('#addTrF'))$('#addTrF').onclick=()=>{const root=$('#tr');if(!root)return;const list=readTr('tr');list.push({h:null,q:''});root.outerHTML=trEditor(list,'tr',true);rebindTr();const x=[...document.querySelectorAll('#tr [data-f=h]')].pop();x&&x.focus();};
   if(!ed&&$('#d'))setTimeout(()=>{const x=$('#d');x&&x.focus();},0);};
 function lastArbre(l){const a=l.arbres[l.arbres.length-1];if(!a)return '';return (a.n>1?a.n+'×':'')+a.ess+' '+a.d+(a.h?' · '+a.h+' m':'')+' · T'+tarifOf(l,a);}
 function bindTr(id,onChange){const root=$('#'+id);if(!root)return;root.addEventListener('click',e=>{const d=e.target.closest('[data-del]');if(d){d.closest('.tr-row').remove();onChange&&onChange();return;}
-  const ad=e.target.closest('[data-add-tr]');if(ad){const list=readTr(id);list.push({h:null,q:''});root.outerHTML=trEditor(list,id);bindTr(id,onChange);const x=[...document.querySelectorAll(`#${id} [data-f=h]`)].pop();x&&x.focus();}});
+  const ad=e.target.closest('[data-add-tr]');if(ad){const list=readTr(id);list.push({h:null,q:''});root.outerHTML=trEditor(list,id,root.dataset.nobtn==='1');bindTr(id,onChange);const x=[...document.querySelectorAll(`#${id} [data-f=h]`)].pop();x&&x.focus();}});
   root.addEventListener('input',()=>onChange&&onChange());root.addEventListener('change',()=>onChange&&onChange());}
 
 /* --- Hauteurs par classe --- */
@@ -355,7 +362,7 @@ V.tarifs=()=>{const l=S.lot;head('Tarifs Chaudé',l.chantier);const base=S.tarif
    Stock = billons des lots de cubage du téléphone + tronçons issus de recoupes,
    hors éléments recoupés et hors éléments déjà affectés à un lot client. */
 function stockItems(){const items=[];const rcs=[];
-  for(const l of S.lots){if(l.type!=='grumes')continue;const orig=(l.xylo?l.xylo+' · ':'')+(l.chantier||'');
+  for(const l of S.lots){if(l.type!=='grumes'||l.test||l.archive)continue;const orig=(l.xylo?l.xylo+' · ':'')+(l.chantier||'');
     for(const g of l.grumes)for(const b of g.billons)items.push({key:l.id+'|'+b.id,lotId:l.id,id:b.id,num:g.num+'.'+b.rang,base:String(g.num),ess:g.ess,q:b.q||'',lm:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,red:redTxt(b),v:volB(b),orig,lot:l});
     for(const rc of l.recoupes||[]){rcs.push(rc.parentKey);for(const p of rc.pieces)items.push({key:l.id+'|'+p.id,lotId:l.id,id:p.id,num:p.num,base:String(p.num).split('.')[0],ess:rc.ess,q:p.q||'',lm:p.lm,d:p.d,v:Calc.volBillon(p.d,p.lm),orig,lot:l,parent:rc.parentNum});}}
   const cut=new Set(rcs);const sold={};for(const c of S.lots)if(c.type==='client')for(const k of c.lignes||[])sold[k]=c;
@@ -379,8 +386,10 @@ V.clients=()=>{head('Lots clients');const qy=S.cliSearch||'';
   $('#main').innerHTML=`<button class="tile" data-go="newClient" style="margin-bottom:12px"><b>+ Nouveau lot client</b><small>Billons des lots du téléphone, hors ligne</small></button>
   <input id="csq" type="search" placeholder="Rechercher : client, référence, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="csl"></div>`;
   const draw=()=>{const w=($('#csq').value||'').toLowerCase().split(/\s+/).filter(Boolean);
-    const ls=S.lots.filter(l=>l.type==='client').filter(c=>{const h=[c.client,c.ref,c.date,c.date&&c.date.split('-').reverse().join('/'),c.note].join(' ').toLowerCase();return w.every(x=>h.includes(x));}).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
-    $('#csl').innerHTML=ls.length?ls.map(c=>{const t=cliTot(c);return `<button class="item" data-cli="${c.id}"><div class="t"><b>${esc(c.client||'Client ?')} <span class="pill${(c.statut||'brouillon')==='valide'?'':' warn'}">${STL[c.statut||'brouillon']}</span></b><small>${esc((c.date||'').split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${t.n} billon(s)${t.m!=null?' · '+f2(t.m)+' €':''}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot client.</p>';
+    const nArch=S.lots.filter(l=>l.type==='client'&&l.archive).length;
+    const ls=S.lots.filter(l=>l.type==='client'&&(S.showArchC?l.archive:!l.archive)).filter(c=>{const h=[c.client,c.ref,c.date,c.date&&c.date.split('-').reverse().join('/'),c.note].join(' ').toLowerCase();return w.every(x=>h.includes(x));}).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
+    $('#csl').innerHTML=(nArch||S.showArchC?`<button type="button" class="btn block" id="tgArchC" style="margin-bottom:8px">${S.showArchC?'‹ Retour aux lots clients en cours':'Voir les lots clients archivés ('+nArch+')'}</button>`:'')+(ls.length?ls.map(c=>{const t=cliTot(c);return `<button class="item" data-cli="${c.id}"><div class="t"><b>${esc(c.client||'Client ?')} <span class="pill${(c.statut||'brouillon')==='valide'?'':' warn'}">${STL[c.statut||'brouillon']}</span></b><small>${esc((c.date||'').split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${t.n} billon(s)${t.m!=null?' · '+f2(t.m)+' €':''}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot client.</p>');
+    if($('#tgArchC'))$('#tgArchC').onclick=()=>{S.showArchC=!S.showArchC;draw();};
     $('#csl').querySelectorAll('[data-cli]').forEach(b=>b.onclick=()=>{S.cli=S.lots.find(x=>x.id===b.dataset.cli);S.hist.push('clients');go('client');});};
   $('#csq').oninput=()=>{S.cliSearch=$('#csq').value;draw();};draw();foot('');};
 
@@ -408,7 +417,7 @@ V.client=()=>{const c=S.cli;if(!c){back();return;}c.statut=c.statut||'brouillon'
   <label class="f"><span class="l">Remarques</span><input id="cn" value="${esc(c.note||'')}"></label>
   <div class="msg ${c.statut==='valide'?'good':c.statut==='annule'?'bad':'warn'}">${STL[c.statut]}${c.synced?' · envoyé le '+new Date(c.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):' · non envoyé'}${c.sync==='pending'?' · à renvoyer':''}</div>
   ${c.statut==='brouillon'?`<button class="btn primary" id="cval">${bu?'Valider la vente':'Transmettre au bureau'}</button>`:c.statut==='propose'?`${bu?'<button class="btn primary" id="cval">Valider la vente</button>':''}<button class="btn" id="cback">Repasser en brouillon</button>`:c.statut==='valide'&&bu?'<button class="btn" id="cback">Annuler la validation (repasser en brouillon)</button>':c.statut==='annule'?'<p class="muted" style="margin:0">Ce lot a été annulé par le bureau. Repassez-le en brouillon pour le modifier et le retransmettre.</p><button class="btn primary" id="cback">Repasser en brouillon</button>':''}
-  ${lock&&c.statut!=='annule'?'<button class="btn" id="csync">Renvoyer au Sheet</button>':''}<button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>`;
+  ${lock&&c.statut!=='annule'?'<button class="btn" id="csync">Renvoyer au Sheet</button>':''}<button class="btn" id="carch">${c.archive?'Désarchiver':'Archiver'}</button><button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>`;
   const fld=(id,k)=>$(id).oninput=$(id).onchange=e=>{c[k]=e.target.value;save(c);};fld('#cl','client');fld('#cd','date');fld('#cr','ref');fld('#cn','note');$('#cg').onchange=e=>{c.grilleId=e.target.value||null;c.grilleLocal=null;save(c);render();};
   $('#main').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{c.lignes=c.lignes.filter(k=>k!==b.dataset.rm);save(c);render();});
   $('#crec').onclick=()=>{S.lot=clientVirtual(c);S.slFilter='';S.hist.push('client');go('recap');};
@@ -417,7 +426,7 @@ V.client=()=>{const c=S.cli;if(!c){back();return;}c.statut=c.statut||'brouillon'
   if($('#cval'))$('#cval').onclick=async()=>{if(!c.lignes.length){toast('Aucun billon dans ce lot');return;}const miss=clientMissing(c);if(miss.length){toast(miss.length+' billon(s) sans prix unitaire : renseignez les prix de vente');return;}const prev=c.statut;c.statut=bu?'valide':'propose';save(c);const ok=await syncClient(c);if(!ok){c.statut=prev;save(c);render();}};
   if($('#cback'))$('#cback').onclick=async()=>{const prev=c.statut;c.statut='brouillon';save(c);const ok=await syncClient(c);if(!ok){c.statut=prev;save(c);}render();};
   if($('#csync'))$('#csync').onclick=()=>syncClient(c);
-  $('#cdel').onclick=async e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : les billons repassent en stock';e.target.dataset.c='1';return;}
+  $('#carch').onclick=()=>{c.archive=!c.archive;DB.put('lots',c);toast(c.archive?'Lot client archivé':'Lot client remis en cours');back();};$('#cdel').onclick=async e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : les billons repassent en stock';e.target.dataset.c='1';return;}
     if(c.synced){c.statut='annule';c.lignes=[];const ok=await syncClient(c,true);if(!ok){toast('Impossible de prévenir le Sheet (réseau ?) : réessayez');c.statut='brouillon';return;}}
     S.lots=S.lots.filter(x=>x!==c);DB.del('lots',c.id);S.cli=null;back();};foot('');};
 
@@ -646,7 +655,9 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(p.operateur)}"></label></div>
   <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><label class="f"><span class="l">Clé bureau (valide les ventes)</span><input id="keyb" value="${esc(p.syncKeyBureau||'')}" placeholder="vide sur les téléphones de terrain"></label><label class="f"><span class="l">Coller le lien de configuration</span><div class="row"><input id="cfgLink" placeholder="https://…#cfg=…" style="flex:1"><button type="button" class="btn primary" id="cfgOk">Valider</button></div></label><p class="muted" style="margin:0">Collez ici le lien reçu du bureau (indispensable sur iPhone). Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
   <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé : ${esc(p.refLoaded)}</span>`:''}</div>
-  <div class="card stack"><h2>Données locales</h2><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un lot JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
+  <div class="card stack"><h2>Changement de téléphone</h2><span class="muted">Sur le nouveau téléphone : ouvrir le lien de configuration, renseigner l’opérateur, puis récupérer les lots sauvegardés sur le Sheet. Les lots déjà présents ne sont pas modifiés.</span>
+  <div class="row"><button class="btn grow primary" id="restoreMe">Récupérer mes lots depuis le Sheet</button><button class="btn grow" id="restoreAll">Tous les opérateurs</button></div></div>
+  <div class="card stack"><h2>Données locales</h2><span class="muted">Copie de secours complète (fichier) : à partager sur Drive, AirDrop ou par mail, puis importer sur l’autre appareil.</span><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un fichier JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
   </div>`;
   const splitList=v=>v.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
@@ -655,6 +666,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=()=>{upd();loadRefUI();};
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
+  $('#restoreMe').onclick=()=>{upd();restoreUI(false);};$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const lots=j.lots||(j.id&&j.type?[j]:[]);for(const l of lots){if(!S.lots.find(x=>x.id===l.id)){S.lots.push(l);await DB.put('lots',l);}}
     for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}toast(lots.length+' lot(s) importé(s)');render();}catch(x){toast('Fichier illisible');}};foot('');};
@@ -738,11 +750,14 @@ function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo
     const [sd,sh]=g.saisi?dLoc(g.saisi):[l.date,''];BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,saisi_le:sd,saisi_heure:sh,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,reduction_l_cm:b.rl||0,reduction_d_cm:b.rd||0,longueur_cubee_m:cubL(b),diametre_cube_cm:cubD(b),classe:cls(g.ess,cubD(b)),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
   for(const a of l.arbres){const x=arbreCalc(l,a);const [ad,ah]=a.saisi?dLoc(a.saisi):[l.date,''];ARBRE.push({lot_id:l.id,chantier:l.chantier||'',date:l.date,saisi_le:ad,saisi_heure:ah,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
-  return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON,RECOUPE};}
+  // Copie intégrale du lot (JSON découpé en parts de 40 000 caractères) pour pouvoir le récupérer sur un autre téléphone
+  const gids=[l.grilleId,...(l.sousLots||[]).map(x=>x.grilleId)].filter(Boolean);const grilles=S.grilles.filter(g=>gids.includes(g.id));
+  const txt=JSON.stringify({lot:l,grilles});const LOT_JSON=[];for(let i=0,p=1;i<txt.length;i+=40000,p++)LOT_JSON.push({lot_id:l.id,part:p,total:Math.ceil(txt.length/40000),data:txt.slice(i,i+40000)});
+  return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON,RECOUPE,LOT_JSON};}
 /* Fenêtre d'état pour la sauvegarde : en cours, réussie ou en échec */
 function statusBox(){const m=document.createElement('div');m.className='modal';m.innerHTML='<div class="modal-box"><b id="sbT"></b><p id="sbM" style="margin:0"></p><button type="button" class="btn primary big" id="sbOk" hidden>OK</button></div>';document.body.appendChild(m);
   const set=(t,msg,done,bad)=>{m.querySelector('#sbT').textContent=t;m.querySelector('#sbT').style.color=bad?'var(--bad)':'';m.querySelector('#sbM').textContent=msg;m.querySelector('#sbOk').hidden=!done;};m.querySelector('#sbOk').onclick=()=>m.remove();return set;}
-async function syncLot(l,quiet){const url=S.params.syncUrl;
+async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.test){if(!quiet){const set=statusBox();set('Lot d’essai','Ce lot a été créé comme lot d’essai : il n’est jamais envoyé sur le Sheet.',true,true);}return false;}
   if(!url){if(!quiet){const set=statusBox();set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau.',true,true);}return false;}
   if(!navigator.onLine){l.sync='pending';DB.put('lots',l);if(!quiet){const set=statusBox();set('Pas de réseau','Le lot reste enregistré sur le téléphone. Relancez la sauvegarde quand vous aurez du réseau.',true,true);}return false;}
   if(l.type==='grumes'&&!l.xylo){if(!quiet){const st=statusBox();st('N° de chantier Xylolink manquant','Renseignez-le dans la fiche du lot avant de sauvegarder sur le Sheet.',true,true);}return false;}
@@ -764,7 +779,7 @@ async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onL
     const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
 /* Boutons « Sauvegarder les lots » et « Mettre à jour depuis le Sheet » (accueil et Paramètres) */
-const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
+const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
 async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
   if(!navigator.onLine){set('Pas de réseau','Les lots restent enregistrés sur le téléphone. Relancez quand vous aurez du réseau.',true,true);return;}
   const todo=lotsToSync();if(!todo.length){set('✓ Tout est déjà sauvegardé','Aucun lot modifié depuis la dernière sauvegarde sur le Sheet SBF.',true);return;}
@@ -776,12 +791,25 @@ async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Sync
 async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
   set('Lecture du Sheet SBF…','',false);const ok=await loadRef(true);const i=S.refInfo||{};
   if(ok)set('✓ Mise à jour depuis le Sheet',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) de prix · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec de la mise à jour',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();}
+/* Récupération des lots depuis le Sheet (changement de téléphone) */
+async function restoreUI(all){const set=statusBox();const url=S.params.syncUrl;if(!url){set('Synchronisation non configurée','Ouvrez d’abord le lien de configuration envoyé par le bureau.',true,true);return;}
+  const me=(S.params.operateur||'').trim().toLowerCase();set('Lecture du Sheet SBF…',all?'Tous les lots sauvegardés':'Lots de l’opérateur « '+(S.params.operateur||'?')+' »',false);
+  try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),120000);const res=await fetch(url+(url.includes('?')?'&':'?')+'action=restore&key='+encodeURIComponent(apiKey())+(all||!me?'':'&operateur='+encodeURIComponent(S.params.operateur.trim())),{signal:ctl.signal});clearTimeout(to);
+    const j=await res.json();if(!j.ok)throw new Error(j.error==='action inconnue'?'Le script du Sheet doit être mis à jour (version 2.4).':j.error||'refusé');
+    let n=0,skip=0,others=0,ng=0;const have=new Set(S.lots.map(l=>l.id));
+    for(const r of j.lots||[]){if(have.has(String(r.lot_id))){skip++;continue;}if(!all&&me&&String(r.operateur||'').trim().toLowerCase()!==me){others++;continue;}if(!r.json)continue;
+      let o;try{o=JSON.parse(r.json);}catch(e){continue;}const l=o.lot||o;if(!l||!l.id)continue;for(const g of o.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);ng++;}
+      l.sync='done';l.synced=r.updated||new Date().toISOString();S.lots.push(l);await DB.put('lots',l);have.add(l.id);n++;}
+    for(const r of j.clients||[]){if(have.has(String(r.client_id))){skip++;continue;}if(!all&&me&&String(r.operateur||'').trim().toLowerCase()!==me){others++;continue;}if(!r.json)continue;
+      let c;try{c=JSON.parse(r.json);}catch(e){continue;}if(!c||!c.id)continue;c.statut=r.statut||c.statut;c.sync='done';c.synced=r.updated_at||new Date().toISOString();S.lots.push(c);await DB.put('lots',c);have.add(c.id);n++;}
+    set('✓ Récupération terminée',n+' lot(s) récupéré(s) sur ce téléphone'+(ng?' · '+ng+' grille(s) de prix':'')+'.'+(skip?' '+skip+' déjà présent(s).':'')+(others?' '+others+' lot(s) d’autres opérateurs non récupéré(s) (bouton « tous les opérateurs »).':'')+'\nSeuls les lots sauvegardés avec l’application à jour (v47 ou plus) sont récupérables.',true);render();}
+  catch(e){set('Échec de la récupération',e.name==='AbortError'?'Le réseau ne répond pas.':e.message,true,true);}}
 /* Lecture d'un lien de configuration (…#cfg=…) */
 function parseCfg(txt){const m=/#cfg=([A-Za-z0-9_\-+\/=]+)/.exec(txt||'');if(!m)return null;try{const c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));return c&&c.u?c:null;}catch(e){return null;}}
 /* ---------- Lots clients : envoi au Sheet ---------- */
 function clientRows(c){const v=clientVirtual(c),g=lotGrille(v);const lignes=v.grumes.map(gr=>{const b=gr.billons[0];const L=prixLine(g,gr.ess,b.q||'',cubD(b)),vol=Math.round(volB(b)*10000)/10000;
     return{billon_key:b.id,num:b.label,essence:gr.ess,qualite:b.q||'',longueur_m:b.lm,diametre_cm:b.d,reduction:redTxt(b),volume_m3:vol,origine:gr.orig,prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*vol*100)/100:''};});
-  return{client:{client_id:c.id,client:c.client||'',date:c.date||'',ref:c.ref||'',grille:g?g.nom:'',note:c.note||'',statut:c.statut||'brouillon',operateur:S.params.operateur||'',nb_billons:lignes.length,volume_m3:Math.round(lignes.reduce((s,x)=>s+x.volume_m3,0)*1000)/1000,montant:lignes.some(x=>x.montant!=='')?Math.round(lignes.reduce((s,x)=>s+(Number(x.montant)||0),0)*100)/100:'',created:c.created||''},lignes};}
+  return{client:{client_id:c.id,client:c.client||'',date:c.date||'',ref:c.ref||'',grille:g?g.nom:'',note:c.note||'',statut:c.statut||'brouillon',operateur:S.params.operateur||'',nb_billons:lignes.length,volume_m3:Math.round(lignes.reduce((s,x)=>s+x.volume_m3,0)*1000)/1000,montant:lignes.some(x=>x.montant!=='')?Math.round(lignes.reduce((s,x)=>s+(Number(x.montant)||0),0)*100)/100:'',created:c.created||'',json:(()=>{const t=JSON.stringify(c);return t.length<45000?t:'';})()},lignes};}
 async function syncClient(c,quiet){const url=S.params.syncUrl;const set=quiet?null:statusBox();
   if(!url){if(set)set('Synchronisation non configurée','Ouvrez une fois le lien de configuration.',true,true);return false;}
   if(!navigator.onLine){c.sync='pending';DB.put('lots',c);if(set)set('Pas de réseau','Le lot client reste sur le téléphone ; il sera envoyé plus tard.',true,true);return false;}
