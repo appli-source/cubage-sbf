@@ -157,7 +157,19 @@ details[open]>summary{margin-bottom:10px}
 .sec{border-top:1px solid var(--line);padding-top:12px}
 .sec-t{font-weight:700;font-size:15px}
 .btn.add{border:1.5px dashed var(--accent);color:var(--accent);background:var(--accent-soft)}
-@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+/* Mode vocal (voice.js) */
+.voc{display:flex;flex-direction:column;gap:8px}
+.voc.on{background:var(--card);border:1.5px solid var(--accent);border-radius:var(--r);padding:10px 12px}
+.voc.on.paused{border-color:var(--warn);border-style:dashed}
+.voc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
+.voc-head .btn{min-height:40px;padding:4px 12px}
+.voc-dot{flex:0 0 12px;width:12px;height:12px;border-radius:50%;background:var(--bad);animation:vocpulse 1.4s ease-in-out infinite}
+.voc.paused .voc-dot{background:var(--warn);animation:none}
+@keyframes vocpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+.voc-last{font-size:24px;font-weight:700;line-height:1.2;min-height:30px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.voc-part{font-size:14px;min-height:18px}
+.voc-help{font-size:13px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.voc-dot{animation:none}}
 </style>
 <header class="top" id="top"></header>
 <main id="main"></main>
@@ -166,7 +178,8 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=54"></script>
-<script src="app.js?v=54"></script>
+<script src="calc.js?v=55"></script>
+<script src="voice.js?v=55"></script>
+<script src="app.js?v=55"></script>
 
 </html>

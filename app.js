@@ -27,7 +27,13 @@ const DB=(()=>{
 
 /* ---------- État ---------- */
 const DEF_PARAMS={id:'params',essences:['CH','PIN','DOU','PEU','HET','CHA','FR','EP'],qualites:['A','B','C','D'],
-  step:5,stepParEssence:{},classMin:10,classMax:90,repriseQualite:true,saisieDiam:'classe',resteQualite:'BI',operateur:'',syncUrl:'',refLoaded:''};
+  step:5,stepParEssence:{},classMin:10,classMax:90,repriseQualite:true,saisieDiam:'classe',resteQualite:'BI',operateur:'',syncUrl:'',refLoaded:'',
+  motsVocaux:'',vocalAnnonce:true,essencesVocal:{}};
+/* Mode vocal (voice.js) : noms parlés des essences — mots saisis dans les Paramètres (« CH: chêne, chêne rouge ; PIN: pin »)
+   prioritaires sur la colonne mots_vocaux de l'onglet ESSENCES du Sheet ; les codes courants ont des noms par défaut dans voice.js */
+function motsVocaux(){const p=S.params,out={};for(const [k,v] of Object.entries(p.essencesVocal||{}))out[String(k).toUpperCase()]=[].concat(v).join(', ');
+  String(p.motsVocaux||'').split(/[;\n]/).forEach(x=>{const i=x.indexOf(':');if(i<0)return;const k=x.slice(0,i).trim().toUpperCase(),v=x.slice(i+1).trim();if(k&&v)out[k]=v;});return out;}
+const vocalDispo=()=>!!(window.CubageVoice&&window.CubageVoice.disponible());
 const resteQ=()=>S.params.resteQualite||'BI';
 const sumTr=tr=>(tr||[]).reduce((s,t)=>s+(t.h>0?t.h:0),0);
 const S={params:null,lots:[],grilles:[],screen:'home',lot:null,edit:null,form:{},hist:[]};
@@ -293,8 +299,10 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   const classes=[];for(let c=p.classMin;c<=p.classMax;c+=stepFor(f.ess))classes.push(c);
   const byClass=mode!=='pieds'&&(p.saisieDiam==='classe'||mode==='classes');
   const cntCl={};let nEss=0;for(const x of l.arbres){if(x.ess!==f.ess)continue;nEss+=x.n||1;const c=cls(x.ess,x.d);cntCl[c]=(cntCl[c]||0)+(x.n||1);}
+  const vocal=mode==='diam'&&byClass&&!ed&&vocalDispo(); // pointage à la voix : uniquement en « un appui = une tige » par classes
   $('#main').innerHTML=`<div class="stack">
    ${ed?'':`<div class="count-bar"><div><b>${t.n}</b><small>tiges au total</small></div><div class="ess"><b>${nEss}</b><small>${esc(f.ess)}</small></div></div>`}
+   ${vocal?'<div id="vocal"></div>':''}
    <div class="row"><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
    ${(l.sousLots||[]).length?`<div class="sl-box"><span class="l">Sous-lot</span>${slChips(l,f.sl||null)}</div>`:''}
    <div class="tarif-row"><span class="l">Tarif Chaudé ${esc(f.ess)}</span><button type="button" data-t="-1" aria-label="Tarif moins">−</button><b id="tv">${f.tarif}</b><button type="button" data-t="1" aria-label="Tarif plus">+</button></div>
@@ -324,6 +332,11 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
     rec.saisi=new Date().toISOString();l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();};
   S.flash=null;
   if($('#cl'))$('#cl').onclick=e=>{const b=e.target.closest('button');if(!b)return;f.d=Number(b.dataset.c);if(mode==='diam'&&!ed){S.flash=f.d;try{navigator.vibrate&&navigator.vibrate(30);}catch(x){}commit();}else render();};
+  /* Mode vocal : le module appelle exactement ce que font les boutons (changement d'essence, appui sur une classe, « Annuler dernière ») */
+  if(vocal)window.CubageVoice.bind({essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
+    onEssence:code=>{if(code===f.ess)return;f.ess=code;f.tarif=tarifDef(l,code);render();},
+    onPointage:(code,c)=>{if(!classes.includes(c))return false;if(code!==f.ess){f.ess=code;f.tarif=tarifDef(l,code);}f.d=c;S.flash=c;commit();return true;},
+    onAnnule:()=>{if(!l.arbres.length)return false;l.arbres.pop();save();toast('Dernière tige annulée');render();return true;}});
   const hasTr=!!$('#tr');
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${hasTr?'<button type="button" class="btn big" id="addTrF">+ Qualité</button>':''}${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};if($('#ok'))$('#ok').onclick=commit;
@@ -711,6 +724,9 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <div class="card stack"><h2>Saisie</h2><label class="f"><span class="l">Qualité du 1er billon</span><select id="rep"><option value="1"${p.repriseQualite?' selected':''}>Reprend la dernière qualité saisie</option><option value="0"${p.repriseQualite?'':' selected'}>Vide</option></select></label>
   <label class="f"><span class="l">Diamètre sur pied (mode diamètre seul)</span><select id="sd"><option value="classe"${p.saisieDiam==='classe'?' selected':''}>Boutons de classes</option><option value="cm"${p.saisieDiam==='cm'?' selected':''}>Saisie au cm</option></select></label>
   <label class="f"><span class="l">Code qualité du reste de tige (au-dessus des tronçons)</span><input id="rq" value="${esc(p.resteQualite||'BI')}" placeholder="BI"></label>
+  ${vocalDispo()?`<label class="f"><span class="l">Mode vocal · mots pour les essences (code : mots, séparés par ;)</span><textarea id="motsV" rows="2" style="width:100%" placeholder="CH: chêne, chêne rouge ; PIN: pin">${esc(p.motsVocaux||'')}</textarea></label>
+  <p class="muted" style="margin:0">Facultatif : les codes courants (CH, HET, CHA, PIN, DOU, EP, SAP, PEU, FR…) ont déjà leurs mots ; la colonne « mots_vocaux » de l’onglet ESSENCES du Sheet complète la liste pour tous les téléphones.</p>
+  <label class="f"><span class="l">Mode vocal · annonce de l’essence à voix haute</span><select id="vocA"><option value="1"${p.vocalAnnonce!==false?' selected':''}>Oui (le téléphone répète l’essence quand elle change)</option><option value="0"${p.vocalAnnonce===false?' selected':''}>Non, bips seulement</option></select></label>`:''}
   <label class="f"><span class="l">En-tête des bordereaux (entreprise, adresse…)</span><textarea id="entete" rows="2" style="width:100%">${esc(p.entete||'Services Bois et Forêts SAS\nLoirecopark 1 · 72500 Vaas')}</textarea></label>
   <label class="f"><span class="l">Opérateur${p.opLocked?' <span class="muted">(défini par votre clé d’accès)</span>':''}</span><input id="op" value="${esc(p.operateur)}"${p.opLocked?' disabled':''}></label></div>
   <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><label class="f"><span class="l">Clé bureau (valide les ventes)</span><input id="keyb" value="${esc(p.syncKeyBureau||'')}" placeholder="vide sur les téléphones de terrain"></label><label class="f"><span class="l">Coller le lien de configuration</span><div class="row"><input id="cfgLink" placeholder="https://…#cfg=…" style="flex:1"><button type="button" class="btn primary" id="cfgOk">Valider</button></div></label><p class="muted" style="margin:0">Collez ici le lien reçu du bureau (indispensable sur iPhone). Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
@@ -724,8 +740,9 @@ V.params=()=>{const p=S.params;head('Paramètres');
   const splitList=v=>v.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
-    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';if(!p.opLocked)p.operateur=$('#op').value.trim();p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
-  $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
+    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';if(!p.opLocked)p.operateur=$('#op').value.trim();
+    if($('#motsV'))p.motsVocaux=$('#motsV').value.trim();if($('#vocA'))p.vocalAnnonce=$('#vocA').value==='1';p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
+  $('#main').querySelectorAll('input,select,textarea').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=()=>{upd();loadRefUI();};
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
   if($('#bPurge'))$('#bPurge').onclick=async()=>{const w=prompt('Cette action vide DÉFINITIVEMENT tous les lots du Sheet (tous les téléphones). Tapez VIDER pour confirmer :');if(w!=='VIDER'){if(w!=null)toast('Annulé');return;}const set=statusBox();set('Suppression en cours…','',false);
@@ -932,6 +949,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   for(const g of j.grilles||[]){g.src='sheet';const ex=S.grilles.find(x=>x.id===g.id);if(ex)Object.assign(ex,g);else S.grilles.push(g);await saveGrille(ex||g);}
   if(Array.isArray(j.grilles)){const ids=new Set(j.grilles.map(g=>g.id));for(const g of S.grilles.filter(x=>x.src==='sheet'&&!ids.has(x.id))){S.grilles=S.grilles.filter(x=>x!==g);await DB.del('grilles',g.id);}}
   if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}
+  if(j.essencesVocal&&typeof j.essencesVocal==='object')p.essencesVocal=j.essencesVocal;
   if(j.operateur){p.operateur=j.operateur;p.opLocked=true;}else p.opLocked=false;
   let chg=[];if(j.clientStatuts){for(const c of S.lots){if(c.type!=='client')continue;const st=j.clientStatuts[c.id];if(st&&st!==c.statut&&c.sync==='done'){chg.push((c.client||'lot client')+' → '+(STL[st]||st));c.statut=st;await DB.put('lots',c);}}}
   S.refInfo={ess:(j.essences||[]).length,qual:(j.qualites||[]).length,grilles:(j.grilles||[]).length,dmm:!!(j.dmm&&Object.keys(j.dmm).length),chg};
@@ -939,7 +957,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   catch(e){S.refErr=e.message;if(!silent)toast('Échec du chargement : '+e.message);return false;}}
 
 /* ---------- Rendu ---------- */
-function render(){chipCb=null;const v=V[S.screen]||V.home;v();
+function render(){chipCb=null;if(window.CubageVoice)window.CubageVoice.unbind();const v=V[S.screen]||V.home;v();if(window.CubageVoice)window.CubageVoice.apresRendu();
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.hist.push(S.screen);S.form={};S.edit=null;go(b.dataset.go);});
   document.querySelectorAll('[data-open]').forEach(b=>{if(!b.onclick)b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.mod=S.lot.type;S.slFilter='';S.hist=['home','module','lots'];go('lot');};});}
 (async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});try{const bs=await DB.get('params','bureau');if(bs&&bs.j&&isBureau())buildStock(bs.j);}catch(e){}if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
