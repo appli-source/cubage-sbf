@@ -499,9 +499,12 @@ function buildStock(j){
 V.bureau=()=>{head('Bureau','Données de tous les téléphones (Sheet SBF)');const b=S.bureau;
   $('#main').innerHTML=`<div class="stack"><button class="tile" id="bRefresh"><b>${b?'Actualiser le stock':'Charger le stock'}</b><small>${b?'Dernière lecture du Sheet : '+new Date(b.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' (conservée sur cet appareil)':'Lecture du Sheet (réseau)'}</small></button>
   <button class="tile light" data-go="bStock" ${b?'':'disabled'}><b>Stock bord de route</b><small>${b?(()=>{const st=b.items.filter(x=>!x.cut&&!x.client);const m=st.reduce((s,x)=>s+(x.m||0),0);return st.length+' billons en stock · '+f3(st.reduce((s,x)=>s+x.v,0))+' m³'+(m?' · '+f2(m)+' € (grilles des lots)':'');})():'—'}</small></button>
+  <button class="tile light" id="bPurge"><b>Vider les lots du Sheet (fin des essais)</b><small>Supprime tous les lots, billons et lots clients du Sheet. Essences, qualités, grilles et clés conservées.</small></button>
   <button class="tile light" data-go="bKeys"><b>Clés d’accès et liens de configuration</b><small>Une clé par technicien · création, remplacement (téléphone perdu), désactivation</small></button>
   <button class="tile light" data-go="bClients" ${b?'':'disabled'}><b>Lots clients de l’entreprise</b><small>${b?b.clients.filter(c=>c.statut==='propose').length+' à valider · '+b.clients.filter(c=>c.statut==='valide').length+' validés':'—'}</small></button></div>`;
-  $('#bRefresh').onclick=async()=>{toast('Lecture du Sheet…');if(await loadStock())render();};foot('');if(!b)$('#bRefresh').click();};
+  $('#bRefresh').onclick=async()=>{toast('Lecture du Sheet…');if(await loadStock())render();};
+  $('#bPurge').onclick=async()=>{const w=prompt('Cette action vide DÉFINITIVEMENT tous les lots du Sheet (tous les téléphones). Tapez VIDER pour confirmer :');if(w!=='VIDER'){if(w!=null)toast('Annulé');return;}const set=statusBox();set('Suppression en cours…','',false);
+    try{const j=await keysApi({action:'purgeLots',confirm:'VIDER'});await DB.del('params','bureau');S.bureau=null;set('✓ Sheet vidé',j.lignes_supprimees+' ligne(s) supprimée(s). Pensez à supprimer aussi les lots d’essai sur chaque téléphone (Paramètres › Remise à zéro).',true);render();}catch(e){set('Échec',e.message,true,true);}};foot('');if(!b)$('#bRefresh').click();};
 V.bStock=()=>{const b=S.bureau;if(!b){back();return;}head('Stock bord de route',b.items.length+' billons connus');const f=S.bF||(S.bF={q:'',st:'stock',ess:''});
   const ess=[...new Set(b.items.map(x=>x.ess))].sort();
   $('#main').innerHTML=`<div class="stack"><input id="bq" type="search" placeholder="N° Xylolink, chantier, n° grume, commune…" value="${esc(f.q)}">
@@ -681,6 +684,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé : ${esc(p.refLoaded)}</span>`:''}</div>
   <div class="card stack"><h2>Changement de téléphone</h2><span class="muted">Sur le nouveau téléphone : ouvrir le lien de configuration, renseigner l’opérateur, puis récupérer les lots sauvegardés sur le Sheet. Les lots déjà présents ne sont pas modifiés.</span>
   <div class="row"><button class="btn grow primary" id="restoreMe">Récupérer mes lots depuis le Sheet</button><button class="btn grow" id="restoreAll">Tous les opérateurs</button></div></div>
+  <div class="card stack"><h2>Remise à zéro de ce téléphone</h2><span class="muted">Supprime tous les lots (cubage, estimation, lots clients) de ce téléphone. Les paramètres, la configuration et les grilles sont conservés. Le Sheet n’est pas touché.</span><button class="btn danger block" id="wipeLots">Supprimer tous les lots de ce téléphone (${S.lots.length})</button></div>
   <div class="card stack"><h2>Données locales</h2><span class="muted">Copie de secours complète (fichier) : à partager sur Drive, AirDrop ou par mail, puis importer sur l’autre appareil.</span><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un fichier JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
   </div>`;
   const splitList=v=>v.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
@@ -690,6 +694,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=()=>{upd();loadRefUI();};
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
+  $('#wipeLots').onclick=async e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer la suppression définitive de '+S.lots.length+' lot(s)';e.target.dataset.c='1';return;}for(const l of S.lots)await DB.del('lots',l.id);S.lots=[];S.lot=null;S.cli=null;toast('Tous les lots ont été supprimés');render();};
   $('#restoreMe').onclick=()=>{upd();restoreUI(false);};$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};

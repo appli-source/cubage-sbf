@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.5 (clés par utilisateur, onglet CLES).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.6 (purge des lots d'essai depuis le Bureau).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -43,6 +43,11 @@ function handle_(ss, auth, body) {
   if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
   if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
+  if (body.action === 'purgeLots') { // vide tous les onglets de lots (référentiel et clés conservés) — réservé au bureau, confirmation 'VIDER'
+    if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
+    let n = 0; TABLES.concat(TABLES_CLIENT).forEach(name => { const sh = ss.getSheetByName(name); if (!sh) return; delete ROWS_CACHE_[name]; const last = sh.getLastRow(); if (last > 1) { sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).clearContent(); n += last - 1; } });
+    return { ok:true, lignes_supprimees: n, at: new Date().toISOString() };
+  }
   if (body.action === 'setKey') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setKey_(ss, body); }
   if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
     const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, auth, op); results.push(r); if (!r.ok) break; }
