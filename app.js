@@ -112,6 +112,8 @@ function bindAddRef(l,onAdded){document.querySelectorAll('[data-addref]').forEac
   const add=v=>{v=String(v||'').trim().toUpperCase();if(!v)return;if(!all.includes(v)){all.push(v);saveParams();}
     const key=isE?'essSel':'qualSel';l[key]=uniqL([...(isE?lotEss(l):lotQual(l)),v]);save();close();onAdded&&onAdded(kind,v,btn.dataset.i);};
   m.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>add(b.dataset.pick));m.querySelector('#okRef').onclick=()=>add(m.querySelector('#newRef').value);});}
+const isBureau=()=>!!(S.params&&S.params.syncKeyBureau);
+const apiKey=()=>S.params.syncKeyBureau||S.params.syncKey||'';
 const NONE='__none';
 const slMatch=(x,sl)=>!sl||(sl===NONE?!x:x===sl);
 const slChips=(l,cur)=>`<div class="chips" data-chips="sl"><button type="button" class="chip small${!cur?' on':''}" data-v="">Aucun</button>${l.sousLots.map(s=>`<button type="button" class="chip small${cur===s.id?' on':''}" data-v="${s.id}">${esc(s.nom)}</button>`).join('')}</div>`;
@@ -144,7 +146,7 @@ const MODS={grumes:{t:'Cubage bord de route',s:'Grumes et billons'},pied:{t:'Est
 const syncLab=l=>l.sync==='done'?'sauvegardé le '+new Date(l.synced).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):l.sync==='pending'?'à sauvegarder':'non sauvegardé';
 V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operateur:'');
   const card=m=>{const ls=S.lots.filter(l=>l.type===m),todo=ls.filter(l=>l.sync!=='done').length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
-  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}<button class="btn big block" data-go="params">⚙ Paramètres</button></div>`;
+  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button></div>`;
   $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});foot('');};
 V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>l.type===m);const ng=S.grilles.filter(g=>g.type===m).length;
   $('#main').innerHTML=`<div class="stack"><button class="tile" data-go="newLot"><b>+ Ajouter un lot</b><small>${m==='grumes'?'Cubage de grumes bord de route':'Inventaire de bois sur pied'}</small></button>
@@ -365,7 +367,7 @@ V.clients=()=>{head('Lots clients');const qy=S.cliSearch||'';
   <input id="csq" type="search" placeholder="Rechercher : client, référence, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="csl"></div>`;
   const draw=()=>{const w=($('#csq').value||'').toLowerCase().split(/\s+/).filter(Boolean);
     const ls=S.lots.filter(l=>l.type==='client').filter(c=>{const h=[c.client,c.ref,c.date,c.date&&c.date.split('-').reverse().join('/'),c.note].join(' ').toLowerCase();return w.every(x=>h.includes(x));}).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
-    $('#csl').innerHTML=ls.length?ls.map(c=>{const t=cliTot(c);return `<button class="item" data-cli="${c.id}"><div class="t"><b>${esc(c.client||'Client ?')}${c.statut==='valide'?' <span class="pill">validé</span>':' <span class="pill warn">brouillon</span>'}</b><small>${esc((c.date||'').split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${t.n} billon(s)${t.m!=null?' · '+f2(t.m)+' €':''}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot client.</p>';
+    $('#csl').innerHTML=ls.length?ls.map(c=>{const t=cliTot(c);return `<button class="item" data-cli="${c.id}"><div class="t"><b>${esc(c.client||'Client ?')} <span class="pill${(c.statut||'brouillon')==='valide'?'':' warn'}">${STL[c.statut||'brouillon']}</span></b><small>${esc((c.date||'').split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${t.n} billon(s)${t.m!=null?' · '+f2(t.m)+' €':''}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot client.</p>';
     $('#csl').querySelectorAll('[data-cli]').forEach(b=>b.onclick=()=>{S.cli=S.lots.find(x=>x.id===b.dataset.cli);S.hist.push('clients');go('client');});};
   $('#csq').oninput=()=>{S.cliSearch=$('#csq').value;draw();};draw();foot('');};
 
@@ -378,8 +380,9 @@ V.newClient=()=>{head('Nouveau lot client');
   $('#ok').onclick=()=>{const n=$('#cl').value.trim();if(!n){toast('Indiquez le client');return;}const c={id:uid(),type:'client',client:n,date:$('#cd').value,ref:$('#cr').value.trim(),grilleId:$('#cg').value||null,note:$('#cn').value.trim(),lignes:[],statut:'brouillon',created:new Date().toISOString(),sync:'new'};
     S.lots.push(c);S.cli=c;save(c);S.hist=['home','module','clients'];go('client');};};
 
-V.client=()=>{const c=S.cli;if(!c){back();return;}head(c.client||'Lot client',(c.statut==='valide'?'Validé':'Brouillon')+' · '+(c.date||'').split('-').reverse().join('/'));
-  const v=clientVirtual(c),r=recap(v,''),lock=c.statut==='valide';
+const STL={brouillon:'Brouillon',propose:'Transmis au bureau',valide:'Vente validée',annule:'Annulé'};
+V.client=()=>{const c=S.cli;if(!c){back();return;}c.statut=c.statut||'brouillon';head(c.client||'Lot client',STL[c.statut]+' · '+(c.date||'').split('-').reverse().join('/'));
+  const v=clientVirtual(c),r=recap(v,''),lock=c.statut!=='brouillon',bu=isBureau();
   $('#main').innerHTML=`<div class="kpi"><div><b>${v.grumes.length}</b><small>billons</small></div><div><b>${f3(r.tot.v)}</b><small>m³</small></div><div><b>${r.tot.m!=null?f2(r.tot.m):'—'}</b><small>€</small></div></div>
   <div class="stack" style="margin-top:12px">${lock?'':'<button class="btn primary big block" data-go="clientAdd">+ Ajouter des billons (n° ou plage)</button>'}
   <div class="row"><button class="btn big grow" id="crec">Récapitulatif</button><button class="btn big grow" id="cpdf">PDF</button><button class="btn big grow" id="cxls">Excel</button></div>
@@ -388,13 +391,19 @@ V.client=()=>{const c=S.cli;if(!c){back();return;}head(c.client||'Lot client',(c
   <h2>Lot client</h2><div class="card stack"><div class="row"><label class="f"><span class="l">Client</span><input id="cl" value="${esc(c.client||'')}"></label><label class="f"><span class="l">Date</span><input id="cd" type="date" value="${esc(c.date||'')}"></label></div>
   <div class="row"><label class="f"><span class="l">Réf. contrat / bon</span><input id="cr" value="${esc(c.ref||'')}"></label><label class="f"><span class="l">Grille de prix</span><select id="cg"><option value="">Aucune</option>${S.grilles.filter(g=>g.type==='grumes').map(g=>`<option value="${g.id}"${g.id===c.grilleId?' selected':''}>${esc(g.nom)}</option>`).join('')}</select></label></div>
   <label class="f"><span class="l">Remarques</span><input id="cn" value="${esc(c.note||'')}"></label>
-  <button class="btn ${lock?'':'primary'}" id="cval">${lock?'Repasser en brouillon':'Valider la vente'}</button><button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>`;
+  <div class="msg ${c.statut==='valide'?'good':c.statut==='annule'?'bad':'warn'}">${STL[c.statut]}${c.synced?' · envoyé le '+new Date(c.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):' · non envoyé'}${c.sync==='pending'?' · à renvoyer':''}</div>
+  ${c.statut==='brouillon'?`<button class="btn primary" id="cval">${bu?'Valider la vente':'Transmettre au bureau'}</button>`:c.statut==='propose'?`${bu?'<button class="btn primary" id="cval">Valider la vente</button>':''}<button class="btn" id="cback">Repasser en brouillon</button>`:c.statut==='valide'&&bu?'<button class="btn" id="cback">Annuler la validation (repasser en brouillon)</button>':''}
+  ${lock?'<button class="btn" id="csync">Renvoyer au Sheet</button>':''}<button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>`;
   const fld=(id,k)=>$(id).oninput=$(id).onchange=e=>{c[k]=e.target.value;save(c);};fld('#cl','client');fld('#cd','date');fld('#cr','ref');fld('#cn','note');$('#cg').onchange=e=>{c.grilleId=e.target.value||null;save(c);render();};
   $('#main').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{c.lignes=c.lignes.filter(k=>k!==b.dataset.rm);save(c);render();});
   $('#crec').onclick=()=>{S.lot=clientVirtual(c);S.slFilter='';S.hist.push('client');go('recap');};
   $('#cpdf').onclick=()=>exportPDF(clientVirtual(c),'');$('#cxls').onclick=()=>exportXLSX(clientVirtual(c),'');
-  $('#cval').onclick=()=>{if(!lock&&!c.lignes.length){toast('Aucun billon dans ce lot');return;}c.statut=lock?'brouillon':'valide';save(c);toast(lock?'Lot repassé en brouillon':'Vente validée');render();};
-  $('#cdel').onclick=e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : les billons repassent en stock';e.target.dataset.c='1';return;}S.lots=S.lots.filter(x=>x!==c);DB.del('lots',c.id);S.cli=null;back();};foot('');};
+  if($('#cval'))$('#cval').onclick=async()=>{if(!c.lignes.length){toast('Aucun billon dans ce lot');return;}const prev=c.statut;c.statut=bu?'valide':'propose';save(c);const ok=await syncClient(c);if(!ok){c.statut=prev;save(c);render();}};
+  if($('#cback'))$('#cback').onclick=async()=>{const prev=c.statut;c.statut='brouillon';save(c);const ok=await syncClient(c);if(!ok){c.statut=prev;save(c);}render();};
+  if($('#csync'))$('#csync').onclick=()=>syncClient(c);
+  $('#cdel').onclick=async e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : les billons repassent en stock';e.target.dataset.c='1';return;}
+    if(c.synced){c.statut='annule';c.lignes=[];const ok=await syncClient(c,true);if(!ok){toast('Impossible de prévenir le Sheet (réseau ?) : réessayez');c.statut='brouillon';return;}}
+    S.lots=S.lots.filter(x=>x!==c);DB.del('lots',c.id);S.cli=null;back();};foot('');};
 
 V.clientAdd=()=>{const c=S.cli;head('Ajouter à '+(c.client||'lot client'),'Stock des lots du téléphone');const qy=S.cliQ||'';
   $('#main').innerHTML=`<div class="row"><input id="aq" inputmode="decimal" placeholder="Rechercher : n° grume, billon (1234.2) ou plage (1200-1250)" value="${esc(qy)}" style="flex:1"></div><div id="ares" class="stack" style="margin-top:10px"></div>`;
@@ -444,6 +453,43 @@ V.recoupe=()=>{const c=S.cli;const it=stockItems().find(x=>x.key===S.rcKey);if(!
     const lot=it.lot;lot.recoupes=lot.recoupes||[];const pieces=ps.map(p=>({id:uid(),num:String(p.num).trim(),lm:Math.round(p.lm*100)/100,d:Math.floor(p.d),q:p.q}));
     lot.recoupes.push({id:uid(),parentKey:it.key,parentNum:String(it.num),ess:it.ess,at:new Date().toISOString(),pieces});save(lot);
     ps.forEach((p,i)=>{if(p.add)c.lignes.push(lot.id+'|'+pieces[i].id);});save(c);S.rcForm=null;toast('Recoupe enregistrée');back();};};
+
+
+/* ================= Espace Bureau (clé bureau, réseau requis) ================= */
+async function loadStock(){const url=S.params.syncUrl;if(!url||!isBureau())return null;try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=stock&key='+encodeURIComponent(apiKey()));const j=await res.json();if(!j.ok)throw new Error(j.error||'refusé');
+  const cut=new Set(j.recoupes.map(r=>String(r.parent_key)));const st={};j.clients.forEach(c=>st[String(c.client_id)]=c);const sold={};j.lignes.forEach(l=>{const c=st[String(l.client_id)];if(c&&(c.statut==='valide'||c.statut==='propose'))sold[String(l.billon_key)]=c;});
+  const items=[];const px=r=>({key:String(r.lot_id)+'|'+String(r.billon_id||r.piece_id),lotId:String(r.lot_id),num:String(r.num),base:String(r.num).split('.')[0],ess:String(r.essence),q:String(r.qualite||''),lm:Number(r.longueur_m)||0,d:Number(r.diametre_cm)||0,v:Number(r.volume_m3)||0,orig:(r.chantier_xylolink?r.chantier_xylolink+' · ':'')+(r.chantier||''),date:String(r.date||'').slice(0,10),op:String(r.operateur||''),red:r.reduction_l_cm>0||r.reduction_d_cm>0?[r.reduction_l_cm>0?'L −'+f2(r.reduction_l_cm/100)+' m':'',r.reduction_d_cm>0?'Ø −'+r.reduction_d_cm+' cm':''].filter(Boolean).join(' · '):''});
+  j.billons.forEach(r=>items.push(px(r)));j.recoupes.forEach(r=>items.push(Object.assign(px(r),{key:String(r.piece_key),parent:String(r.parent_num||'')})));
+  for(const it of items){it.cut=cut.has(it.key);it.client=sold[it.key]?{client:String(sold[it.key].client),statut:sold[it.key].statut,id:String(sold[it.key].client_id)}:null;}
+  S.bureau={at:j.at,items,clients:j.clients,lignes:j.lignes};return S.bureau;}catch(e){toast('Lecture du Sheet impossible : '+e.message);return null;}}
+V.bureau=()=>{head('Bureau','Données de tous les téléphones (Sheet SBF)');const b=S.bureau;
+  $('#main').innerHTML=`<div class="stack"><button class="tile" id="bRefresh"><b>${b?'Actualiser le stock':'Charger le stock'}</b><small>${b?'Dernière lecture : '+new Date(b.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'Lecture du Sheet (réseau)'}</small></button>
+  <button class="tile light" data-go="bStock" ${b?'':'disabled'}><b>Stock bord de route</b><small>${b?b.items.filter(x=>!x.cut&&!x.client).length+' billons en stock · '+f3(b.items.filter(x=>!x.cut&&!x.client).reduce((s,x)=>s+x.v,0))+' m³':'—'}</small></button>
+  <button class="tile light" data-go="bClients" ${b?'':'disabled'}><b>Lots clients de l’entreprise</b><small>${b?b.clients.filter(c=>c.statut==='propose').length+' à valider · '+b.clients.filter(c=>c.statut==='valide').length+' validés':'—'}</small></button></div>`;
+  $('#bRefresh').onclick=async()=>{toast('Lecture du Sheet…');if(await loadStock())render();};foot('');if(!b)$('#bRefresh').click();};
+V.bStock=()=>{const b=S.bureau;if(!b){back();return;}head('Stock bord de route',b.items.length+' billons connus');const f=S.bF||(S.bF={q:'',st:'stock',ess:''});
+  const ess=[...new Set(b.items.map(x=>x.ess))].sort();
+  $('#main').innerHTML=`<div class="stack"><input id="bq" type="search" placeholder="N° Xylolink, chantier, n° grume, commune…" value="${esc(f.q)}">
+  <div class="row"><select id="bst"><option value="stock"${f.st==='stock'?' selected':''}>En stock</option><option value="propose"${f.st==='propose'?' selected':''}>Proposés (à valider)</option><option value="vendu"${f.st==='vendu'?' selected':''}>Vendus</option><option value="recoupe"${f.st==='recoupe'?' selected':''}>Recoupés</option><option value=""${f.st===''?' selected':''}>Tous</option></select>
+  <select id="bess"><option value="">Toutes essences</option>${ess.map(e=>`<option${e===f.ess?' selected':''}>${esc(e)}</option>`).join('')}</select></div><div id="bres"></div></div>`;
+  const draw=()=>{const w=f.q.toLowerCase().split(/\s+/).filter(Boolean);const rows=b.items.filter(it=>{const s=it.cut?'recoupe':it.client?(it.client.statut==='valide'?'vendu':'propose'):'stock';if(f.st&&s!==f.st)return false;if(f.ess&&it.ess!==f.ess)return false;const h=(it.orig+' '+it.num+' '+it.ess+' '+it.q+' '+it.date+' '+it.op).toLowerCase();return w.every(x=>h.includes(x));});
+    const byLot={};rows.forEach(it=>{const k=it.orig||it.lotId;(byLot[k]=byLot[k]||[]).push(it);});const tot=rows.reduce((s,x)=>s+x.v,0);
+    $('#bres').innerHTML=`<p class="muted">${rows.length} billon(s) · ${f3(tot)} m³</p>`+Object.entries(byLot).map(([k,its])=>`<h2>${esc(k)} · ${its.length} · ${f3(its.reduce((s,x)=>s+x.v,0))} m³</h2><div class="tbl"><table><tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø</th><th class="n">m³</th><th>Statut</th></tr>${its.map(it=>`<tr><td>${esc(it.num)}${it.parent?' <span class="muted">(de '+esc(it.parent)+')</span>':''}</td><td>${esc(it.ess)}</td><td>${esc(it.q)}</td><td class="n">${f2(it.lm)}</td><td class="n">${it.d}</td><td class="n">${f3(it.v)}</td><td>${it.cut?'<span class="pill">recoupé</span>':it.client?`<span class="pill${it.client.statut==='valide'?'':' warn'}">${it.client.statut==='valide'?'vendu':'proposé'} · ${esc(it.client.client)}</span>`:'<span class="muted">stock</span>'}</td></tr>`).join('')}</table></div>`).join('');};
+  $('#bq').oninput=e=>{f.q=e.target.value;draw();};$('#bst').onchange=e=>{f.st=e.target.value;draw();};$('#bess').onchange=e=>{f.ess=e.target.value;draw();};draw();foot('');};
+V.bClients=()=>{const b=S.bureau;if(!b){back();return;}head('Lots clients de l’entreprise');
+  const cs=[...b.clients].sort((a,x)=>String(x.updated_at||'').localeCompare(String(a.updated_at||'')));
+  $('#main').innerHTML=`<div class="list">${cs.length?cs.map(c=>`<button class="item" data-bc="${esc(c.client_id)}"><div class="t"><b>${esc(c.client)} <span class="pill${c.statut==='valide'?'':' warn'}">${STL[c.statut]||c.statut}</span></b><small>${esc(String(c.date||'').slice(0,10).split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${c.nb_billons} billon(s) · ${esc(c.operateur||'')}</small></div><div class="v">${f3(Number(c.volume_m3)||0)} m³</div></button>`).join(''):'<p class="muted">Aucun lot client envoyé.</p>'}</div>`;
+  $('#main').querySelectorAll('[data-bc]').forEach(x=>x.onclick=()=>{S.bCli=x.dataset.bc;S.hist.push('bClients');go('bClient');});foot('');};
+V.bClient=()=>{const b=S.bureau,c=b&&b.clients.find(x=>String(x.client_id)===S.bCli);if(!c){back();return;}head(c.client,STL[c.statut]||c.statut);
+  const keys=b.lignes.filter(l=>String(l.client_id)===String(c.client_id)).map(l=>String(l.billon_key));const by=new Map(b.items.map(it=>[it.key,it]));const its=keys.map(k=>by.get(k)).filter(Boolean);
+  const conf=its.filter(it=>it.cut||(it.client&&it.client.id!==String(c.client_id)));
+  $('#main').innerHTML=`<div class="kpi"><div><b>${its.length}</b><small>billons</small></div><div><b>${f3(its.reduce((s,x)=>s+x.v,0))}</b><small>m³</small></div></div>
+  ${conf.length?`<div class="msg bad" style="margin-top:10px">⚠ ${conf.length} billon(s) en conflit : ${conf.map(it=>esc(it.num)+(it.cut?' (recoupé)':' ('+esc(it.client.client)+')')).join(', ')}</div>`:''}
+  <div class="stack" style="margin-top:12px">${c.statut==='propose'?'<button class="btn primary big" id="bval">Valider la vente</button>':''}${c.statut==='valide'?'<button class="btn" id="bunval">Annuler la validation</button>':''}${c.statut!=='annule'?'<button class="btn danger" id="bann">Annuler ce lot client</button>':''}</div>
+  <p class="muted">Réf. ${esc(c.ref||'—')} · ${esc(c.note||'')} · saisi par ${esc(c.operateur||'?')}</p>
+  <div class="tbl"><table><tr><th>N°</th><th>Ess.</th><th>Q</th><th class="n">L m</th><th class="n">Ø</th><th class="n">m³</th><th>Origine</th></tr>${its.map(it=>`<tr><td>${esc(it.num)}</td><td>${esc(it.ess)}</td><td>${esc(it.q)}</td><td class="n">${f2(it.lm)}</td><td class="n">${it.d}</td><td class="n">${f3(it.v)}</td><td class="muted">${esc(it.orig)}</td></tr>`).join('')}</table></div>`;
+  const setSt=async st=>{const set=statusBox();set('Mise à jour…',c.client,false);try{const res=await fetch(S.params.syncUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'setClientStatut',key:apiKey(),client_id:c.client_id,statut:st})});const j=await res.json();if(!j.ok)throw new Error(j.error||'refusé');set('✓ '+STL[st],c.client,true);await loadStock();render();}catch(e){set('Refusé',e.message,true,true);}};
+  if($('#bval'))$('#bval').onclick=()=>setSt('valide');if($('#bunval'))$('#bunval').onclick=()=>setSt('propose');if($('#bann'))$('#bann').onclick=e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer l’annulation';e.target.dataset.c='1';return;}setSt('annule');};foot('');};
 
 /* --- Listing --- */
 V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);const rows=listing(l,sl);const st=l.type==='grumes'&&!l.isClient?lotStatus(l):{};const hasSt=Object.values(st).some(x=>x.cut||x.client);const hasRed=l.type==='grumes'&&l.grumes.some(g=>g.billons.some(b=>b.rl>0||b.rd>0));
@@ -571,17 +617,17 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <label class="f"><span class="l">Diamètre sur pied (mode diamètre seul)</span><select id="sd"><option value="classe"${p.saisieDiam==='classe'?' selected':''}>Boutons de classes</option><option value="cm"${p.saisieDiam==='cm'?' selected':''}>Saisie au cm</option></select></label>
   <label class="f"><span class="l">Code qualité du reste de tige (au-dessus des tronçons)</span><input id="rq" value="${esc(p.resteQualite||'BI')}" placeholder="BI"></label>
   <label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(p.operateur)}"></label></div>
-  <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><label class="f"><span class="l">Coller le lien de configuration</span><div class="row"><input id="cfgLink" placeholder="https://…#cfg=…" style="flex:1"><button type="button" class="btn primary" id="cfgOk">Valider</button></div></label><p class="muted" style="margin:0">Collez ici le lien reçu du bureau (indispensable sur iPhone). Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
+  <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><label class="f"><span class="l">Clé bureau (valide les ventes)</span><input id="keyb" value="${esc(p.syncKeyBureau||'')}" placeholder="vide sur les téléphones de terrain"></label><label class="f"><span class="l">Coller le lien de configuration</span><div class="row"><input id="cfgLink" placeholder="https://…#cfg=…" style="flex:1"><button type="button" class="btn primary" id="cfgOk">Valider</button></div></label><p class="muted" style="margin:0">Collez ici le lien reçu du bureau (indispensable sur iPhone). Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
   <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé : ${esc(p.refLoaded)}</span>`:''}</div>
   <div class="card stack"><h2>Données locales</h2><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un lot JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
   </div>`;
   const splitList=v=>v.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
-    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';p.operateur=$('#op').value.trim();p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();saveParams();};
+    p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';p.operateur=$('#op').value.trim();p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
   $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=async()=>{upd();await loadRef();render();};
-  $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=async()=>{upd();const todo=S.lots.filter(l=>l.sync!=='done'&&l.type!=='client');const set=statusBox();set('Sauvegarde en cours…',todo.length+' lot(s) à envoyer',false);let ok=0;for(const l of todo)if(await syncLot(l,true))ok++;set(ok===todo.length?'✓ Sauvegarde terminée':'Sauvegarde incomplète',ok+' / '+todo.length+' lot(s) sauvegardé(s) sur le Sheet SBF.',true,ok!==todo.length);render();};
+  $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=async()=>{upd();const todo=S.lots.filter(l=>l.sync!=='done'&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));const set=statusBox();set('Sauvegarde en cours…',todo.length+' lot(s) à envoyer',false);let ok=0;for(const l of todo)if(l.type==='client'?await syncClient(l,true):await syncLot(l,true))ok++;set(ok===todo.length?'✓ Sauvegarde terminée':'Sauvegarde incomplète',ok+' / '+todo.length+' lot(s) sauvegardé(s) sur le Sheet SBF.',true,ok!==todo.length);render();};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const lots=j.lots||(j.id&&j.type?[j]:[]);for(const l of lots){if(!S.lots.find(x=>x.id===l.id)){S.lots.push(l);await DB.put('lots',l);}}
     for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}toast(lots.length+' lot(s) importé(s)');render();}catch(x){toast('Fichier illisible');}};foot('');};
@@ -656,12 +702,13 @@ function exportPDF(l,sl,quiet){if(!window.jspdf){toast('Module PDF non chargé (
 const dLoc=iso=>{if(!iso)return['',''];const d=new Date(iso),p=n=>String(n).padStart(2,'0');return[d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),p(d.getHours())+':'+p(d.getMinutes())];};
 function lotRows(l){const LOT=[{lot_id:l.id,type:l.type,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',commune:l.commune||'',dept:l.dept||'',gps_lat:l.gps?l.gps.lat:'',gps_lon:l.gps?l.gps.lon:'',gps_precision_m:l.gps?l.gps.acc:'',date:l.date,operateur:l.operateur||'',tarif:l.type==='pied'?l.tarif:'',mode:l.type==='pied'?l.mode:'',grille:(lotGrille(l)||{}).nom||'',volume_m3:Math.round(lotTotals(l).v*1000)/1000,updated:l.updated||''}];
   const SOUS_LOT=(l.sousLots||[]).map(s=>({lot_id:l.id,sous_lot_id:s.id,nom:s.nom,client:s.client||'',grille:(S.grilles.find(g=>g.id===s.grilleId)||{}).nom||''}));
-  const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[];
+  const GRUME=[],BILLON=[],ARBRE=[],TRONCON=[],RECOUPE=[];
+  for(const rc of l.recoupes||[])for(const p of rc.pieces)RECOUPE.push({lot_id:l.id,recoupe_id:rc.id,parent_key:rc.parentKey,parent_num:rc.parentNum,essence:rc.ess,date:(rc.at||'').slice(0,10),piece_id:p.id,piece_key:l.id+'|'+p.id,num:p.num,longueur_m:p.lm,diametre_cm:p.d,qualite:p.q||'',volume_m3:Math.round(Calc.volBillon(p.d,p.lm)*10000)/10000,chantier_xylolink:l.xylo||'',chantier:l.chantier||''});
   for(const g of l.grumes){GRUME.push({lot_id:l.id,grume_id:g.id,num:g.num,essence:g.ess});for(const b of g.billons){const sl=(l.sousLots||[]).find(x=>x.id===b.sl),G0=grilleFor(l,b.sl),L=prixLine(G0,g.ess,b.q||'',cubD(b)),v=Math.round(volB(b)*10000)/10000;
     const [sd,sh]=g.saisi?dLoc(g.saisi):[l.date,''];BILLON.push({lot_id:l.id,chantier_xylolink:l.xylo||'',chantier:l.chantier||'',date:l.date,saisi_le:sd,saisi_heure:sh,commune:l.commune||'',dept:l.dept||'',operateur:l.operateur||'',grume_id:g.id,billon_id:b.id,num:g.num+'.'+b.rang,rang:b.rang,essence:g.ess,qualite:b.q||'',longueur_m:lenM(b),diametre_cm:b.d,reduction_l_cm:b.rl||0,reduction_d_cm:b.rd||0,longueur_cubee_m:cubL(b),diametre_cube_cm:cubD(b),classe:cls(g.ess,cubD(b)),volume_m3:v,sous_lot_id:b.sl||'',sous_lot:sl?sl.nom:'',client:sl?sl.client||'':'',grille:G0?G0.nom:'',prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*v*100)/100:''});}}
   for(const a of l.arbres){const x=arbreCalc(l,a);const [ad,ah]=a.saisi?dLoc(a.saisi):[l.date,''];ARBRE.push({lot_id:l.id,chantier:l.chantier||'',date:l.date,saisi_le:ad,saisi_heure:ah,arbre_id:a.id,num:a.num||'',essence:a.ess,diametre_cm:a.d,classe:cls(a.ess,a.d),tarif:tarifOf(l,a),tiges:a.n||1,hauteur_m:x.h||'',volume_m3:x.v!=null?Math.round(x.v*10000)/10000:'',sous_lot_id:a.sl||''});
     x.tronc.forEach((t,i)=>TRONCON.push({lot_id:l.id,arbre_id:a.id,rang:i+1,hauteur_m:t.h,qualite:t.q||'',volume_m3:Math.round(t.v*10000)/10000}));}
-  return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON};}
+  return{LOT,SOUS_LOT,GRUME,BILLON,ARBRE,TRONCON,RECOUPE};}
 /* Fenêtre d'état pour la sauvegarde : en cours, réussie ou en échec */
 function statusBox(){const m=document.createElement('div');m.className='modal';m.innerHTML='<div class="modal-box"><b id="sbT"></b><p id="sbM" style="margin:0"></p><button type="button" class="btn primary big" id="sbOk" hidden>OK</button></div>';document.body.appendChild(m);
   const set=(t,msg,done,bad)=>{m.querySelector('#sbT').textContent=t;m.querySelector('#sbT').style.color=bad?'var(--bad)':'';m.querySelector('#sbM').textContent=msg;m.querySelector('#sbOk').hidden=!done;};m.querySelector('#sbOk').onclick=()=>m.remove();return set;}
@@ -672,7 +719,7 @@ async function syncLot(l,quiet){const url=S.params.syncUrl;
   const set=quiet?null:statusBox();const t=lotTotals(l);const what=l.type==='grumes'?`${t.n} grumes · ${t.nb} billons · ${f3(t.v)} m³`:`${t.n} tiges · ${f3(t.v)} m³`;
   if(set)set('Sauvegarde en cours…',(l.chantier||'Lot')+' · '+what,false);
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),45000);
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:S.params.syncKey||'',lot_id:l.id,rows:lotRows(l)}),signal:ctl.signal});clearTimeout(to);
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:apiKey(),lot_id:l.id,rows:lotRows(l)}),signal:ctl.signal});clearTimeout(to);
     const j=await res.json();if(!(j&&j.ok))throw new Error(j&&j.error||'réponse invalide');
     l.sync='done';l.synced=new Date().toISOString();await DB.put('lots',l);
     if(set){set('✓ Lot sauvegardé sur le Sheet SBF',(l.chantier||'Lot')+' · '+what+' · '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),true);render();}return true;}
@@ -680,15 +727,31 @@ async function syncLot(l,quiet){const url=S.params.syncUrl;
     if(set)set('Échec de la sauvegarde',msg+' Le lot reste enregistré sur le téléphone.',true,true);else toast('Échec : '+(l.chantier||'lot'));return false;}}
 /* Lecture d'un lien de configuration (…#cfg=…) */
 function parseCfg(txt){const m=/#cfg=([A-Za-z0-9_\-+\/=]+)/.exec(txt||'');if(!m)return null;try{const c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));return c&&c.u?c:null;}catch(e){return null;}}
+/* ---------- Lots clients : envoi au Sheet ---------- */
+function clientRows(c){const v=clientVirtual(c),g=S.grilles.find(x=>x.id===c.grilleId);const lignes=v.grumes.map(gr=>{const b=gr.billons[0];const L=prixLine(g,gr.ess,b.q||'',cubD(b)),vol=Math.round(volB(b)*10000)/10000;
+    return{billon_key:b.id,num:b.label,essence:gr.ess,qualite:b.q||'',longueur_m:b.lm,diametre_cm:b.d,reduction:redTxt(b),volume_m3:vol,origine:gr.orig,prix_m3:L?L.prix:'',montant:L?Math.round(L.prix*vol*100)/100:''};});
+  return{client:{client_id:c.id,client:c.client||'',date:c.date||'',ref:c.ref||'',grille:g?g.nom:'',note:c.note||'',statut:c.statut||'brouillon',operateur:S.params.operateur||'',nb_billons:lignes.length,volume_m3:Math.round(lignes.reduce((s,x)=>s+x.volume_m3,0)*1000)/1000,created:c.created||''},lignes};}
+async function syncClient(c,quiet){const url=S.params.syncUrl;const set=quiet?null:statusBox();
+  if(!url){if(set)set('Synchronisation non configurée','Ouvrez une fois le lien de configuration.',true,true);return false;}
+  if(!navigator.onLine){c.sync='pending';DB.put('lots',c);if(set)set('Pas de réseau','Le lot client reste sur le téléphone ; il sera envoyé plus tard.',true,true);return false;}
+  const t=cliTot(c);if(set)set('Envoi en cours…',(c.client||'Lot client')+' · '+t.n+' billon(s) · '+f3(t.v)+' m³',false);
+  try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),45000);const rows=clientRows(c);
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveClient',key:apiKey(),client:rows.client,lignes:rows.lignes}),signal:ctl.signal});clearTimeout(to);
+    const j=await res.json();if(!(j&&j.ok))throw new Error(j&&j.error||'réponse invalide');
+    c.sync='done';c.synced=new Date().toISOString();if(j.statut)c.statut=j.statut;await DB.put('lots',c);
+    const warn=(j.conflicts||[]).length?' ⚠ Déjà proposés ailleurs : '+j.conflicts.map(x=>x.num+(x.client?' ('+x.client+')':'')).join(', '):'';
+    if(set){set('✓ '+(c.statut==='valide'?'Vente validée':c.statut==='propose'?'Transmis au bureau':'Brouillon enregistré')+' sur le Sheet SBF',(c.client||'')+' · '+t.n+' billon(s) · '+f3(t.v)+' m³'+warn,true,!!warn);render();}return true;}
+  catch(e){c.sync='pending';DB.put('lots',c);const msg=e.name==='AbortError'?'Le réseau ne répond pas.':e.message;if(set)set('Refusé ou échec',msg,true,true);else toast('Échec : '+(c.client||'lot client'));return false;}}
 /* Chargement du référentiel commun (Google Sheet SBF) : essences, qualités, classes, grilles, table Chaudé */
 async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)toast('Adresse du script manquante');return false;}
-  try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=params&key='+encodeURIComponent(S.params.syncKey||''));const j=await res.json();if(j.ok===false)throw new Error(j.error||'refusé');const p=S.params;
+  try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=params&key='+encodeURIComponent(apiKey()));const j=await res.json();if(j.ok===false)throw new Error(j.error||'refusé');const p=S.params;
   const usedE=uniqL(S.lots.flatMap(l=>l.essSel||[])),usedQ=uniqL(S.lots.flatMap(l=>l.qualSel||[]));
   if(j.essences&&j.essences.length)p.essences=uniqL([...j.essences,...usedE.filter(x=>!j.essences.includes(x))]);
   if(j.qualites&&j.qualites.length)p.qualites=uniqL([...j.qualites,...usedQ.filter(x=>!j.qualites.includes(x))]);
   if(j.classes){if(j.classes.step)p.step=j.classes.step;if(j.classes.min)p.classMin=j.classes.min;if(j.classes.max)p.classMax=j.classes.max;p.stepParEssence=j.classes.parEssence||{};}
   for(const g of j.grilles||[]){g.src='sheet';const ex=S.grilles.find(x=>x.id===g.id);if(ex)Object.assign(ex,g);else S.grilles.push(g);await saveGrille(ex||g);}
   if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}
+  if(j.clientStatuts){for(const c of S.lots){if(c.type!=='client')continue;const st=j.clientStatuts[c.id];if(st&&st!==c.statut&&c.sync==='done'){c.statut=st;await DB.put('lots',c);}}}
   p.refLoaded=new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});await saveParams();if(!silent)toast('Référentiel chargé');return true;}
   catch(e){if(!silent)toast('Échec du chargement : '+e.message);return false;}}
 
@@ -699,7 +762,7 @@ function render(){chipCb=null;const v=V[S.screen]||V.home;v();
 (async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
   S.lots=(await DB.all('lots'))||[];S.grilles=(await DB.all('grilles'))||[];S.lots.forEach(l=>{l.grumes=l.grumes||[];l.arbres=l.arbres||[];l.sousLots=l.sousLots||[];l.classH=l.classH||{};});
   /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
-  let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
+  let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
   render();if(cfgOk)toast('Synchronisation configurée');
   if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();});
   if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}})();
