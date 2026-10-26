@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.2.
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.3 (envois groupés, écriture par blocs).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -23,16 +23,19 @@ function doPost(e) {
     if (!role) return out_({ ok:false, error:'clé refusée' });
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const lock = LockService.getScriptLock(); lock.waitLock(30000);
-    try {
-      if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, body.rows); return out_({ ok:true, lot_id: body.lot_id, at: new Date().toISOString() }); }
-      if (body.action === 'saveClient') return saveClient_(ss, role, body);
-      if (body.action === 'setClientStatut') {
-        if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' });
-        return setStatut_(ss, body.client_id, body.statut);
-      }
-      return out_({ ok:false, error:'action inconnue' });
-    } finally { lock.releaseLock(); }
+    try { return out_(handle_(ss, role, body)); } finally { lock.releaseLock(); }
   } catch (err) { return out_({ ok:false, error: String(err) }); }
+}
+
+function handle_(ss, role, body) {
+  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, body.rows); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'saveClient') return saveClient_(ss, role, body);
+  if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut); }
+  if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
+    const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, role, op); results.push(r); if (!r.ok) break; }
+    return { ok: results.length > 0 && results.every(r => r.ok), results: results, at: new Date().toISOString() };
+  }
+  return { ok:false, error:'action inconnue' };
 }
 
 function doGet(e) {
@@ -46,20 +49,36 @@ function doGet(e) {
 }
 
 /* ---------- utilitaires onglets ---------- */
-function sheetRows_(ss, name) { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 1) return [];
+const ROWS_CACHE_ = {}; // lecture d'un onglet une seule fois par appel
+function sheetRows_(ss, name) { if (ROWS_CACHE_[name]) return ROWS_CACHE_[name];
+  const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 1) return (ROWS_CACHE_[name] = []);
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
-  return v.slice(1).map(r => { const o = {}; h.forEach((k,i) => { if (k) o[k] = r[i]; }); return o; }); }
+  return (ROWS_CACHE_[name] = v.slice(1).map(r => { const o = {}; h.forEach((k,i) => { if (k) o[k] = r[i]; }); return o; })); }
 function replaceRows_(ss, tables, keyCol, keyVal, rowsByTable) {
+  // Remplace les lignes d'une clé : lecture en bloc, puis une seule réécriture à partir de la première ligne concernée.
   tables.forEach(name => {
     const rows = (rowsByTable || {})[name] || [];
-    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    let headers = sh.getLastColumn() ? sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String).filter(String) : [];
-    if (!headers.length) { headers = rows.length ? Object.keys(rows[0]) : [keyCol]; sh.getRange(1,1,1,headers.length).setValues([headers]); sh.setFrozenRows(1); }
-    rows.forEach(r => Object.keys(r).forEach(k => { if (headers.indexOf(k) < 0) { headers.push(k); sh.getRange(1,headers.length).setValue(k); } }));
-    const last = sh.getLastRow();
-    if (last > 1) { const col = headers.indexOf(keyCol) + 1; if (col > 0) { const ids = sh.getRange(2, col, last-1, 1).getValues();
-      for (let i = ids.length-1; i >= 0; i--) if (String(ids[i][0]) === String(keyVal)) sh.deleteRow(i+2); } }
-    if (rows.length) { const vals = rows.map(r => headers.map(h => r[h] === undefined || r[h] === null ? '' : r[h])); sh.getRange(sh.getLastRow()+1, 1, vals.length, headers.length).setValues(vals); }
+    let sh = ss.getSheetByName(name);
+    if (!sh) { if (!rows.length) return; sh = ss.insertSheet(name); }
+    delete ROWS_CACHE_[name];
+    const lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    const data = (lastRow > 0 && lastCol > 0) ? sh.getRange(1,1,lastRow,lastCol).getValues() : [];
+    let headers = data.length ? data[0].map(String) : [];
+    while (headers.length && !headers[headers.length-1]) headers.pop();
+    if (!headers.length) headers = rows.length ? Object.keys(rows[0]) : [keyCol];
+    const nh0 = data.length ? headers.length : 0;
+    rows.forEach(r => Object.keys(r).forEach(k => { if (headers.indexOf(k) < 0) headers.push(k); }));
+    const col = headers.indexOf(keyCol);
+    const body = data.slice(1);
+    let first = -1; const kept = [];
+    body.forEach((r, i) => { if (col >= 0 && col < r.length && String(r[col]) === String(keyVal)) { if (first < 0) first = i; } else kept.push(r); });
+    if (first < 0 && !rows.length) return;
+    if (headers.length !== nh0) { sh.getRange(1,1,1,headers.length).setValues([headers]); sh.setFrozenRows(1); }
+    const vals = rows.map(r => headers.map(h => r[h] === undefined || r[h] === null ? '' : r[h]));
+    if (first < 0) { if (vals.length) sh.getRange(body.length + 2, 1, vals.length, headers.length).setValues(vals); return; }
+    const tail = kept.slice(first).map(r => headers.map((h, i) => i < r.length && r[i] !== undefined ? r[i] : '')).concat(vals);
+    sh.getRange(first + 2, 1, body.length - first, Math.max(lastCol, headers.length)).clearContent();
+    if (tail.length) sh.getRange(first + 2, 1, tail.length, headers.length).setValues(tail);
   });
 }
 
@@ -79,23 +98,23 @@ function saveClient_(ss, role, body) {
   if (role === 'terrain' && statut === 'valide') statut = 'propose';
   const conflicts = clientConflicts_(ss, c.client_id, lignes.map(l => String(l.billon_key)));
   const hard = conflicts.filter(x => x.type === 'recoupe' || x.statut === 'valide');
-  if (hard.length && statut !== 'brouillon') return out_({ ok:false, error:'billons indisponibles : ' + hard.map(x => x.num + (x.client ? ' (vendu · ' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts });
-  if (statut === 'valide' && conflicts.length) return out_({ ok:false, error:'billons déjà proposés ailleurs : ' + conflicts.map(x => x.num + ' (' + x.client + ')').join(', '), conflicts: conflicts });
+  if (hard.length && statut !== 'brouillon') return ({ ok:false, error:'billons indisponibles : ' + hard.map(x => x.num + (x.client ? ' (vendu · ' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts });
+  if (statut === 'valide' && conflicts.length) return ({ ok:false, error:'billons déjà proposés ailleurs : ' + conflicts.map(x => x.num + ' (' + x.client + ')').join(', '), conflicts: conflicts });
   const row = Object.assign({}, c, { statut: statut, updated_at: new Date().toISOString(), validated_at: statut === 'valide' ? (c.validated_at || new Date().toISOString()) : (c.validated_at || '') });
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
-  return out_({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
+  return ({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
 }
 function setStatut_(ss, clientId, statut) {
-  const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return out_({ ok:false, error:'aucun lot client' });
+  const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return ({ ok:false, error:'aucun lot client' }); delete ROWS_CACHE_['LOT_CLIENT'];
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
   const ci = h.indexOf('client_id'), si = h.indexOf('statut'), vi = h.indexOf('validated_at');
   for (let i = 1; i < v.length; i++) if (String(v[i][ci]) === String(clientId)) {
     if (statut === 'valide') { const keys = sheetRows_(ss, 'LOT_CLIENT_LIGNE').filter(r => String(r.client_id) === String(clientId)).map(r => String(r.billon_key));
-      const conflicts = clientConflicts_(ss, clientId, keys); if (conflicts.length) return out_({ ok:false, error:'conflits : ' + conflicts.map(x => x.num + (x.client ? ' (' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts }); }
+      const conflicts = clientConflicts_(ss, clientId, keys); if (conflicts.length) return ({ ok:false, error:'conflits : ' + conflicts.map(x => x.num + (x.client ? ' (' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts }); }
     sh.getRange(i+1, si+1).setValue(statut); if (vi >= 0 && statut === 'valide') sh.getRange(i+1, vi+1).setValue(new Date().toISOString());
-    return out_({ ok:true, client_id: clientId, statut: statut });
+    return ({ ok:true, client_id: clientId, statut: statut });
   }
-  return out_({ ok:false, error:'lot client introuvable' });
+  return ({ ok:false, error:'lot client introuvable' });
 }
 
 /* ---------- lectures ---------- */
