@@ -20,9 +20,10 @@ Bouton « 🎤 Mode vocal » sur les écrans de saisie ; « pause » / « repris
   (essence + classe), « trente-cinq » (classe seule, essence précédente conservée), « chêne » seul (change
   l'essence sans compter), « annule » (retire la dernière tige).
 - Cubage bord de route : un billon se dicte d'une traite, dans l'ordre essence, qualité, longueur, diamètre :
-  « chêne, CA, huit vingt, quarante-deux » = chêne, CA, 8,20 m, Ø 42. Essence et qualité omises = celles du
-  billon précédent. Le dernier nombre est le diamètre ; avant lui la longueur (« huit » = 8 m, « huit vingt » = 8,20,
-  « huit et demi », « huit virgule vingt-cinq » ; « mètres » accepté). Une longueur dictée seule attend son diamètre.
+  « chêne, cé a, dix par cinquante » = chêne, CA, 10 m, Ø 50 ; « huit vingt par quarante-deux » = 8,20 m, Ø 42.
+  Essence et qualité omises = celles du billon précédent. « par » sépare longueur et diamètre ; sans « par », le
+  dernier nombre est le diamètre et ce qui précède la longueur (« huit » = 8 m, « huit vingt » = 8,20, « huit et demi »,
+  « huit virgule vingt-cinq » ; « mètres » accepté). Une longueur dictée seule (« neuf par ») attend son diamètre.
   Chaque billon dicté s'ajoute à la grume en cours ; « suivante » passe à la grume suivante (numéro automatique),
   « numéro cent douze » force un numéro, « annule » retire le dernier billon (ou rouvre la grume qu'on vient de clore).
   Le téléphone relit chaque billon à voix haute. Les qualités se disent lettre par lettre (CA → « cé a »,

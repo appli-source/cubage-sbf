@@ -75,9 +75,9 @@ function construire(h){const lex=new Map();const ess=[],qual=[];
   if(h.mode==='grumes'){
     for(const code of h.qualites||[]){for(const n of motsQ(code,h.motsQ)){if(!lex.has(n)){lex.set(n,{k:'q',v:code});qual.push(n);}}}
     for(const [w,n] of NUMW)lex.set(w,{k:'num',v:n});for(const w of Object.keys(MULT))lex.set(w,{k:'mult',v:MULT[w]});
-    lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
+    lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('par',{k:'par'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
     for(const w of Object.keys(CMD))lex.set(w,{k:'cmd',v:CMD[w]});
-    phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','virgule','et demi');
+    phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
     phrases.push('suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual])};}
@@ -185,10 +185,10 @@ function traiterClasses(els){let n=0;const faits=[];
   return faits;}
 
 /* Dictée des billons : « chêne, CA, huit vingt, quarante-deux » (essence et qualité facultatives = précédentes),
-   « suivante » (grume suivante), « numéro cent douze », « annule ». Un billon se dicte d'une traite : le dernier
-   nombre est le diamètre, ce qui précède est la longueur (« huit » = 8 m, « huit vingt » = 8,20). « mètres » est
-   un simple séparateur ; « virgule » et « et demi » marquent des décimales sans ambiguïté. Une longueur dictée seule
-   reste en attente de son diamètre. */
+   « suivante » (grume suivante), « numéro cent douze », « annule ». Un billon se dicte d'une traite : « par » sépare
+   longueur et diamètre (« dix par cinquante », « huit vingt par quarante-deux ») ; sans « par », le dernier nombre est
+   le diamètre et ce qui précède la longueur (« huit » = 8 m, « huit vingt » = 8,20). « mètres » est un simple
+   séparateur ; « virgule » et « et demi » marquent des décimales. Une longueur dictée seule attend son diamètre. */
 function traiterGrumes(els){const faits=[];const h=()=>V.hook;
   let seq=[];     // nombres et marqueurs de la longueur/du diamètre en cours
   let attenteNum=false; // après « numéro »
@@ -200,13 +200,18 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;
       else if(nums.length>=1)d=nums[nums.length-1].v;}
     else{
       if(!nums.length){seq=[];return;}
-      if(nums.length>3){faits.push('un billon à la fois');bipErr();seq=[];return;}
-      const iV=seq.findIndex(x=>x.k==='virg'),iD=seq.findIndex(x=>x.k==='demi');
-      L=nums[0].v;let dec=false;let reste=nums.slice(1);
+      // « par » sépare longueur et diamètre (« dix par cinquante », « huit vingt par quarante-deux ») : aucune ambiguïté
+      const iP=seq.findIndex(x=>x.k==='par');const avant=iP>=0?seq.slice(0,iP):seq,apres=iP>=0?seq.slice(iP+1):[];
+      const nAv=avant.filter(x=>x.k==='num'),nAp=apres.filter(x=>x.k==='num');
+      if(iP>=0&&!nAv.length){faits.push('longueur ?');bipErr();seq=[];return;}
+      if(nAv.length>3||nAp.length>1){faits.push('un billon à la fois');bipErr();seq=[];return;}
+      const iV=avant.findIndex(x=>x.k==='virg'),iD=avant.findIndex(x=>x.k==='demi');
+      L=nAv[0].v;let dec=iP>=0;let reste=nAv.slice(1);
       if(iD>=0){L+=.5;dec=true;}
-      else if(iV>=0){const nv=seq.slice(iV+1).find(x=>x.k==='num');if(nv){L+=nv.v<10?nv.v/10:nv.v/100;dec=true;reste=reste.filter(x=>x!==nv);}}
+      else if(iV>=0){const nv=avant.slice(iV+1).find(x=>x.k==='num');if(nv){L+=nv.v<10?nv.v/10:nv.v/100;dec=true;reste=reste.filter(x=>x!==nv);}}
+      else if(iP>=0&&reste.length>=1){L+=reste[0].v/100;reste=reste.slice(1);}
       else if(reste.length>=2){L+=reste[0].v/100;dec=true;reste=reste.slice(1);}
-      if(reste.length)d=reste[reste.length-1].v;
+      if(iP>=0){if(nAp.length)d=nAp[0].v;}else if(reste.length)d=reste[reste.length-1].v;
       if(d==null){seq=[];if(!(L>=0.5&&L<=40)){faits.push('longueur '+fmtL(L)+' m ?');bipErr();return;}V.pend={L,dec};faits.push(fmtL(L)+' m · Ø ?');majBloc();return;}}
     seq=[];V.pend=null;
     if(!(L>=0.5&&L<=40)){faits.push('longueur '+fmtL(L)+' m ?');bipErr();return;}
@@ -218,7 +223,7 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;
     dire((V.curQ?(motsQ(V.curQ,h()&&h().motsQ)[0]||V.curQ)+', ':'')+longueurParlee(L)+', '+nombre(Math.round(d)));};
   const oubli=()=>{if(V.pend){faits.push(fmtL(V.pend.L)+' m abandonné');V.pend=null;}};
   for(let i=0;i<els.length;i++){const e=els[i];
-    if(e.k==='num'||e.k==='m'||e.k==='virg'||e.k==='demi'){
+    if(e.k==='num'||e.k==='m'||e.k==='par'||e.k==='virg'||e.k==='demi'){
       if(attenteNum&&e.k==='num'){attenteNum=false;const ok=h()&&h().onNumero&&h().onNumero(e.v);faits.push(ok?'grume n° '+e.v:'numéro refusé');if(ok){bipEss();dire('grume '+nombre(e.v));}else bipErr();continue;}
       seq.push(e);continue;}
     flush();
@@ -247,7 +252,7 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const aide=gr?'Dites « chêne, CA, huit vingt, quarante-deux » · « suivante » = grume suivante · « annule »':'Dites « chêne quarante », puis « trente-cinq »… « annule » retire la dernière tige';
+  else{const aide=gr?'Dites « chêne, cé a, dix par cinquante » · « suivante » = grume suivante · « annule »':'Dites « chêne quarante », puis « trente-cinq »… « annule » retire la dernière tige';
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc(V.pend?V.cur+' '+(V.curQ||'—')+' · '+fmtL(V.pend.L)+' m · Ø ?':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <div class="voc-help muted">${nomsE}${nomsQ?'<br>'+nomsQ:''}</div></div>`;
