@@ -1,10 +1,11 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.4 (récupération des lots sur un nouveau téléphone).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.5 (clés par utilisateur, onglet CLES).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
  *
- * Deux clés : CLE (téléphones de terrain) et CLE_BUREAU (postes du bureau, valide les ventes).
+ * Clés : onglet CLES du Sheet (colonnes : cle, operateur, role [terrain|bureau], actif [oui|non], cree_le, note),
+ * géré depuis l'espace Bureau de l'application. Les deux constantes ci-dessous restent des clés « maîtres » de secours.
  */
 const CLE = 'A_REMPLACER';
 const CLE_BUREAU = 'A_REMPLACER_BUREAU';
@@ -14,25 +15,37 @@ const TABLES = ['LOT','SOUS_LOT','GRUME','BILLON','ARBRE','TRONCON','RECOUPE','L
 // Onglets des lots clients (remplacés lot client par lot client)
 const TABLES_CLIENT = ['LOT_CLIENT','LOT_CLIENT_LIGNE'];
 
-function role_(key) { return key === CLE_BUREAU ? 'bureau' : key === CLE ? 'terrain' : null; }
+function auth_(ss, key) {
+  key = String(key || ''); if (!key) return null;
+  const rows = sheetRows_(ss, 'CLES');
+  for (const r of rows) if (String(r.cle) === key) { if (String(r.actif || 'oui').toLowerCase().indexOf('non') === 0) return null;
+    return { role: String(r.role || 'terrain').toLowerCase() === 'bureau' ? 'bureau' : 'terrain', operateur: String(r.operateur || '').trim(), cle: key }; }
+  if (key === CLE_BUREAU) return { role: 'bureau', operateur: '', cle: key };
+  if (key === CLE) return { role: 'terrain', operateur: '', cle: key };
+  return null;
+}
+function stamp_(rows, op) { // force l'opérateur de la clé sur les lignes qui ont une colonne operateur
+  if (!op) return rows; Object.keys(rows || {}).forEach(t => (rows[t] || []).forEach(r => { if ('operateur' in r) r.operateur = op; })); return rows; }
 
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
-    const role = role_(body.key);
-    if (!role) return out_({ ok:false, error:'clé refusée' });
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const auth = auth_(ss, body.key);
+    if (!auth) return out_({ ok:false, error:'clé refusée' });
     const lock = LockService.getScriptLock(); lock.waitLock(30000);
-    try { return out_(handle_(ss, role, body)); } finally { lock.releaseLock(); }
+    try { return out_(handle_(ss, auth, body)); } finally { lock.releaseLock(); }
   } catch (err) { return out_({ ok:false, error: String(err) }); }
 }
 
-function handle_(ss, role, body) {
-  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, body.rows); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
-  if (body.action === 'saveClient') return saveClient_(ss, role, body);
-  if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut); }
+function handle_(ss, auth, body) {
+  const role = auth.role;
+  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
+  if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
+  if (body.action === 'setKey') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setKey_(ss, body); }
   if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
-    const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, role, op); results.push(r); if (!r.ok) break; }
+    const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, auth, op); results.push(r); if (!r.ok) break; }
     return { ok: results.length > 0 && results.every(r => r.ok), results: results, at: new Date().toISOString() };
   }
   return { ok:false, error:'action inconnue' };
@@ -40,13 +53,15 @@ function handle_(ss, role, body) {
 
 function doGet(e) {
   const p = e.parameter || {};
-  const role = role_(p.key);
-  if (!role) return out_({ ok:false, error:'clé refusée' });
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (p.action === 'params') return out_(params_(ss, role));
-  if (p.action === 'restore') return out_(restore_(ss, p.operateur));
+  const auth = auth_(ss, p.key);
+  if (!auth) return out_({ ok:false, error:'clé refusée' });
+  const role = auth.role;
+  if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur }));
+  if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur)));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
-  return out_({ ok:true, info:'Cubage SBF : script actif', role: role });
+  if (p.action === 'keys') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, keys: sheetRows_(ss, 'CLES') }); }
+  return out_({ ok:true, info:'Cubage SBF : script actif', role: role, operateur: auth.operateur });
 }
 
 /* ---------- utilitaires onglets ---------- */
@@ -105,7 +120,22 @@ function saveClient_(ss, role, body) {
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
   return ({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
 }
-function setStatut_(ss, clientId, statut) {
+function setKey_(ss, body) {
+  // crée ou modifie une ligne de l'onglet CLES (clé = identifiant)
+  const k = body.key_row || {}; const cle = String(k.cle || '').trim(); if (!cle) return { ok:false, error:'clé vide' };
+  const sh = ss.getSheetByName('CLES') || ss.insertSheet('CLES'); delete ROWS_CACHE_['CLES'];
+  const H = ['cle','operateur','role','actif','cree_le','note'];
+  if (sh.getLastRow() < 1) { sh.getRange(1,1,1,H.length).setValues([H]); sh.setFrozenRows(1); }
+  const existing = sheetRows_(ss, 'CLES'); delete ROWS_CACHE_['CLES'];
+  const idx = existing.findIndex(r => String(r.cle) === cle); const old = idx >= 0 ? existing[idx] : {};
+  const row = { cle: cle, operateur: k.operateur !== undefined ? String(k.operateur).trim() : (old.operateur || ''), role: k.role !== undefined ? String(k.role) : (old.role || 'terrain'),
+    actif: k.actif !== undefined ? (k.actif ? 'oui' : 'non') : (old.actif || 'oui'), cree_le: old.cree_le || new Date().toISOString(), note: k.note !== undefined ? String(k.note) : (old.note || '') };
+  const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
+  const vals = headers.map(h => row[h] === undefined ? '' : row[h]);
+  if (idx >= 0) sh.getRange(idx + 2, 1, 1, headers.length).setValues([vals]); else sh.getRange(sh.getLastRow() + 1, 1, 1, headers.length).setValues([vals]);
+  return { ok:true, key_row: row };
+}
+function setStatut_(ss, clientId, statut, par) {
   const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return ({ ok:false, error:'aucun lot client' }); delete ROWS_CACHE_['LOT_CLIENT'];
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
   const ci = h.indexOf('client_id'), si = h.indexOf('statut'), vi = h.indexOf('validated_at');
@@ -113,6 +143,7 @@ function setStatut_(ss, clientId, statut) {
     if (statut === 'valide') { const keys = sheetRows_(ss, 'LOT_CLIENT_LIGNE').filter(r => String(r.client_id) === String(clientId)).map(r => String(r.billon_key));
       const conflicts = clientConflicts_(ss, clientId, keys); if (conflicts.length) return ({ ok:false, error:'conflits : ' + conflicts.map(x => x.num + (x.client ? ' (' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts }); }
     sh.getRange(i+1, si+1).setValue(statut); if (vi >= 0 && statut === 'valide') sh.getRange(i+1, vi+1).setValue(new Date().toISOString());
+    if (par) { let pi = h.indexOf('statut_par'); if (pi < 0) { pi = h.length; sh.getRange(1, pi+1).setValue('statut_par'); } sh.getRange(i+1, pi+1).setValue(par); }
     return ({ ok:true, client_id: clientId, statut: statut });
   }
   return ({ ok:false, error:'lot client introuvable' });
