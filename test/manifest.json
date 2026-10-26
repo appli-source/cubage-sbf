@@ -1,0 +1,15 @@
+{
+  "name": "Cubage SBF — test vocal",
+  "short_name": "Cubage test",
+  "description": "Cubage de grumes bord de route et estimation de bois sur pied — Services Bois et Forêts",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4ef",
+  "theme_color": "#1f4d2b",
+  "lang": "fr",
+  "icons": [
+    {"src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%231f4d2b'/><circle cx='96' cy='96' r='54' fill='none' stroke='%23e3eee5' stroke-width='10'/><circle cx='96' cy='96' r='30' fill='none' stroke='%23e3eee5' stroke-width='8'/><circle cx='96' cy='96' r='8' fill='%23e3eee5'/></svg>", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}
