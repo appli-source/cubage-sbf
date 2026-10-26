@@ -465,13 +465,16 @@ V.recoupe=()=>{const c=S.cli;const it=stockItems().find(x=>x.key===S.rcKey);if(!
 
 /* ================= Espace Bureau (clé bureau, réseau requis) ================= */
 async function loadStock(){const url=S.params.syncUrl;if(!url||!isBureau())return null;try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=stock&key='+encodeURIComponent(apiKey()));const j=await res.json();if(!j.ok)throw new Error(j.error||'refusé');
+  await DB.put('params',{id:'bureau',j});return buildStock(j);}catch(e){toast('Lecture du Sheet impossible : '+e.message);return null;}}
+/* Construction du stock Bureau à partir de la réponse du Sheet (conservée sur l'appareil) */
+function buildStock(j){
   const cut=new Set(j.recoupes.map(r=>String(r.parent_key)));const st={};j.clients.forEach(c=>st[String(c.client_id)]=c);const sold={};j.lignes.forEach(l=>{const c=st[String(l.client_id)];if(c&&(c.statut==='valide'||c.statut==='propose'))sold[String(l.billon_key)]=c;});
   const items=[];const px=r=>({key:String(r.lot_id)+'|'+String(r.billon_id||r.piece_id),lotId:String(r.lot_id),num:String(r.num),base:String(r.num).split('.')[0],ess:String(r.essence),q:String(r.qualite||''),lm:Number(r.longueur_m)||0,d:Number(r.diametre_cm)||0,v:Number(r.volume_m3)||0,orig:(r.chantier_xylolink?r.chantier_xylolink+' · ':'')+(r.chantier||''),date:String(r.date||'').slice(0,10),op:String(r.operateur||''),grille:String(r.grille||''),p:r.prix_m3===''||r.prix_m3==null?null:Number(r.prix_m3),m:r.montant===''||r.montant==null?null:Number(r.montant),red:r.reduction_l_cm>0||r.reduction_d_cm>0?[r.reduction_l_cm>0?'L −'+f2(r.reduction_l_cm/100)+' m':'',r.reduction_d_cm>0?'Ø −'+r.reduction_d_cm+' cm':''].filter(Boolean).join(' · '):''});
   j.billons.forEach(r=>items.push(px(r)));j.recoupes.forEach(r=>items.push(Object.assign(px(r),{key:String(r.piece_key),parent:String(r.parent_num||'')})));
   for(const it of items){it.cut=cut.has(it.key);it.client=sold[it.key]?{client:String(sold[it.key].client),statut:sold[it.key].statut,id:String(sold[it.key].client_id)}:null;}
-  const lp={};j.lignes.forEach(l=>lp[String(l.client_id)+'|'+String(l.billon_key)]=l);S.bureau={at:j.at,items,clients:j.clients,lignes:j.lignes,lp};return S.bureau;}catch(e){toast('Lecture du Sheet impossible : '+e.message);return null;}}
+  const lp={};j.lignes.forEach(l=>lp[String(l.client_id)+'|'+String(l.billon_key)]=l);S.bureau={at:j.at,items,clients:j.clients,lignes:j.lignes,lp};return S.bureau;}
 V.bureau=()=>{head('Bureau','Données de tous les téléphones (Sheet SBF)');const b=S.bureau;
-  $('#main').innerHTML=`<div class="stack"><button class="tile" id="bRefresh"><b>${b?'Actualiser le stock':'Charger le stock'}</b><small>${b?'Dernière lecture : '+new Date(b.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'Lecture du Sheet (réseau)'}</small></button>
+  $('#main').innerHTML=`<div class="stack"><button class="tile" id="bRefresh"><b>${b?'Actualiser le stock':'Charger le stock'}</b><small>${b?'Dernière lecture du Sheet : '+new Date(b.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' (conservée sur cet appareil)':'Lecture du Sheet (réseau)'}</small></button>
   <button class="tile light" data-go="bStock" ${b?'':'disabled'}><b>Stock bord de route</b><small>${b?(()=>{const st=b.items.filter(x=>!x.cut&&!x.client);const m=st.reduce((s,x)=>s+(x.m||0),0);return st.length+' billons en stock · '+f3(st.reduce((s,x)=>s+x.v,0))+' m³'+(m?' · '+f2(m)+' € (grilles des lots)':'');})():'—'}</small></button>
   <button class="tile light" data-go="bClients" ${b?'':'disabled'}><b>Lots clients de l’entreprise</b><small>${b?b.clients.filter(c=>c.statut==='propose').length+' à valider · '+b.clients.filter(c=>c.statut==='valide').length+' validés':'—'}</small></button></div>`;
   $('#bRefresh').onclick=async()=>{toast('Lecture du Sheet…');if(await loadStock())render();};foot('');if(!b)$('#bRefresh').click();};
@@ -797,7 +800,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
 function render(){chipCb=null;const v=V[S.screen]||V.home;v();
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.hist.push(S.screen);S.form={};S.edit=null;go(b.dataset.go);});
   document.querySelectorAll('[data-open]').forEach(b=>{if(!b.onclick)b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.mod=S.lot.type;S.slFilter='';S.hist=['home','module','lots'];go('lot');};});}
-(async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
+(async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});try{const bs=await DB.get('params','bureau');if(bs&&bs.j&&isBureau())buildStock(bs.j);}catch(e){}if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
   S.lots=(await DB.all('lots'))||[];S.grilles=(await DB.all('grilles'))||[];S.lots.forEach(l=>{l.grumes=l.grumes||[];l.arbres=l.arbres||[];l.sousLots=l.sousLots||[];l.classH=l.classH||{};});
   /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
   let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
