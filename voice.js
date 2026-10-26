@@ -87,8 +87,9 @@ function creerReco(){if(!V.model||!V.hook)return;const g=construire(V.hook);if(V
   rec.on('error',m=>{console.warn('vocal',m.error);});}
 
 /* ---------- Micro ---------- */
-async function demarrerAudio(){const AC=window.AudioContext||window.webkitAudioContext;if(!V.ctx)V.ctx=new AC();if(V.ctx.state==='suspended')await V.ctx.resume();
-  V.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},video:false});
+const demanderMicro=()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},video:false});
+async function demarrerAudio(pMic){const AC=window.AudioContext||window.webkitAudioContext;if(!V.ctx)V.ctx=new AC();
+  V.stream=await (pMic||demanderMicro());if(V.ctx.state==='suspended')await V.ctx.resume();
   V.stream.getTracks().forEach(t=>{t.onended=()=>{if(V.etat==='ecoute'||V.etat==='pause')arreter('Micro interrompu (appel, autre application ?) · appuyez pour reprendre');};});
   V.src=V.ctx.createMediaStreamSource(V.stream);
   let ok=false;if(V.ctx.audioWorklet){try{await V.ctx.audioWorklet.addModule('voice-worklet.js');V.node=new AudioWorkletNode(V.ctx,'sbf-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});V.node.port.onmessage=e=>pousser(e.data);ok=true;}catch(e){ok=false;}}
@@ -104,8 +105,10 @@ async function demarrer(){if(V.chargement)return;V.chargement=true;
   try{const AC=window.AudioContext||window.webkitAudioContext;if(!V.ctx)V.ctx=new AC();V.ctx.resume().catch(()=>{}); // dans le geste utilisateur (iOS)
     if(!V.model&&!dejaCharge()&&!confirm('Première activation du mode vocal : téléchargement du modèle de reconnaissance (42 Mo, une seule fois, conservé sur ce téléphone). Continuer ?')){V.chargement=false;return;}
     dire('Mode vocal'); // 1re synthèse vocale dans le geste utilisateur : la débloque sur iPhone
-    setEtat('chargement','Accès au micro…');await demarrerAudio();
+    const pMic=demanderMicro();pMic.catch(()=>{}); // demande du micro lancée dans le geste utilisateur (exigence Safari)
+    setEtat('chargement','Accès au micro…');await demarrerAudio(pMic);
     await preparer();if(!V.hook){arreter('');return;}
+    if(!V.stream){setEtat('chargement','Accès au micro…');await demarrerAudio();} // écran quitté puis repris pendant le chargement
     V.pause=false;creerReco();V.cur=V.hook.cur||'';V.dernier='';V.partiel='';setEtat('ecoute','');veille(true);bipEss();}
   catch(e){couperAudio();const m=(e&&e.name==='NotAllowedError')?'Micro refusé : autorisez-le pour cette application dans les réglages du téléphone':(e&&e.message)||String(e);setEtat('erreur',m);}
   finally{V.chargement=false;}}
@@ -124,7 +127,8 @@ function traiter(text){const t=norm(text);if(!t)return;try{console.debug('vocal 
     if(V.pause)continue;
     if(e.k==='ess'){V.cur=e.v;if(V.hook&&V.hook.onEssence)V.hook.onEssence(e.v);faits.push(e.v);const suiv=toks[i];const suite=suiv&&V.lex.get(suiv);
       if(!(suite&&suite.k==='num')){bipEss();dire(toks.slice(i-m.L,i).join(' '));}continue;}
-    if(e.k==='num'){if(!V.cur){bipErr();faits.push('essence ?');continue;}n++;const code=V.cur;if(V.hook&&V.hook.onPointage)V.hook.onPointage(code,e.v);faits.push(code+' '+e.v);continue;}}
+    if(e.k==='num'){if(!V.cur){bipErr();faits.push('essence ?');continue;}const code=V.cur;const ok=!!(V.hook&&V.hook.onPointage&&V.hook.onPointage(code,e.v));
+      if(ok){n++;faits.push(code+' '+e.v);}else{bipErr();faits.push('classe '+e.v+' ?');}continue;}}
   if(V.pause&&!faits.length)return; // en pause : on laisse parler sans réagir
   if(n){bipOk();vibrer(30);}else if(!faits.length){bipErr();faits.push('non compris : « '+t.replace(/\[unk\]/g,'…')+' »');}
   V.dernier=faits.join(' · ');V.partiel='';majBloc();}
