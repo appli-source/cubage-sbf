@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.6 (purge des lots d'essai depuis le Bureau).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.7 (grilles de prix communes gérées depuis le Bureau).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -48,6 +48,7 @@ function handle_(ss, auth, body) {
     let n = 0; TABLES.concat(TABLES_CLIENT).forEach(name => { const sh = ss.getSheetByName(name); if (!sh) return; delete ROWS_CACHE_[name]; const last = sh.getLastRow(); if (last > 1) { sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).clearContent(); n += last - 1; } });
     return { ok:true, lignes_supprimees: n, at: new Date().toISOString() };
   }
+  if (body.action === 'saveGrille' || body.action === 'deleteGrille') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return saveGrille_(ss, body.action === 'deleteGrille' ? null : body.grille, body.code); }
   if (body.action === 'setKey') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setKey_(ss, body); }
   if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
     const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, auth, op); results.push(r); if (!r.ok) break; }
@@ -124,6 +125,20 @@ function saveClient_(ss, role, body) {
   const row = Object.assign({}, c, { statut: statut, updated_at: new Date().toISOString(), validated_at: statut === 'valide' ? (c.validated_at || new Date().toISOString()) : (c.validated_at || '') });
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
   return ({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
+}
+function saveGrille_(ss, grille, code) {
+  // Onglet GRILLES (colonnes positionnelles : code, nom, type, essence, qualité, Ø min, Ø max, prix) : remplace les lignes du code
+  code = String(code || (grille && grille.id) || '').replace(/^sheet-/, '').trim(); if (!code) return { ok:false, error:'code de grille vide' };
+  const sh = ss.getSheetByName('GRILLES') || ss.insertSheet('GRILLES');
+  if (sh.getLastRow() < 1) { sh.getRange(1,1,1,8).setValues([['code','nom','type','essence','qualite','diam_min','diam_max','prix_m3']]); sh.setFrozenRows(1); }
+  const last = sh.getLastRow(); const data = last > 1 ? sh.getRange(2,1,last-1,8).getValues() : [];
+  const kept = data.filter(r => String(r[0]).trim() !== code);
+  const add = grille ? (grille.lignes || []).map(l => [code, grille.nom || code, grille.type === 'pied' ? 'pied' : 'grumes', l.ess || '', l.q || '', l.dmin == null ? '' : l.dmin, l.dmax == null ? '' : l.dmax, l.prix == null ? '' : l.prix]) : [];
+  if (grille && !add.length) add.push([code, grille.nom || code, grille.type === 'pied' ? 'pied' : 'grumes', '', '', '', '', '']);
+  const all = kept.concat(add);
+  if (last > 1) sh.getRange(2,1,last-1,Math.max(8, sh.getLastColumn())).clearContent();
+  if (all.length) sh.getRange(2,1,all.length,8).setValues(all);
+  return { ok:true, code: code, lignes: add.length, at: new Date().toISOString() };
 }
 function setKey_(ss, body) {
   // crée ou modifie une ligne de l'onglet CLES (clé = identifiant)
