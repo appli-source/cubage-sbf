@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.7 (grilles de prix communes gérées depuis le Bureau).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.8 (purge réservée à la clé maître).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -44,7 +44,7 @@ function handle_(ss, auth, body) {
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
   if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
   if (body.action === 'purgeLots') { // vide tous les onglets de lots (référentiel et clés conservés) — réservé au bureau, confirmation 'VIDER'
-    if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
+    if (auth.cle !== CLE_BUREAU) return { ok:false, error:'réservé à la clé maître du bureau (constante CLE_BUREAU du script)' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
     let n = 0; TABLES.concat(TABLES_CLIENT).forEach(name => { const sh = ss.getSheetByName(name); if (!sh) return; delete ROWS_CACHE_[name]; const last = sh.getLastRow(); if (last > 1) { sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).clearContent(); n += last - 1; } });
     return { ok:true, lignes_supprimees: n, at: new Date().toISOString() };
   }
