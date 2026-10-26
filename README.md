@@ -12,12 +12,22 @@ Synchronisation Google Sheet : coller sync.gs dans Extensions > Apps Script du S
 déployer en application web (Exécuter en tant que moi, accès tout le monde), copier l'URL /exec
 dans Paramètres > URL du script. Onglets de référentiel : ESSENCES, QUALITES, CLASSES, GRILLES, DMM.
 
-## Mode vocal (estimation sur pied, pointage par classes de diamètre)
+## Mode vocal
 
-Sur l'écran de saisie en mode « pied à pied, diamètre seul » avec les boutons de classes, le bouton
-« 🎤 Mode vocal » lance la reconnaissance : « chêne quarante » (essence + classe), « trente-cinq »
-(classe seule, essence précédente conservée), « chêne » seul (change l'essence sans compter),
-« annule » (retire la dernière tige), « pause » / « reprise ». Bip aigu = tige comptée, bip grave = non compris.
+Bouton « 🎤 Mode vocal » sur les écrans de saisie ; « pause » / « reprise » ; bip aigu = enregistré, bip grave = non compris.
+
+- Estimation sur pied, mode « pied à pied, diamètre seul » avec les boutons de classes : « chêne quarante »
+  (essence + classe), « trente-cinq » (classe seule, essence précédente conservée), « chêne » seul (change
+  l'essence sans compter), « annule » (retire la dernière tige).
+- Cubage bord de route : un billon se dicte d'une traite, dans l'ordre essence, qualité, longueur, diamètre :
+  « chêne, CA, huit vingt, quarante-deux » = chêne, CA, 8,20 m, Ø 42. Essence et qualité omises = celles du
+  billon précédent. Le dernier nombre est le diamètre ; avant lui la longueur (« huit » = 8 m, « huit vingt » = 8,20,
+  « huit et demi », « huit virgule vingt-cinq » ; « mètres » accepté). Une longueur dictée seule attend son diamètre.
+  Chaque billon dicté s'ajoute à la grume en cours ; « suivante » passe à la grume suivante (numéro automatique),
+  « numéro cent douze » force un numéro, « annule » retire le dernier billon (ou rouvre la grume qu'on vient de clore).
+  Le téléphone relit chaque billon à voix haute. Les qualités se disent lettre par lettre (CA → « cé a »,
+  CXX → « cé double ixe », ST → « esse té », PA → « pé a ») ; « avivé » se dit tel quel (le modèle entend « avive ») ;
+  colonne « mots_vocaux » de l'onglet QUALITES ou Paramètres pour d'autres mots.
 
 - Reconnaissance 100 % locale (logiciel libre Vosk/Kaldi en WebAssembly, licence Apache 2.0) : aucun son
   n'est envoyé sur Internet. Première activation avec du réseau : téléchargement du modèle (42 Mo), conservé

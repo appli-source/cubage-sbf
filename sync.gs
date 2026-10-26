@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.9 (mots vocaux des essences).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.9 (mots vocaux des essences et qualités).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -183,12 +183,13 @@ function params_(ss, role) {
   res.grilles = Object.keys(map).map(k => map[k]);
   rows('DMM',21).forEach(r => { const d = Number(r[0]); if (d >= 6 && d <= 100) res.dmm[d] = r.slice(1,21).map(Number); });
   sheetRows_(ss, 'LOT_CLIENT').forEach(r => res.clientStatuts[String(r.client_id)] = String(r.statut || ''));
-  res.essencesVocal = essencesVocal_(ss);
+  res.essencesVocal = motsVocaux_(ss, 'ESSENCES');
+  res.qualitesVocal = motsVocaux_(ss, 'QUALITES');
   return res;
 }
-function essencesVocal_(ss) {
-  // Mode vocal : onglet ESSENCES, colonne dont l'en-tête contient « vocal » (ex. mots_vocaux) : « chêne, chêne rouge » → code de la colonne A
-  const sh = ss.getSheetByName('ESSENCES'); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 2) return {};
+function motsVocaux_(ss, name) {
+  // Mode vocal : onglet ESSENCES ou QUALITES, colonne dont l'en-tête contient « vocal » (ex. mots_vocaux) : « chêne, chêne rouge » → code de la colonne A
+  const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 2) return {};
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
   const col = v[0].findIndex(h => /vocal/i.test(String(h))); if (col < 1) return {};
   const out = {};
