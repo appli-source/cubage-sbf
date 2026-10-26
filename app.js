@@ -181,9 +181,9 @@ V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.
   <div id="optG"${m0==='pied'?' hidden':''}><label class="f"><span class="l">Premier n° de grume</span><input id="numDepart" type="number" inputmode="numeric" value="1"></label></div>
   <div id="optP"${m0==='grumes'?' hidden':''} class="stack"><label class="f"><span class="l">Tarif Chaudé par défaut (1 à 20)</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="8"></label>
    <label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam">Pied à pied, diamètre seul (hauteurs par classe ensuite)</option><option value="classes">Par classes avec effectifs</option><option value="pieds">Pied à pied numéroté (diamètre + hauteur)</option></select></label></div>
-  <div class="stack"><span class="l-sec">Essences du lot</span>${multi('essSel',p.essences,(pl&&pl.essSel&&pl.essSel.length)?pl.essSel:p.essences)}</div>
-  <div class="stack"><span class="l-sec">Qualités du lot</span>${multi('qualSel',p.qualites,(pl&&pl.qualSel&&pl.qualSel.length)?pl.qualSel:p.qualites)}</div>
-  <p class="muted" style="margin:0">Seules ces essences et qualités apparaîtront à la saisie. Le bouton + permet d’en ajouter en cours de route.</p>
+  <div class="stack"><span class="l-sec">Essences du lot</span>${multi('essSel',p.essences,[])}</div>
+  <div class="stack"><span class="l-sec">Qualités du lot</span>${multi('qualSel',p.qualites,[])}</div>
+  <p class="muted" style="margin:0">Cochez les essences et qualités du lot : seules celles-ci apparaîtront à la saisie. Le bouton + permet d’en ajouter en cours de route.</p>
   <label class="f"><span class="l">Grille de prix</span><select id="grille"><option value="">Aucune</option>${S.grilles.filter(g=>g.type===m0).map(g=>`<option value="${g.id}">${esc(g.nom)}</option>`).join('')}</select></label>
   </div>`;
   bindMulti();
@@ -192,7 +192,7 @@ V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.
   $('#create').onclick=()=>{const type=m0;const xylo=$('#xylo')?$('#xylo').value.trim():'';if(type==='grumes'&&!xylo){toast('Le n° de chantier Xylolink est obligatoire');$('#xylo').focus();return;}const lot={id:uid(),type,xylo,chantier:$('#chantier').value.trim(),commune:$('#commune').value.trim(),dept:$('#dept').value.trim(),gps:S.newGps||null,date:$('#date').value,operateur:$('#op').value.trim(),
     numDepart:Number($('#numDepart').value)||1,tarif:Math.min(20,Math.max(1,Number($('#tarif').value)||8)),mode:$('#mode').value,grilleId:$('#grille').value||null,grilleLocal:null,
     sousLots:[],grumes:[],arbres:[],classH:{},essSel:readMulti('essSel'),qualSel:readMulti('qualSel'),sync:'new',created:new Date().toISOString()};
-    if(!lot.essSel.length){toast('Choisissez au moins une essence');return;}
+    if(!lot.essSel.length){toast('Cochez au moins une essence');return;}if(!lot.qualSel.length){toast('Cochez au moins une qualité');return;}
     if($('#op').value.trim()){S.params.operateur=$('#op').value.trim();saveParams();}
     S.newGps=null;S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home','module','lots'];go('lot');};};
 
