@@ -146,8 +146,10 @@ const MODS={grumes:{t:'Cubage bord de route',s:'Grumes et billons'},pied:{t:'Est
 const syncLab=l=>l.sync==='done'?'sauvegardé le '+new Date(l.synced).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):l.sync==='pending'?'à sauvegarder':'non sauvegardé';
 V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operateur:'');
   const card=m=>{const ls=S.lots.filter(l=>l.type===m),todo=ls.filter(l=>l.sync!=='done').length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
-  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button></div>`;
-  $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});foot('');};
+  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button>
+  <div class="row" style="gap:8px"><button class="btn big" id="hSync" style="flex:1">☁ Sauvegarder les lots${(()=>{const n=lotsToSync().length;return n?` <span class="pill warn">${n}</span>`:'';})()}</button><button class="btn big" id="hRef" style="flex:1">⟳ Mettre à jour depuis le Sheet</button></div>
+  <small class="muted" style="text-align:center">Sauvegarder = envoyer vos lots sur le Sheet SBF · Mettre à jour = recevoir essences, qualités, grilles de prix et statuts des ventes</small></div>`;
+  $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});$('#hSync').onclick=syncAllUI;$('#hRef').onclick=loadRefUI;foot('');};
 V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>l.type===m);const ng=S.grilles.filter(g=>g.type===m).length;
   $('#main').innerHTML=`<div class="stack"><button class="tile" data-go="newLot"><b>+ Ajouter un lot</b><small>${m==='grumes'?'Cubage de grumes bord de route':'Inventaire de bois sur pied'}</small></button>
   <button class="tile light" data-go="lots"><b>Liste des lots</b><small>${ls.length} lot${ls.length>1?'s':''} · recherche par chantier, commune, date</small></button>
@@ -645,10 +647,8 @@ V.params=()=>{const p=S.params;head('Paramètres');
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
     p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';p.operateur=$('#op').value.trim();p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
   $('#main').querySelectorAll('input,select').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
-  $('#loadRef').onclick=async()=>{upd();const set=statusBox();set('Lecture du Sheet SBF…','',false);const ok=await loadRef(true);const i=S.refInfo||{};
-    if(ok)set('✓ Référentiel chargé',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec du chargement',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();};
-  $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=async()=>{upd();const todo=S.lots.filter(l=>l.sync!=='done'&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));const set=statusBox();set('Sauvegarde en cours…',todo.length+' lot(s) à envoyer',false);let ok=0;const plain=todo.filter(l=>l.type!=='client'&&!(l.type==='grumes'&&!l.xylo));for(let i=0;i<plain.length;i+=10){const chunk=plain.slice(i,i+10);set('Sauvegarde en cours…',(i+chunk.length)+' / '+plain.length+' lot(s)…',false);ok+=await syncLots(chunk);}
-    for(const l of todo.filter(l=>l.type==='client'))if(await syncClient(l,true))ok++;set(ok===todo.length?'✓ Sauvegarde terminée':'Sauvegarde incomplète',ok+' / '+todo.length+' lot(s) sauvegardé(s) sur le Sheet SBF.',true,ok!==todo.length);render();};
+  $('#loadRef').onclick=()=>{upd();loadRefUI();};
+  $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const lots=j.lots||(j.id&&j.type?[j]:[]);for(const l of lots){if(!S.lots.find(x=>x.id===l.id)){S.lots.push(l);await DB.put('lots',l);}}
     for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}toast(lots.length+' lot(s) importé(s)');render();}catch(x){toast('Fichier illisible');}};foot('');};
@@ -757,6 +757,19 @@ async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onL
     const j=await res.json();if(j&&j.error==='action inconnue'){let n=0;for(const l of lots)if(await syncLot(l,true))n++;return n;}
     const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
+/* Boutons « Sauvegarder les lots » et « Mettre à jour depuis le Sheet » (accueil et Paramètres) */
+const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
+async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
+  if(!navigator.onLine){set('Pas de réseau','Les lots restent enregistrés sur le téléphone. Relancez quand vous aurez du réseau.',true,true);return;}
+  const todo=lotsToSync();if(!todo.length){set('✓ Tout est déjà sauvegardé','Aucun lot modifié depuis la dernière sauvegarde sur le Sheet SBF.',true);return;}
+  set('Sauvegarde en cours…',todo.length+' lot(s) à envoyer',false);let ok=0;const noX=todo.filter(l=>l.type==='grumes'&&!l.xylo);const plain=todo.filter(l=>l.type!=='client'&&!noX.includes(l));
+  for(let i=0;i<plain.length;i+=10){const chunk=plain.slice(i,i+10);set('Sauvegarde en cours…',(i+chunk.length)+' / '+plain.length+' lot(s)…',false);ok+=await syncLots(chunk);}
+  for(const l of todo.filter(l=>l.type==='client'))if(await syncClient(l,true))ok++;
+  const extra=noX.length?'\n'+noX.length+' lot(s) sans n° de chantier Xylolink non envoyé(s) : '+noX.map(l=>l.chantier||'(sans nom)').join(', ')+'.':'';
+  set(ok===todo.length?'✓ Sauvegarde terminée':'Sauvegarde incomplète',ok+' / '+todo.length+' lot(s) sauvegardé(s) sur le Sheet SBF.'+extra,true,ok!==todo.length);render();}
+async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
+  set('Lecture du Sheet SBF…','',false);const ok=await loadRef(true);const i=S.refInfo||{};
+  if(ok)set('✓ Mise à jour depuis le Sheet',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) de prix · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec de la mise à jour',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();}
 /* Lecture d'un lien de configuration (…#cfg=…) */
 function parseCfg(txt){const m=/#cfg=([A-Za-z0-9_\-+\/=]+)/.exec(txt||'');if(!m)return null;try{const c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));return c&&c.u?c:null;}catch(e){return null;}}
 /* ---------- Lots clients : envoi au Sheet ---------- */
