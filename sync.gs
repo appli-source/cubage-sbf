@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.1 (données économiques dans l'espace Bureau).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -117,9 +117,9 @@ function params_(ss, role) {
 function stock_(ss) {
   const pick = (r, cols) => { const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? '' : r[c]); return o; };
   return { ok:true, at: new Date().toISOString(),
-    billons: sheetRows_(ss, 'BILLON').map(r => pick(r, ['lot_id','billon_id','chantier_xylolink','chantier','date','commune','dept','operateur','num','essence','qualite','longueur_m','diametre_cm','reduction_l_cm','reduction_d_cm','volume_m3','sous_lot','client'])),
+    billons: sheetRows_(ss, 'BILLON').map(r => pick(r, ['lot_id','billon_id','chantier_xylolink','chantier','date','commune','dept','operateur','num','essence','qualite','longueur_m','diametre_cm','reduction_l_cm','reduction_d_cm','volume_m3','sous_lot','client','grille','prix_m3','montant'])),
     recoupes: sheetRows_(ss, 'RECOUPE'),
     clients: sheetRows_(ss, 'LOT_CLIENT'),
-    lignes: sheetRows_(ss, 'LOT_CLIENT_LIGNE').map(r => pick(r, ['client_id','billon_key'])) };
+    lignes: sheetRows_(ss, 'LOT_CLIENT_LIGNE').map(r => pick(r, ['client_id','billon_key','prix_m3','montant'])) };
 }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
