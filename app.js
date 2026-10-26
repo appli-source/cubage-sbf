@@ -243,10 +243,11 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
   ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
   ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
+   <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
    <label class="f"><span class="l">Réduction L (cm)</span><input type="text" inputmode="numeric" data-f="rl" data-i="${i}" value="${b.rl>0?b.rl:''}" placeholder="0"></label><label class="f"><span class="l">Réduction Ø (cm)</span><input type="text" inputmode="numeric" data-f="rd" data-i="${i}" value="${b.rd>0?b.rd:''}" placeholder="0"></label>
    <div class="vbox"><b data-bv="${i}">${b.d>0&&lenM(b)>0?f3(volB(b)):'—'}</b><small data-bc="${i}">${(b.rl>0||b.rd>0)?'m³ · cubé '+f2(cubL(b))+' m × Ø'+cubD(b):'m³ billon'}</small></div>
-   <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div></div></div>`).join('')}
+   </div></div>`).join('')}
   <div class="vbox main"><b id="gv">${f3(gv)}</b><small>m³ grume${f.billons.length>1?' · '+f.billons.length+' billons':''}</small></div>
   <button type="button" class="btn big block" id="addB">+ Billon</button>
   </div>`;
