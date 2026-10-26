@@ -135,6 +135,7 @@ function chipVal(name){const b=document.querySelector(`[data-chips="${name}"] .c
 let chipCb=null;const onChip=cb=>{chipCb=cb;};
 function bindChips(){document.querySelectorAll('[data-chips]').forEach(c=>c.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;c.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(chipCb)chipCb({target:c,detail:b.dataset.v});}));}
 function head(title,sub,right){$('#top').innerHTML=`<button type="button" id="back" aria-label="Retour">‹ Retour</button><h1>${esc(title)}${sub?`<span class="sub">${esc(sub)}</span>`:''}</h1>${right||''}`;$('#back').onclick=back;if(S.screen==='home')$('#back').style.visibility='hidden';}
+if(window.visualViewport){const fixFoot=()=>{const f=$('#foot');if(!f)return;const vv=window.visualViewport;const off=window.innerHeight-(vv.height+vv.offsetTop);f.style.transform=off>2?`translateY(-${off}px)`:'';};window.visualViewport.addEventListener('resize',fixFoot);window.visualViewport.addEventListener('scroll',fixFoot);}
 function foot(html){const f=$('#foot');if(!html){f.hidden=true;f.innerHTML='';return;}f.hidden=false;f.innerHTML=`<div class="in">${html}</div>`;}
 function trEditor(list,id){const q=lotQual(S.lot,list.map(t=>t.q));return `<div class="stack" id="${id}">${list.map((t,i)=>`<div class="tr-row" data-i="${i}"><input type="number" inputmode="decimal" step="0.5" placeholder="m" value="${t.h??''}" data-f="h"><select data-f="q"><option value="">Qualité</option>${q.map(x=>`<option${x===t.q?' selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="x" data-del="${i}">✕</button><span class="tvol" data-tv="${i}"></span></div>`).join('')}
   <button type="button" class="btn add" data-add-tr="${id}">+ Ajouter un tronçon</button></div>`;}
@@ -242,15 +243,15 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   <div class="count-bar"><div class="ess"><b>${f3(t.v)}</b><small>m³ lot · ${t.n} grume${t.n>1?'s':''}</small></div></div>
   <div class="row"><label class="f" style="flex:0 0 150px"><span class="l">N° grume</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label><label class="f"><span class="l">Essence</span>${chips('ess',lotEss(l,[f.ess]),f.ess,true).replace(/<\/div>$/,addBtn('ess')+'</div>')}</label></div>
   ${hasSL?`<div class="sl-box"><span class="l">Sous-lot de la grume${f.sl==='mixte'?' · <span class="pill warn">billons répartis</span>':''}</span>${slChips(l,f.sl)}</div>`:''}
-  ${f.billons.map((b,i)=>`<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
+  ${f.billons.map((b,i)=>{const red=b.rl>0||b.rd>0||(f.redOpen&&f.redOpen[i]);return `<div class="card stack" data-b="${i}"><div class="row"><b class="grow">Billon ${f.num}.${i+1}</b><button type="button" class="chip small${red?' on':''}" data-red="${i}">${red?'− Réduction':'+ Réduction'}</button>${f.billons.length>1?`<button type="button" class="chip small" data-delb="${i}">✕</button>`:''}</div>
    <div class="q"><span class="muted">Qualité</span>${chips('q'+i,lotQual(l,[b.q]),b.q,true).replace(/<\/div>$/,addBtn('q',i)+'</div>')}</div>
    <div class="bill"><label class="f"><span class="l">Longueur (m)</span><input class="big" type="text" inputmode="decimal" data-f="lm" data-i="${i}" value="${lenM(b)>0?String(lenM(b)).replace('.',','):''}" placeholder="m"></label><label class="f"><span class="l">Diamètre (cm)</span><input class="big" type="number" inputmode="numeric" data-f="d" data-i="${i}" value="${b.d??''}" placeholder="cm"></label>
-   <label class="f"><span class="l">Réduction L (cm)</span><input type="text" inputmode="numeric" data-f="rl" data-i="${i}" value="${b.rl>0?b.rl:''}" placeholder="0"></label><label class="f"><span class="l">Réduction Ø (cm)</span><input type="text" inputmode="numeric" data-f="rd" data-i="${i}" value="${b.rd>0?b.rd:''}" placeholder="0"></label>
+   ${red?`<label class="f"><span class="l">Réduction L (cm)</span><input type="text" inputmode="numeric" data-f="rl" data-i="${i}" value="${b.rl>0?b.rl:''}" placeholder="0"></label><label class="f"><span class="l">Réduction Ø (cm)</span><input type="text" inputmode="numeric" data-f="rd" data-i="${i}" value="${b.rd>0?b.rd:''}" placeholder="0"></label>`:''}
    <div class="vbox"><b data-bv="${i}">${b.d>0&&lenM(b)>0?f3(volB(b)):'—'}</b><small data-bc="${i}">${(b.rl>0||b.rd>0)?'m³ · cubé '+f2(cubL(b))+' m × Ø'+cubD(b):'m³ billon'}</small></div>
-   </div></div>`).join('')}
+   </div></div>`;}).join('')}
   <div class="vbox main"><b id="gv">${f3(gv)}</b><small>m³ grume${f.billons.length>1?' · '+f.billons.length+' billons':''}</small></div>
-  <button type="button" class="btn big block" id="addB">+ Billon</button>
   </div>`;
+  $('#main').querySelectorAll('[data-red]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.red);f.redOpen=f.redOpen||{};const bl=f.billons[i];if(bl.rl>0||bl.rd>0){bl.rl=0;bl.rd=0;f.redOpen[i]=false;}else f.redOpen[i]=!f.redOpen[i];render();if(f.redOpen[i])setTimeout(()=>{const x=document.querySelector(`input[data-f=rl][data-i="${i}"]`);x&&x.focus();},0);});
   bindChips();bindAddRef(l,(k,v,i)=>{if(k==='ess')f.ess=v;else if(i!=null&&f.billons[Number(i)])f.billons[Number(i)].q=v;render();});
   onChip(e=>{const n=e.target.dataset.chips;if(n==='sl'){f.sl=e.detail||null;f.slSet=true;if(!ed){l.slCur=f.sl;save();}}else if(n==='ess')f.ess=e.detail;else if(n.startsWith('q'))f.billons[Number(n.slice(1))].q=e.detail;});
   $('#num').oninput=e=>{f.num=e.target.value;};
@@ -258,9 +259,12 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#main').querySelectorAll('input[data-f]').forEach(i=>i.oninput=e=>{const b=f.billons[Number(e.target.dataset.i)],k=e.target.dataset.f;let v=num(e.target.value);if((k==='rl'||k==='rd')&&v!=null)v=Math.abs(v);b[k]=v;updV();});
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
-  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
-  foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
+  foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button type="button" class="btn big" id="addB">+ Billon</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
+  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
+  // Entrée / « suivant » au clavier : longueur → diamètre → billon suivant ou grume suivante
+  $('#main').querySelectorAll('input[data-f=lm],input[data-f=d]').forEach(i=>{i.setAttribute('enterkeyhint','next');i.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const k=i.dataset.f,n=Number(i.dataset.i);
+    const nx=k==='lm'?document.querySelector(`input[data-f=d][data-i="${n}"]`):document.querySelector(`input[data-f=lm][data-i="${n+1}"]`);if(nx)nx.focus();else $('#ok').click();};});
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};
   $('#ok').onclick=()=>{try{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}

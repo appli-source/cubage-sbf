@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Cubage SBF</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="manifest.json">
@@ -63,7 +63,7 @@ button{font:inherit;cursor:pointer}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{min-height:48px;min-width:56px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);font-weight:600;font-size:17px}
 .chip.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-.chip.small{min-height:40px;font-size:14px;min-width:44px;padding:4px 12px}
+.chip.small{min-height:40px;font-size:14px;min-width:44px;padding:4px 12px}.chip.small.on{background:var(--accent-soft);border-color:var(--accent)}
 .grid-cl{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
 .grid-cl button{min-height:60px;font-size:20px;font-weight:700;border-radius:var(--r);border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .grid-cl button{position:relative}
@@ -166,7 +166,7 @@ details[open]>summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="calc.js?v=43"></script>
-<script src="app.js?v=43"></script>
+<script src="calc.js?v=44"></script>
+<script src="app.js?v=44"></script>
 
 </html>
