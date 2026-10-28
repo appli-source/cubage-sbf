@@ -227,6 +227,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   <div class="row"><button class="btn grow" data-go="sousLots">Sous-lots (${(l.sousLots||[]).length})</button><button class="btn grow" data-go="lotGrille">Grille : ${esc(g?g.nom:'aucune')}</button></div>
   <h2>Sorties</h2>
   <div class="row"><button class="btn grow" id="pdf">PDF</button><button class="btn grow" id="xlsx">Excel</button><button class="btn grow" id="json">Envoyer à un collègue</button></div>
+  ${l.type==='grumes'&&!l.readonly?`<label class="btn block" for="impInv" style="cursor:pointer">Importer un inventaire (Excel / CSV d’un bûcheron)</label><input id="impInv" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>`:''}
   ${l.test?'<span class="pill warn">Lot d’essai : jamais envoyé sur le Sheet SBF</span>':l.remote?'':l.readonly?'<span class="pill warn">Lecture seule : la sauvegarde sur le Sheet revient au collègue qui a reçu le lot</span>':`<button class="btn block ${l.sync==='done'?'':'primary'}" id="sync">${l.sync==='done'?'Sauvegardé sur le Sheet · renvoyer':'Sauvegarder sur le Sheet SBF'}</button>${l.synced?`<span class="muted">Dernière sauvegarde : ${esc(new Date(l.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}))}${l.sync!=='done'?' · modifié depuis':''}</span>`:''}`}
   ${(l.type==='grumes'&&!l.isClient)?(()=>{const st=lotStatus(l);const its=Object.values(st);const cut=its.filter(x=>x.cut),sold=its.filter(x=>x.client&&!x.cut),free=its.filter(x=>!x.cut&&!x.client);if(!cut.length&&!sold.length)return'';
     const sum=a=>a.reduce((s,x)=>s+x.v,0);const byC={};for(const x of sold){const k=x.client.client;byC[k]=byC[k]||{n:0,v:0};byC[k].n++;byC[k].v+=x.v;}
@@ -246,6 +247,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   $('#gpsBtn').onclick=()=>captureGps(g=>{l.gps=g;save();toast('Position relevée');render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
+  if($('#impInv'))$('#impInv').onchange=e=>{const f=e.target.files[0];if(f)importInventory(f,l);e.target.value='';};
   $('#pdf').onclick=()=>exportAsk(l,'pdf');$('#xlsx').onclick=()=>exportAsk(l,'xlsx');$('#json').onclick=()=>shareFile(lotFile(l),fname(l,'json'),false,()=>{if(l.readonly)return;const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Lot envoyé à un collègue</b><p class="muted" style="margin:0">Pour éviter que deux téléphones modifient le même lot (le dernier sauvegardé écrase l’autre), votre copie peut passer en lecture seule et être archivée. Vous pourrez « reprendre la main » plus tard si besoin.</p><div class="stack"><button type="button" class="btn primary big" id="aYes">Archiver ma copie (recommandé)</button><button type="button" class="btn" id="aNo">Garder ma copie modifiable</button></div></div>`;document.body.appendChild(m);
     m.querySelector('#aYes').onclick=()=>{l.readonly=true;l.sentAt=new Date().toISOString();l.archive=true;DB.put('lots',l);m.remove();toast('Copie archivée (lecture seule)');back();};m.querySelector('#aNo').onclick=()=>m.remove();});
   if($('#sync'))$('#sync').onclick=()=>syncLot(l);
@@ -920,6 +922,37 @@ async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Sync
   if(ok)set('✓ Mise à jour depuis le Sheet',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) de prix · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec de la mise à jour',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();}
 /* Partage de lot entre téléphones : fichier .json (lot + grilles utilisées) */
 function lotFile(l){const gids=[l.grilleId,...(l.sousLots||[]).map(x=>x.grilleId)].filter(Boolean);return new Blob([JSON.stringify({app:'cubage-sbf',lot:l,grilles:S.grilles.filter(g=>gids.includes(g.id))},null,1)],{type:'application/json'});}
+/* Import d'un inventaire de grumes (fichier Excel ou CSV d'un bûcheron) dans un lot de cubage.
+   Lecture souple : la ligne d'en-tête est cherchée dans chaque onglet (colonnes Numéro, Longueur, Diamètre, et en option
+   Qualité, Essence, Réduction L/Ø) ; une ligne = une grume d'un billon. Format CSV standard : numero;essence;qualite;longueur_m;diametre_cm */
+async function importInventory(file,l){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}
+  let wb;try{wb=XLSX.read(await file.arrayBuffer(),{type:'array'});}catch(e){toast('Fichier illisible');return;}
+  const key=h=>String(h==null?'':h).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const COLS={num:['numero','num','n','no','ngrume','grume','numerogrume'],lm:['longueur','longueurm','long','l','lg','lgm'],d:['diametre','diametrecm','diam','d','o','diamm','diametremedian'],q:['qualite','qual','q','classe'],ess:['essence','ess','esp','espece'],rl:['reductionl','reductionlongueur','redl'],rd:['reductiond','reductiondiametre','redd','reductiono']};
+  const rows=[];const feuilles=[];
+  for(const name of wb.SheetNames){const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});let hi=-1,map={};
+    for(let i=0;i<Math.min(aoa.length,30);i++){const r=aoa[i]||[];const m={};r.forEach((c,j)=>{const k=key(c);for(const f of Object.keys(COLS))if(m[f]==null&&COLS[f].includes(k))m[f]=j;});if(m.num!=null&&m.lm!=null&&m.d!=null){hi=i;map=m;break;}}
+    if(hi<0)continue;let n=0;
+    for(let i=hi+1;i<aoa.length;i++){const r=aoa[i]||[];const num=r[map.num],lm=Number(String(r[map.lm]==null?'':r[map.lm]).replace(',','.')),d=Number(String(r[map.d]==null?'':r[map.d]).replace(',','.'));
+      if(num==null||String(num).trim()===''||!(lm>0)||!(d>0))continue;
+      rows.push({num:String(num).trim().replace(/\.0+$/,''),lm:Math.round(lm*100)/100,d:Math.floor(d),q:map.q!=null&&r[map.q]!=null?String(r[map.q]).trim().toUpperCase():'',ess:map.ess!=null&&r[map.ess]!=null?String(r[map.ess]).trim().toUpperCase():'',rl:map.rl!=null?Math.round(Number(r[map.rl])||0):0,rd:map.rd!=null?Math.round(Number(r[map.rd])||0):0,feuille:name});n++;}
+    if(n)feuilles.push(name+' ('+n+')');}
+  if(!rows.length){const set=statusBox();set('Aucune grume trouvée','Le fichier doit contenir une ligne d’en-tête avec les colonnes Numéro, Longueur (m) et Diamètre (cm), puis une ligne par grume. Colonnes facultatives : Qualité, Essence.',true,true);return;}
+  // Essence et qualité par défaut pour les lignes qui n'en ont pas
+  const essL=lotEss(l),qL=lotQual(l);const needE=rows.some(r=>!r.ess),needQ=rows.some(r=>!r.q);
+  const choix=await new Promise(res=>{const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>${rows.length} grume(s) trouvée(s)</b><p class="muted" style="margin:0">Onglets : ${esc(feuilles.join(', '))}. Une ligne = une grume d’un billon.</p>
+    ${needE?`<label class="f"><span class="l">Essence pour les lignes sans essence</span><select id="iE">${essL.map(e=>`<option>${esc(e)}</option>`).join('')}</select></label>`:''}
+    ${needQ?`<label class="f"><span class="l">Qualité pour les lignes sans qualité</span><select id="iQ"><option value="">(aucune)</option>${qL.map(q=>`<option>${esc(q)}</option>`).join('')}</select></label>`:''}
+    <div class="stack"><button type="button" class="btn primary big" id="iOk">Importer dans « ${esc(l.chantier||'ce lot')} »</button><button type="button" class="btn" id="iNo">Annuler</button></div></div>`;document.body.appendChild(m);
+    m.querySelector('#iOk').onclick=()=>{res({ess:m.querySelector('#iE')?m.querySelector('#iE').value:'',q:m.querySelector('#iQ')?m.querySelector('#iQ').value:''});m.remove();};m.querySelector('#iNo').onclick=()=>{res(null);m.remove();};});
+  if(!choix)return;
+  const nums=new Set(l.grumes.map(g=>String(g.num)));let n=0,dup=0;const newE=[],newQ=[];const now=new Date().toISOString();
+  for(const r of rows){if(nums.has(r.num)){dup++;continue;}const ess=r.ess||choix.ess,q=r.q||choix.q;if(ess&&!essL.includes(ess)&&!newE.includes(ess))newE.push(ess);if(q&&!qL.includes(q)&&!newQ.includes(q))newQ.push(q);
+    l.grumes.push({id:uid(),num:r.num,ess,saisi:now,src:'import',billons:[{id:uid(),rang:1,lm:r.lm,d:r.d,q,rl:r.rl>0?r.rl:0,rd:r.rd>0?r.rd:0,sl:l.slCur||null}]});nums.add(r.num);n++;}
+  if(newE.length){l.essSel=uniqL([...(l.essSel||[]),...newE]);for(const e of newE)if(!S.params.essences.includes(e))S.params.essences.push(e);}
+  if(newQ.length){l.qualSel=uniqL([...(l.qualSel||[]),...newQ]);for(const q of newQ)if(!S.params.qualites.includes(q))S.params.qualites.push(q);}
+  if(newE.length||newQ.length)saveParams();save(l);
+  const set=statusBox();set('✓ Inventaire importé',n+' grume(s) ajoutée(s) à « '+(l.chantier||'')+' » · '+f3(lotTotals(l).v)+' m³ au total.'+(dup?'\n'+dup+' ligne(s) ignorée(s) : n° déjà présent dans le lot.':'')+(newE.length?'\nEssence(s) ajoutée(s) : '+newE.join(', ')+'.':'')+(newQ.length?'\nQualité(s) ajoutée(s) : '+newQ.join(', ')+'.':'')+'\nLe lot reste à sauvegarder sur le Sheet.',true,dup>0);render();}
 /* Fusion d'un lot reçu dans un lot existant du téléphone (plusieurs techniciens sur le même chantier) */
 function mergeLot(t,src){const r={n:0,dup:0};t.essSel=uniqL([...(t.essSel||[]),...(src.essSel||[])]);t.qualSel=uniqL([...(t.qualSel||[]),...(src.qualSel||[])]);
   const slMap={};for(const s of src.sousLots||[]){let ex=(t.sousLots||[]).find(x=>x.nom===s.nom);if(!ex){ex=Object.assign({},s,{id:uid()});t.sousLots=t.sousLots||[];t.sousLots.push(ex);}slMap[s.id]=ex.id;}
