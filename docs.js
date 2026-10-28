@@ -84,7 +84,7 @@ function bordereauCorps(D,r,lignes,withPrices,opts){const G=lignes.length;const 
   const body=lignes.map(x=>[String(x.num),x.ess,x.q||'·',pdfFr2(x.l),String(x.d),pdfFr3(x.v),x.red||'',...(pr?[x.p!=null?pdfFr2(x.p):'',x.m!=null?pdfFr2(x.m):'']:[]),...(opts.origCol?[x.orig]:[])]);
   body.push(['Total','','','','',pdfFr3(r.tot.v),G+' billon'+(G>1?'s':''),...(pr?['',r.tot.m!=null?pdfFr2(r.tot.m):'']:[]),...(opts.origCol?['']:[])]);
   D.table(head,body,[3,4,5,...(pr?[7,8]:[])],{fontSize:8});
-  D.para('Volumes établis au cubage bord de route : diamètre médian et longueur réelle de chaque billon (volume du cylindre : 0,7854 × Ø² × L). Les réductions appliquées (longueur ou diamètre) sont indiquées en colonne et prises en compte dans le volume ; le listing garde les dimensions mesurées.'+(pr?' Prix et montants hors taxes, TVA en sus au taux en vigueur.':''),8);
+  D.para('Volumes établis au cubage bord de route : diamètre médian et longueur réelle de chaque billon. Les réductions appliquées (longueur ou diamètre) sont indiquées en colonne et prises en compte dans le volume ; le listing garde les dimensions mesurées.'+(pr?' Prix et montants hors taxes, TVA en sus au taux en vigueur.':''),8);
   if(opts.note)D.para(opts.note,8.5,SBF.slate);}
 
 /* ---------- Bordereau de cubage PROPRIÉTAIRE ---------- */
