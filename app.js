@@ -105,7 +105,7 @@ function priceRecap(r){const multiG=new Set(r.prices.filter(x=>x.gNom).map(x=>x.
 function listing(lot,sl){const out=[];if(lot.type==='grumes'){for(const g of lot.grumes)for(const b of g.billons){if(!slMatch(b.sl,sl))continue;
     out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,c:cls(g.ess,cubD(b)),v:volB(b),sl:slName(lot,b.sl),o:g.orig||'',red:redTxt(b)});}}
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const x=arbreCalc(lot,a);
-    out.push({num:a.num||'',ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
+    out.push({num:(a.num||'')+(a.numOrig?' (ex '+a.numOrig+')':'')+(a.de?' ['+a.de+']':''),ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
 const uniqL=a=>[...new Set(a.filter(Boolean))];
 const lotEss=(l,extra)=>uniqL([...((l&&l.essSel&&l.essSel.length)?l.essSel:S.params.essences),...(extra||[])]);
 const lotQual=(l,extra)=>uniqL([...((l&&l.qualSel&&l.qualSel.length)?l.qualSel:S.params.qualites),...(extra||[])]);
@@ -918,8 +918,28 @@ async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Sync
   if(ok)set('✓ Mise à jour depuis le Sheet',`${i.ess} essences · ${i.qual} qualités · ${i.grilles} grille(s) de prix · barème Chaudé ${i.dmm?'du Sheet':'intégré'}`+(i.chg&&i.chg.length?'\nStatuts mis à jour : '+i.chg.join(' ; '):'\nAucun changement de statut sur vos lots clients.'),true);else set('Échec de la mise à jour',S.refErr||'Vérifiez le réseau et la configuration.',true,true);render();}
 /* Partage de lot entre téléphones : fichier .json (lot + grilles utilisées) */
 function lotFile(l){const gids=[l.grilleId,...(l.sousLots||[]).map(x=>x.grilleId)].filter(Boolean);return new Blob([JSON.stringify({app:'cubage-sbf',lot:l,grilles:S.grilles.filter(g=>gids.includes(g.id))},null,1)],{type:'application/json'});}
+/* Fusion d'un lot reçu dans un lot existant du téléphone (plusieurs techniciens sur le même chantier) */
+function mergeLot(t,src){const r={n:0,dup:0};t.essSel=uniqL([...(t.essSel||[]),...(src.essSel||[])]);t.qualSel=uniqL([...(t.qualSel||[]),...(src.qualSel||[])]);
+  const slMap={};for(const s of src.sousLots||[]){let ex=(t.sousLots||[]).find(x=>x.nom===s.nom);if(!ex){ex=Object.assign({},s,{id:uid()});t.sousLots=t.sousLots||[];t.sousLots.push(ex);}slMap[s.id]=ex.id;}
+  const de=src.operateur||'collègue';
+  if(t.type==='pied'){for(const a of src.arbres||[]){t.arbres.push(Object.assign({},a,{id:uid(),sl:a.sl?slMap[a.sl]||null:null,de}));r.n++;}
+    t.classH=t.classH||{};for(const k of Object.keys(src.classH||{}))if(t.classH[k]==null)t.classH[k]=src.classH[k];
+    t.tarifEss=t.tarifEss||{};for(const k of Object.keys(src.tarifEss||{}))if(t.tarifEss[k]==null)t.tarifEss[k]=src.tarifEss[k];}
+  else{const nums=new Set(t.grumes.map(g=>String(g.num)));for(const g of src.grumes||[]){if(nums.has(String(g.num))){r.dup++;continue;}t.grumes.push(Object.assign({},g,{id:uid(),de,billons:g.billons.map(b=>Object.assign({},b,{id:uid(),sl:b.sl?slMap[b.sl]||null:null}))}));nums.add(String(g.num));r.n++;}}
+  t.fusions=t.fusions||[];t.fusions.push({de,lot:src.chantier||'',at:new Date().toISOString(),n:r.n});save(t);return r;}
 async function importLotFile(file){let j;try{j=JSON.parse(await file.text());}catch(e){toast('Fichier illisible');return;}
   const lots=j.lots||(j.lot?[j.lot]:(j.id&&j.type?[j]:[]));if(!lots.length){toast('Aucun lot dans ce fichier');return;}
+  // Un seul lot de terrain reçu et des lots compatibles sur ce téléphone : proposer la fusion
+  if(lots.length===1&&(lots[0].type==='pied'||lots[0].type==='grumes')){const src=lots[0];const targets=S.lots.filter(l=>l.type===src.type&&l.id!==src.id&&!l.readonly&&!l.remote&&!l.archive);
+    if(targets.length){const choice=await new Promise(res=>{const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Lot reçu : ${esc(src.chantier||'')} · ${esc(src.operateur||'')}</b><p class="muted" style="margin:0">${src.type==='pied'?(src.arbres||[]).length+' tige(s) relevée(s)':(src.grumes||[]).length+' grume(s)'}. L’ajouter comme nouveau lot, ou fusionner ses ${src.type==='pied'?'arbres':'grumes'} dans un de vos lots (même chantier relevé à plusieurs) ?</p>
+        <div class="stack"><button type="button" class="btn primary big" data-ch="new">Nouveau lot séparé</button>${targets.slice(0,8).map(t=>`<button type="button" class="btn big" data-ch="${t.id}">Fusionner dans « ${esc(t.chantier||'Sans nom')} » (${esc((t.date||'').split('-').reverse().join('/'))}${t.xylo?' · '+esc(t.xylo):''})</button>`).join('')}<button type="button" class="btn" data-ch="x">Annuler</button></div></div>`;document.body.appendChild(m);
+        m.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{m.remove();res(b.dataset.ch);});});
+      if(choice==='x')return;if(choice!=='new'){const t=S.lots.find(l=>l.id===choice);for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}
+        // Pied à pied numéroté : pas de doublon de n° — renumérotation des arbres reçus à partir d'un n° choisi
+        if(t.type==='pied'&&(t.mode==='pieds'||src.mode==='pieds')){const mine=new Set(t.arbres.map(a=>String(a.num||'')).filter(Boolean));const inc=(src.arbres||[]).filter(a=>a.num&&mine.has(String(a.num)));
+          if(inc.length){const max=Math.max(0,...t.arbres.map(a=>Number(a.num)||0));const v=prompt(inc.length+' n° d’arbre reçus existent déjà dans votre lot ('+inc.slice(0,5).map(a=>a.num).join(', ')+(inc.length>5?'…':'')+').\nN° de départ pour renuméroter les '+(src.arbres||[]).length+' arbres reçus (votre dernier n° : '+max+') :',String(max+1));
+            if(v==null)return;let n=Number(v);if(!(n>0)){toast('N° invalide');return;}const sorted=[...(src.arbres||[])].sort((a,b)=>(Number(a.num)||0)-(Number(b.num)||0));for(const a of sorted){a.numOrig=a.num;a.num=String(n++);}}}
+        const r=mergeLot(t,src);const set=statusBox();set('✓ Lot fusionné',r.n+' '+(t.type==='pied'?'tige(s)':'grume(s)')+' de '+(src.operateur||'votre collègue')+' ajoutée(s) à « '+(t.chantier||'')+' »'+(r.dup?'. '+r.dup+' grume(s) ignorée(s) : numéro déjà présent dans votre lot.':'.')+((src.arbres||[]).some(a=>a.numOrig)?'\nArbres renumérotés à partir du n° '+Math.min(...src.arbres.filter(a=>a.numOrig).map(a=>Number(a.num)))+' (ancien n° conservé dans le listing).':'')+'\nLe lot reste à sauvegarder sur le Sheet.',true,r.dup>0);S.lot=t;S.mod=t.type;S.hist=['home','module','lots'];go('lot');return;}}}
   let n=0,rep=0,last=null;for(const g of j.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}
   for(const l of lots){const ex=S.lots.find(x=>x.id===l.id);if(ex){const when=d=>d?new Date(d).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'?';
       if(!confirm('Le lot « '+(l.chantier||l.client||l.id)+' » existe déjà sur ce téléphone (modifié le '+when(ex.updated)+'). Le remplacer par la version reçue (modifiée le '+when(l.updated)+') ?'))continue;S.lots[S.lots.indexOf(ex)]=l;rep++;}else{S.lots.push(l);n++;}
