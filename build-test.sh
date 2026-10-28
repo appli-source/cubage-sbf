@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 rm -rf test && mkdir -p test/vendor/vosk-browser test/models
-cp index.html app.js calc.js voice.js voice-worklet.js manifest.json sw.js test/
+cp index.html app.js docs.js calc.js voice.js voice-worklet.js manifest.json sw.js test/
 cp vendor/vosk-browser/vosk.js vendor/vosk-browser/LICENSE-NOTICE.md test/vendor/vosk-browser/
 cp models/vosk-model-small-fr-0.22.tar.gz models/README.md test/models/
 sed -i "s/indexedDB.open('cubage-sbf',1)/indexedDB.open('cubage-sbf-test',1)/" test/app.js

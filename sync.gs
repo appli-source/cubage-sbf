@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 2.9 (mots vocaux des essences et qualités).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.0 (point GPS d'un lot modifiable depuis le bureau, grille client).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -42,6 +42,7 @@ function handle_(ss, auth, body) {
   const role = auth.role;
   if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
+  if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps); }
   if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
   if (body.action === 'purgeLots') { // vide tous les onglets de lots (référentiel et clés conservés) — réservé au bureau, confirmation 'VIDER'
     if (auth.cle !== CLE_BUREAU) return { ok:false, error:'réservé à la clé maître du bureau (constante CLE_BUREAU du script)' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
@@ -154,6 +155,25 @@ function setKey_(ss, body) {
   const vals = headers.map(h => row[h] === undefined ? '' : row[h]);
   if (idx >= 0) sh.getRange(idx + 2, 1, 1, headers.length).setValues([vals]); else sh.getRange(sh.getLastRow() + 1, 1, 1, headers.length).setValues([vals]);
   return { ok:true, key_row: row };
+}
+function setLotGps_(ss, lotId, gps) {
+  // Point GPS placé (ou corrigé) depuis le bureau : colonnes gps_* de l'onglet LOT et copie JSON du lot (LOT_JSON)
+  const id = String(lotId || ''); if (!id) return { ok:false, error:'lot_id manquant' };
+  const sh = ss.getSheetByName('LOT'); if (!sh || sh.getLastRow() < 2) return { ok:false, error:'onglet LOT vide' };
+  const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
+  const col = h.indexOf('lot_id'); const idx = v.findIndex((r, i) => i > 0 && String(r[col]) === id); if (idx < 0) return { ok:false, error:'lot inconnu sur le Sheet' };
+  const g = gps && gps.lat != null ? { lat: Number(gps.lat), lon: Number(gps.lon), acc: gps.acc == null ? '' : Number(gps.acc) } : null;
+  ['gps_lat','gps_lon','gps_precision_m'].forEach(k => { if (h.indexOf(k) < 0) { h.push(k); sh.getRange(1, h.length).setValue(k); } });
+  const set = (k, val) => sh.getRange(idx + 1, h.indexOf(k) + 1).setValue(val);
+  set('gps_lat', g ? g.lat : ''); set('gps_lon', g ? g.lon : ''); set('gps_precision_m', g ? g.acc : '');
+  delete ROWS_CACHE_['LOT'];
+  const parts = sheetRows_(ss, 'LOT_JSON').filter(r => String(r.lot_id) === id).sort((a, b) => Number(a.part) - Number(b.part));
+  if (parts.length && parts.length === Number(parts[0].total || parts.length)) {
+    try { const j = JSON.parse(parts.map(p => String(p.data || '')).join('')); if (j.lot) { j.lot.gps = g ? { lat: g.lat, lon: g.lon, acc: g.acc === '' ? null : g.acc, at: new Date().toISOString(), manuel: true } : null; j.lot.updated = new Date().toISOString();
+      const txt = JSON.stringify(j); const rows = []; for (let i = 0, p = 1; i < txt.length; i += 40000, p++) rows.push({ lot_id: id, part: p, total: Math.ceil(txt.length / 40000), data: txt.slice(i, i + 40000) });
+      replaceRows_(ss, ['LOT_JSON'], 'lot_id', id, { LOT_JSON: rows }); } } catch (e) {}
+  }
+  return { ok:true, lot_id: id, gps: g };
 }
 function setStatut_(ss, clientId, statut, par) {
   const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return ({ ok:false, error:'aucun lot client' }); delete ROWS_CACHE_['LOT_CLIENT'];
