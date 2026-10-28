@@ -170,8 +170,11 @@ V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>
   <button class="tile light" data-go="lots"><b>Liste des lots</b><small>${ls.length} lot${ls.length>1?'s':''} · recherche par chantier, commune, date</small></button>
   ${m==='grumes'?`<button class="tile light" data-go="clients"><b>Lots clients</b><small>${S.lots.filter(l=>l.type==='client').length} lot(s) client · vente de billons, recoupe</small></button>`:''}
   <button class="tile light" data-go="grilles"><b>Grilles de prix</b><small>${ng} grille${ng>1?'s':''} ${m==='grumes'?'grumes':'sur pied'}</small></button>
-  <label class="tile light" for="impM" style="cursor:pointer"><b>Importer un lot reçu</b><small>Fichier .json envoyé par un collègue (mail, WhatsApp, AirDrop…)</small></label><input id="impM" type="file" accept=".json,application/json" hidden></div>`;
-  $('#impM').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};
+  <label class="tile light" for="impM" style="cursor:pointer"><b>Importer un lot reçu ou un inventaire</b><small>${m==='grumes'?'Lot .json d’un collègue, ou Excel / CSV d’un bûcheron (crée un nouveau lot)':'Fichier .json envoyé par un collègue (mail, WhatsApp, AirDrop…)'}</small></label><input id="impM" type="file" accept="${m==='grumes'?'.json,.xlsx,.xls,.csv,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel':'.json,application/json'}" hidden></div>`;
+  $('#impM').onchange=e=>{const f=e.target.files[0];if(!f)return;if(/\.(xlsx|xls|csv)$/i.test(f.name)){const targets=S.lots.filter(l=>l.type==='grumes'&&!l.readonly&&!l.remote&&!l.archive).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
+      const mo=document.createElement('div');mo.className='modal';mo.innerHTML=`<div class="modal-box"><b>Inventaire : ${esc(f.name)}</b><p class="muted" style="margin:0">Importer les grumes dans un nouveau lot (fiche à créer : n° Xylolink, essences, qualités) ou dans un lot existant ?</p><div class="stack"><button type="button" class="btn primary big" data-ch="new">Nouveau lot</button>${targets.slice(0,8).map(t=>`<button type="button" class="btn big" data-ch="${t.id}">Dans « ${esc(t.chantier||'Sans nom')} »${t.xylo?' · '+esc(t.xylo):''}</button>`).join('')}<button type="button" class="btn" data-ch="x">Annuler</button></div></div>`;document.body.appendChild(mo);
+      mo.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{mo.remove();const ch=b.dataset.ch;if(ch==='x')return;if(ch==='new'){S.pendingInv=f;S.hist.push('module');go('newLot');return;}const t=S.lots.find(l=>l.id===ch);S.lot=t;S.hist.push('module');go('lot');importInventory(f,t);});}
+    else importLotFile(f);e.target.value='';};foot('');};
 V.lots=()=>{const m=S.mod||'grumes';head('Lots · '+MODS[m].t);const qy=S.lotSearch||'';
   $('#main').innerHTML=`<input id="lsq" type="search" placeholder="Rechercher : n° Xylolink, chantier, commune, dépt, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="lsl"></div>`;
   const draw=()=>{const words=($('#lsq').value||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(Boolean);
@@ -193,7 +196,7 @@ const gpsBlock=g=>`<div class="stack"><span class="l-sec">Point GPS</span><div c
 V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.params;S.newGps=S.newGps||null;const prevLot=type=>[...S.lots].filter(x=>x.type===type).sort((a,b)=>(b.created||'').localeCompare(a.created||''))[0];const pl=prevLot(m0)||prevLot(m0==='grumes'?'pied':'grumes');
   $('#main').innerHTML=`<div class="stack card">
   ${m0==='grumes'?'<label class="f"><span class="l">N° chantier Xylolink *</span><input id="xylo" placeholder="Obligatoire" autocapitalize="characters"></label>':''}
-  <label class="f"><span class="l">Chantier / propriétaire</span><input id="chantier" placeholder="Nom du chantier"></label>
+  <label class="f"><span class="l">Chantier / propriétaire</span><input id="chantier" placeholder="Nom du chantier" value="${esc(S.pendingInv?S.pendingInv.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' '):'')}"></label>
   <div class="row"><label class="f" style="flex:2"><span class="l">Commune (option)</span><input id="commune" placeholder="Commune"></label><label class="f" style="flex:1"><span class="l">Dépt</span><input id="dept" inputmode="numeric" maxlength="3" placeholder="72"></label></div>
   ${gpsBlock(S.newGps)}
   <div class="row"><label class="f"><span class="l">Date</span><input id="date" type="date" value="${today()}"></label><label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(p.operateur)}"></label></div>
@@ -214,7 +217,7 @@ V.newLot=()=>{const m0=S.mod||'grumes';head('Nouveau lot',MODS[m0].t);const p=S.
     sousLots:[],grumes:[],arbres:[],classH:{},essSel:readMulti('essSel'),qualSel:readMulti('qualSel'),sync:'new',created:new Date().toISOString()};
     if(!lot.essSel.length){toast('Cochez au moins une essence');return;}if(!lot.qualSel.length){toast('Cochez au moins une qualité');return;}
     if($('#op').value.trim()){S.params.operateur=$('#op').value.trim();saveParams();}
-    S.newGps=null;S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home','module','lots'];go('lot');};};
+    S.newGps=null;S.lots.push(lot);S.lot=lot;save(lot);S.hist=['home','module','lots'];go('lot');if(S.pendingInv){const f=S.pendingInv;S.pendingInv=null;importInventory(f,lot);}};};
 
 V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier||'Lot'),(l.archive?'Archivé · ':'')+(l.type==='grumes'?'Grumes'+(l.xylo?' · Xylolink '+l.xylo:l.test?'':' · n° Xylolink manquant'):'Sur pied')+' · '+l.date);
   const g=lotGrille(l);
@@ -1038,7 +1041,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   catch(e){S.refErr=e.message;if(!silent)toast('Échec du chargement : '+e.message);return false;}}
 
 /* ---------- Rendu ---------- */
-function render(){chipCb=null;if(window.CubageVoice)window.CubageVoice.unbind();const v=V[S.screen]||V.home;v();if(window.CubageVoice)window.CubageVoice.apresRendu();
+function render(){chipCb=null;if(S.screen!=='newLot'&&S.screen!=='lot')S.pendingInv=null;if(window.CubageVoice)window.CubageVoice.unbind();const v=V[S.screen]||V.home;v();if(window.CubageVoice)window.CubageVoice.apresRendu();
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.hist.push(S.screen);S.form={};S.edit=null;go(b.dataset.go);});
   document.querySelectorAll('[data-open]').forEach(b=>{if(!b.onclick)b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.mod=S.lot.type;S.slFilter='';S.hist=['home','module','lots'];go('lot');};});}
 (async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});try{const bs=await DB.get('params','bureau');if(bs&&bs.j&&isBureau())buildStock(bs.j);}catch(e){}if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
