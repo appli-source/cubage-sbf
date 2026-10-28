@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Guide administratif bureau</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="cover">
+  <img src="logo.png" alt="Services Bois et Forêts">
+  <h1>Cubage SBF<br>Guide administratif bureau</h1>
+  <div class="sub">Référentiel · Clés d'accès · Espace Bureau · Ventes · Bordereaux · Maintenance</div>
+  <div class="meta">Application version 63 · Script Sheet version 3.0 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div>
+</div>
+
+<h1 class="first">Sommaire</h1>
+<ol class="toc">
+  <li>Comment c'est construit</li>
+  <li>Mise en place et mise à jour du script du Sheet</li>
+  <li>Le référentiel (onglets du Sheet)</li>
+  <li>Clés d'accès et configuration des téléphones</li>
+  <li>L'espace Bureau de l'application</li>
+  <li>Grilles de prix : propriétaire, client, catalogue et copies locales</li>
+  <li>Bordereaux propriétaire et client</li>
+  <li>Les données des lots dans le Sheet</li>
+  <li>Maintenance, sauvegardes et dépannage</li>
+</ol>
+
+<h1 class="first">1. Comment c'est construit</h1>
+<table>
+<tr><th>Élément</th><th>Où</th><th>Rôle</th></tr>
+<tr><td>Application (PWA)</td><td>GitHub Pages, dépôt <code>appli-source/cubage-sbf</code></td><td>Fichiers statiques : <code>index.html</code>, <code>app.js</code> (écrans et métier), <code>docs.js</code> (bordereaux PDF, logo, mentions légales), <code>calc.js</code> (cubage, barème Chaudé), <code>voice.js</code> (mode vocal), <code>sw.js</code> (cache hors ligne), <code>sync.gs</code> (script du Sheet).</td></tr>
+<tr><td>Google Sheet « Cubage SBF - Référentiel et lots »</td><td>Drive du compte appli@sbforets.fr</td><td>Référentiel commun (essences, qualités, classes, grilles, barème) et copie de tous les lots, billons, ventes et clés.</td></tr>
+<tr><td>Script Apps Script (<code>sync.gs</code>)</td><td>Extensions › Apps Script du Sheet, déployé en application web</td><td>Point d'entrée des téléphones : lecture du référentiel, sauvegarde des lots, ventes, clés, stock.</td></tr>
+<tr><td>Téléphones</td><td>Données dans le navigateur (IndexedDB)</td><td>Chaque téléphone travaille hors ligne ; un lot appartient au téléphone qui l'a créé, le Sheet en reçoit une copie à chaque sauvegarde.</td></tr>
+</table>
+<div class="tip">Principe : <b>le téléphone est maître de ses lots</b>, le Sheet est la copie de référence du bureau. Le bureau lit, valide les ventes, diffuse le référentiel, mais ne modifie pas un lot de technicien (sauf son point GPS, voir 5.3).</div>
+
+<h1>2. Mise en place et mise à jour du script du Sheet</h1>
+<h2>2.1 Première installation</h2>
+<ol>
+  <li>Dans le Sheet : Extensions › Apps Script, coller le contenu de <code>sync.gs</code>, renseigner les deux constantes <code>CLE</code> (clé terrain maître) et <code>CLE_BUREAU</code> (clé bureau maître) par des valeurs longues et secrètes.</li>
+  <li>Déployer › Nouveau déploiement › Application web : exécuter en tant que <b>moi</b>, accès <b>Tout le monde</b>. Copier l'URL se terminant par <code>/exec</code>.</li>
+  <li>Sur le poste bureau : ouvrir l'application, Paramètres › URL du script et <b>Clé bureau</b>, puis « Charger le référentiel du Sheet ».</li>
+</ol>
+<h2>2.2 Mettre à jour le script (nouvelle version)</h2>
+<ol>
+  <li>Récupérer <code>sync.gs</code> sur GitHub (la première ligne indique la version), remplacer le code dans Apps Script <b>en conservant vos constantes</b> <code>CLE</code> / <code>CLE_BUREAU</code>.</li>
+  <li>Déployer › <b>Gérer les déploiements</b> › crayon › Version : <b>Nouvelle version</b> › Déployer. L'adresse <code>/exec</code> ne change pas : rien à refaire sur les téléphones.</li>
+</ol>
+<p class="small">Version 3.0 : action <code>setLotGps</code> (point GPS d'un lot placé depuis le bureau). Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>) se créent d'elles-mêmes à la première sauvegarde.</p>
+<h2>2.3 Mettre à jour l'application</h2>
+<p>Les fichiers de l'application sont publiés sur GitHub Pages : une modification sur <code>main</code> est en ligne en une à deux minutes. Les téléphones prennent la nouvelle version à la prochaine ouverture <b>avec du réseau</b> (le numéro de version est affiché en bas de l'accueil). Le mode vocal (dossiers <code>vendor/</code> et <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
+
+<h1>3. Le référentiel (onglets du Sheet)</h1>
+<table>
+<tr><th>Onglet</th><th>Colonnes</th><th>Usage</th></tr>
+<tr><td><b>ESSENCES</b></td><td>A : code (CH, PIN, DOU…) ; colonne « mots_vocaux » facultative</td><td>Essences proposées à la saisie. Les mots vocaux complètent ceux déjà connus de l'application (« chêne, chêne rouge »).</td></tr>
+<tr><td><b>QUALITES</b></td><td>A : code (PA, PB, CA, CX, Avivé…) ; « mots_vocaux » facultative</td><td>Qualités proposées. Sans mot, un code se dicte lettre par lettre.</td></tr>
+<tr><td><b>CLASSES</b></td><td>A : <code>pas</code>, <code>min</code>, <code>max</code> ou un code essence ; B : valeur</td><td>Pas des classes de diamètre (5 cm par défaut), bornes, pas particulier par essence.</td></tr>
+<tr><td><b>GRILLES</b></td><td>code, nom, type (grumes / pied), essence, qualité, Ø min, Ø max, prix €/m³</td><td>Grilles de prix communes : une ligne par règle, plusieurs lignes par code. Champ vide = toutes ; bornes incluses ; la ligne la plus précise l'emporte. Se gèrent aussi depuis l'application (Bureau › Grilles communes).</td></tr>
+<tr><td><b>DMM</b></td><td>A : diamètre ; B à U : décroissance pour les tarifs 1 à 20</td><td>Barème Chaudé (décroissance métrique). Sans onglet, le barème intégré à l'application est utilisé.</td></tr>
+<tr><td><b>CLES</b></td><td>cle, operateur, role (terrain / bureau), actif (oui / non), cree_le, note</td><td>Clés d'accès des téléphones et des postes bureau (chapitre 4).</td></tr>
+</table>
+<p>Les téléphones reçoivent le référentiel avec « ⟳ Mettre à jour depuis le Sheet » et automatiquement à l'ouverture avec du réseau.</p>
+
+<h1>4. Clés d'accès et configuration des téléphones</h1>
+<p>Une clé = un technicien (rôle <b>terrain</b>) ou un poste bureau (rôle <b>bureau</b>, qui valide les ventes et voit tout le stock). L'opérateur attaché à la clé est imposé sur toutes les lignes que ce téléphone envoie : c'est lui qui identifie l'auteur d'un lot.</p>
+<h2>4.1 Créer une clé et équiper un téléphone</h2>
+<ol>
+  <li>Application › Bureau › <span class="btn">Clés d'accès</span> › opérateur (prénom ou initiales), rôle › <span class="btn">Créer la clé et le lien</span>.</li>
+  <li>Envoyer le <b>lien de configuration</b> affiché (copier ou partager) au technicien : il l'ouvre une fois dans Safari / Chrome, puis ajoute l'application à l'écran d'accueil. Sur iPhone, le lien peut devoir être collé dans Paramètres › « Coller le lien de configuration ».</li>
+</ol>
+<h2>4.2 Téléphone perdu, départ d'un technicien</h2>
+<ul>
+  <li><span class="btn">Remplacer (tél. perdu)</span> : crée une nouvelle clé pour le même opérateur et désactive l'ancienne ; envoyer le nouveau lien. Sur le nouveau téléphone, Paramètres › « Récupérer mes lots depuis le Sheet » ramène ses lots sauvegardés.</li>
+  <li><span class="btn">Désactiver</span> : la clé ne permet plus ni sauvegarde ni mise à jour ; les données déjà sur le Sheet restent.</li>
+</ul>
+<div class="warn">Les clés maîtres du script (<code>CLE</code>, <code>CLE_BUREAU</code>) fonctionnent toujours et ne sont pas visibles dans l'onglet CLES : ne les diffusez pas aux techniciens. Seule la clé bureau maître peut vider les lots du Sheet.</div>
+
+<h1>5. L'espace Bureau de l'application</h1>
+<p>Visible sur l'accueil quand une clé bureau est configurée. <span class="btn">Charger le stock</span> lit le Sheet (réseau) ; la lecture est conservée sur le poste.</p>
+<h2>5.1 Stock bord de route</h2>
+<p>Tous les billons connus du Sheet, groupés par chantier, avec filtres : en stock, proposés (à valider), vendus, recoupés ; par essence ; recherche libre (chantier, n°, opérateur, date). Les montants affichés utilisent les grilles propriétaire des lots.</p>
+<h2>5.2 Lots clients de l'entreprise</h2>
+<p>Tous les lots clients transmis par les téléphones, avec statut (brouillon, transmis, vente validée, annulé). Ouvrir un lot : billons, volumes, prix, puis <span class="btn">Valider la vente</span> ou <span class="btn">Repasser en brouillon</span> / annuler. Le technicien voit le nouveau statut à sa prochaine mise à jour. Un billon vendu ne peut plus être proposé à un autre client ni supprimé sur le téléphone.</p>
+<h2>5.3 Lots des techniciens</h2>
+<p><span class="btn">Charger les lots depuis le Sheet</span> : copies <b>en lecture seule</b> des lots de tous les téléphones. Pour chaque lot : listing, récapitulatif (achat / vente / marge), PDF interne, Excel, <b>bordereau propriétaire</b> et <b>bordereau client</b>. Le <b>point GPS</b> peut y être placé ou corrigé sur la carte depuis le bureau : il est écrit sur le Sheet (script 3.0).</p>
+<div class="warn">Un point GPS placé depuis le bureau sera écrasé si le technicien renvoie ensuite ce lot depuis son téléphone (qui n'a pas le point). À faire sur des lots terminés, ou demander au technicien de le placer lui-même.</div>
+<h2>5.4 Lot client multi-techniciens (ramasse)</h2>
+<p>Après chargement des lots des techniciens, crée un lot client à partir des billons de plusieurs téléphones et de plusieurs chantiers (billons par n° ou plage, recoupes, prix de vente). Validé directement avec la clé bureau. Le bordereau de réception client indique le chantier d'origine de chaque billon et un lien GPS par chantier.</p>
+<h2>5.5 Grilles de prix communes</h2>
+<p>Bureau › <span class="btn">Grilles de prix communes</span> › <span class="btn">+ Grille commune grumes</span> (ou sur pied) : saisie ligne par ligne puis <span class="btn">Enregistrer sur le Sheet</span> (onglet GRILLES). Diffusée à tous les téléphones à leur prochaine mise à jour. Une grille commune supprimée disparaît des téléphones ; les copies locales dans les lots sont conservées.</p>
+
+<h1>6. Grilles de prix : propriétaire, client, catalogue et copies locales</h1>
+<table>
+<tr><th>Niveau</th><th>Grille propriétaire (achat)</th><th>Grille client (vente)</th></tr>
+<tr><td>Lot de cubage</td><td>Une grille : catalogue ou copie propre au lot</td><td>Une grille par défaut : catalogue ou copie propre au lot</td></tr>
+<tr><td>Sous-lot (destination client)</td><td>—</td><td>Facultative, l'emporte sur celle du lot : catalogue ou copie propre au sous-lot</td></tr>
+<tr><td>Lot client (vente de billons)</td><td>—</td><td>Grille du client : catalogue copiée dans le lot et complétée</td></tr>
+</table>
+<ul>
+  <li><b>Catalogue</b> = grilles communes du Sheet (préfixe interne <code>sheet-</code>) ou grilles créées sur le téléphone. Modifier une grille catalogue change tous les lots qui l'utilisent sans copie.</li>
+  <li><b>Copie locale</b> = grille figée dans le lot (ou le sous-lot), modifiable par le technicien pour ce lot seul : prix négocié, client qui change son prix lot par lot.</li>
+  <li>Règles de prix : essence, qualité, Ø min / Ø max (bornes incluses, sur le diamètre cubé), prix €/m³ ; champ vide = toutes ; la ligne la plus précise l'emporte. Un billon sans règle apparaît « sans prix » et n'est pas compté dans les montants.</li>
+  <li>Le Sheet reçoit, par billon, le prix propriétaire (<code>prix_m3</code>, <code>montant</code>) et le prix client (<code>prix_vente_m3</code>, <code>montant_vente</code>), ainsi que les noms des grilles du lot (<code>grille</code>, <code>grille_client</code>).</li>
+</ul>
+<div class="tip">Convention de nommage conseillée pour les grilles communes : « Achat … » pour les grilles propriétaire, « Vente … » pour les grilles client, avec l'année ou la saison.</div>
+
+<h1>7. Bordereaux propriétaire et client</h1>
+<table>
+<tr><th></th><th>Bordereau de cubage propriétaire</th><th>Bordereau de réception client</th></tr>
+<tr><td>Depuis</td><td>Un lot de cubage (téléphone ou Bureau › Lots des techniciens)</td><td>Un sous-lot d'un lot de cubage, ou un lot client</td></tr>
+<tr><td>Numéro</td><td><code>BC-AAAAMMJJ-xxxx</code> (date du cubage)</td><td><code>BR-AAAAMMJJ-xxxx</code> (date du lot client ou d'édition)</td></tr>
+<tr><td>Cartouche</td><td>Propriétaire, chantier, n° chantier, commune, date du cubage, opérateur, point GPS (lien), grille</td><td>Client, référence ou sous-lot, chantier(s), date du cubage, suivi SBF, grille, GPS (lien)</td></tr>
+<tr><td>Contenu</td><td colspan="2">Récapitulatif par essence et qualité (billons, Ø moyen, longueur moyenne, m³) ; prix par tranche de diamètre si la grille distingue les grosseurs ; listing des billons avec réductions ; note ; cadres de signature.</td></tr>
+<tr><td>Prix</td><td>Au choix : sans prix, ou avec prix HT de la grille propriétaire</td><td>Au choix : sans prix, ou avec prix HT de la grille client (sous-lot ou lot)</td></tr>
+</table>
+<p>Chaque page porte le logo, le titre et le numéro, et en pied les mentions légales : SAS au capital de 75 000 €, Loirecopark 1, 72500 Vaas, RCS Le Mans 900 809 633, SIRET 900 809 633 00010, TVA FR84 900 809 633. Ces textes, le logo et la mise en page sont dans <code>docs.js</code> (constante <code>SBF</code> et image <code>SBF_LOGO</code>).</p>
+<p>Les bordereaux ne valent pas facture : ils servent de pièce de cubage (propriétaire) et de pièce de réception / livraison (client), à signer. Les prix sont hors taxes uniquement.</p>
+
+<h1>8. Les données des lots dans le Sheet</h1>
+<p>Chaque sauvegarde d'un lot remplace toutes ses lignes (clé <code>lot_id</code>) dans les onglets suivants. Les en-têtes sont créés automatiquement ; ne pas renommer les colonnes.</p>
+<table>
+<tr><th>Onglet</th><th>Contenu</th></tr>
+<tr><td><b>LOT</b></td><td>Une ligne par lot : type, n° chantier Xylolink, chantier, propriétaire, commune, dépt, GPS (lat, lon, précision), date, opérateur, tarif et mode (sur pied), grille, grille_client, volume, dernière modification.</td></tr>
+<tr><td><b>SOUS_LOT</b></td><td>Sous-lots du lot : nom, client, grille.</td></tr>
+<tr><td><b>GRUME</b> / <b>BILLON</b></td><td>Billons bord de route : n° (grume.rang), essence, qualité, longueur, diamètre, réductions, dimensions cubées, classe, volume, sous-lot, client, grille et prix propriétaire, grille et prix client, date et heure de saisie.</td></tr>
+<tr><td><b>ARBRE</b> / <b>TRONCON</b></td><td>Estimation sur pied : tiges (essence, diamètre, classe, tarif, effectif, hauteur, volume) et tronçons de qualité.</td></tr>
+<tr><td><b>RECOUPE</b></td><td>Billons recoupés dans un lot client : billon d'origine et tronçons obtenus.</td></tr>
+<tr><td><b>LOT_JSON</b></td><td>Copie intégrale du lot (en plusieurs parts) : c'est elle qui permet « Récupérer mes lots » et « Lots des techniciens ». Ne pas modifier.</td></tr>
+<tr><td><b>LOT_CLIENT</b> / <b>LOT_CLIENT_LIGNE</b></td><td>Lots clients : client, date, référence, statut, validation (date, par), volume, montant, json ; et une ligne par billon vendu (clé du billon, origine).</td></tr>
+</table>
+<p class="small">Pour un contrôle ou un rapprochement Xylolink, l'onglet BILLON suffit : une ligne par billon avec chantier, volume et prix. Les exports Excel de l'application reprennent les mêmes données lot par lot.</p>
+
+<h1>9. Maintenance, sauvegardes et dépannage</h1>
+<h2>9.1 Sauvegardes</h2>
+<ul>
+  <li>Le Sheet est sauvegardé avec le Drive SBF (historique des versions Google + sauvegarde journalière). Faire une copie du Sheet avant toute opération de purge.</li>
+  <li>Chaque téléphone peut produire une copie de secours complète : Paramètres › <span class="btn">Exporter tout (JSON)</span>, à déposer sur le Drive ; <span class="btn">Importer un fichier JSON</span> la restaure.</li>
+</ul>
+<h2>9.2 Vider les lots du Sheet (fin de saison, test)</h2>
+<p>Paramètres (poste bureau, <b>clé bureau maître</b> uniquement) › Maintenance du Sheet › <span class="btn">Vider les lots du Sheet…</span>, confirmation par le mot VIDER. Supprime lots, billons et lots clients de tous les téléphones sur le Sheet ; essences, qualités, grilles et clés sont conservées. Les téléphones gardent leurs lots et les renverront à leur prochaine sauvegarde : archiver ou supprimer les lots sur les téléphones avant.</p>
+<h2>9.3 Dépannage</h2>
+<table>
+<tr><th>Situation</th><th>Vérification / action</th></tr>
+<tr><td>« clé refusée »</td><td>Clé désactivée ou mal copiée : Bureau › Clés d'accès ; renvoyer le lien de configuration.</td></tr>
+<tr><td>« Script du Sheet à mettre à jour (version x) »</td><td>Le script déployé est plus ancien que l'application : chapitre 2.2.</td></tr>
+<tr><td>Un technicien ne voit pas une grille commune</td><td>Vérifier l'onglet GRILLES (type grumes / pied, code identique sur toutes les lignes) ; lui faire « Mettre à jour depuis le Sheet ».</td></tr>
+<tr><td>Lot en double sur le Sheet</td><td>Un lot envoyé à un collègue puis modifié sur les deux téléphones : le dernier sauvegardé écrase l'autre (même <code>lot_id</code>). Demander qui a la main (« Reprendre la main »).</td></tr>
+<tr><td>Billon « indisponible » lors d'une vente</td><td>Déjà vendu ou recoupé dans un autre lot client validé : voir Stock bord de route › Vendus / Recoupés.</td></tr>
+<tr><td>Bordereau sans la grille attendue</td><td>Le bordereau propriétaire ignore les grilles client (et inversement). Vérifier Grilles du lot, ou la grille du sous-lot.</td></tr>
+<tr><td>Point GPS absent dans un bordereau</td><td>Le lot n'a pas de point : le placer sur la carte (téléphone ou Bureau › Lots des techniciens, script 3.0).</td></tr>
+<tr><td>Modifier le logo ou les mentions légales</td><td>Fichier <code>docs.js</code> du dépôt GitHub : constante <code>SBF</code> (textes) et <code>SBF_LOGO</code> (image JPEG en base64, 720 px de large).</td></tr>
+</table>
+<p class="small">Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas · SIRET 900 809 633 00010 — Cubage SBF : application libre (jsPDF, SheetJS, Leaflet/OpenStreetMap, Vosk), hébergée sur GitHub Pages, données sur le Google Sheet SBF.</p>
+</body></html>

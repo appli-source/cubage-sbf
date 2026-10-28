@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Guide du technicien terrain</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="cover">
+  <img src="logo.png" alt="Services Bois et Forêts">
+  <h1>Cubage SBF<br>Guide du technicien terrain</h1>
+  <div class="sub">Cubage bord de route · Estimation sur pied · Lots clients · Mode vocal</div>
+  <div class="meta">Application version 63 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div>
+</div>
+
+<h1 class="first">Sommaire</h1>
+<ol class="toc">
+  <li>Installer l'application sur le téléphone</li>
+  <li>L'écran d'accueil</li>
+  <li>Cubage bord de route</li>
+  <li>Sous-lots, grilles de prix et sorties du lot</li>
+  <li>Estimation de bois sur pied</li>
+  <li>Lots clients (vente de billons)</li>
+  <li>Mode vocal</li>
+  <li>Point GPS</li>
+  <li>Sauvegarde, changement de téléphone, problèmes courants</li>
+</ol>
+<div class="tip">L'application fonctionne <b>sans réseau</b> une fois installée. Le réseau ne sert qu'à sauvegarder les lots sur le Sheet SBF, à recevoir le référentiel (essences, qualités, grilles de prix) et à afficher le fond de carte.</div>
+
+<h1 class="first">1. Installer l'application</h1>
+<ol>
+  <li>Le bureau vous envoie un <b>lien de configuration</b> (par mail, WhatsApp…). Il contient l'adresse de l'application et votre clé d'accès personnelle.</li>
+  <li>Ouvrez ce lien dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android). Sur iPhone, si l'écran s'ouvre sans configuration : copiez le lien, allez dans <span class="btn">⚙ Paramètres</span> et collez-le dans « Coller le lien de configuration ».</li>
+  <li>Ajoutez l'application à l'écran d'accueil : <b>Partager › Sur l'écran d'accueil</b> (iPhone) ou <b>⋮ › Ajouter à l'écran d'accueil</b> (Android). Lancez-la ensuite toujours depuis cette icône.</li>
+  <li>Première ouverture <b>avec du réseau</b> : l'application se met en cache et charge le référentiel du Sheet. Vérifiez dans Paramètres que votre nom d'<b>opérateur</b> est renseigné (il est défini par votre clé).</li>
+</ol>
+<div class="warn">Ne supprimez pas l'application sans avoir sauvegardé vos lots sur le Sheet : les lots non sauvegardés sont uniquement sur le téléphone.</div>
+
+<h1>2. L'écran d'accueil</h1>
+<table>
+<tr><th>Bouton</th><th>À quoi il sert</th></tr>
+<tr><td>Cubage bord de route</td><td>Lots de grumes cubées bord de route (billons, qualités, réductions), sous-lots clients, bordereaux.</td></tr>
+<tr><td>Estimation sur pied</td><td>Inventaires de bois sur pied, barème Chaudé, hauteurs et tronçons de qualité.</td></tr>
+<tr><td>☁ Sauvegarder les lots</td><td>Envoie sur le Sheet SBF tous les lots modifiés depuis la dernière sauvegarde (le nombre est affiché). À faire dès que vous avez du réseau.</td></tr>
+<tr><td>⟳ Mettre à jour depuis le Sheet</td><td>Reçoit les essences, qualités, classes, grilles de prix communes et les statuts de vos lots clients.</td></tr>
+<tr><td>⚙ Paramètres</td><td>Opérateur, essences et qualités par défaut, pas des classes, mode vocal, configuration de la synchronisation, copie de secours.</td></tr>
+</table>
+<p>Dans chaque module : <span class="btn">+ Ajouter un lot</span>, <span class="btn">Liste des lots</span> (recherche par chantier, commune, date), <span class="btn">Grilles de prix</span>, <span class="btn">Importer un lot reçu ou un inventaire</span>.</p>
+
+<h1>3. Cubage bord de route</h1>
+<h2>3.1 Créer un lot</h2>
+<ul>
+  <li><b>N° chantier Xylolink</b> : obligatoire (sauf lot d'essai). C'est lui qui relie le cubage au dossier.</li>
+  <li><b>Chantier</b> (nom du chantier) et <b>Propriétaire</b> (nom seul : il figure sur le bordereau propriétaire).</li>
+  <li>Commune, département, <b>point GPS</b> (relevé ou placé sur la carte, voir chapitre 8), date, opérateur.</li>
+  <li><b>Premier n° de grume</b> : la numérotation continue ensuite toute seule.</li>
+  <li><b>Essences et qualités du lot</b> : cochez celles du chantier ; seules celles-ci apparaissent à la saisie. Le bouton <span class="btn">+</span> en permet d'autres en cours de route.</li>
+  <li><b>Grille propriétaire</b> (prix d'achat) et <b>grille client</b> (prix de vente) : choisissez-les dans le catalogue, ou laissez « Aucune » et réglez-les plus tard (voir 4.2). Elles restent modifiables à tout moment.</li>
+  <li><b>Lot d'essai</b> : pour s'entraîner ; jamais envoyé sur le Sheet, à supprimer ensuite.</li>
+</ul>
+
+<h2>3.2 Saisir les grumes</h2>
+<p>Écran du lot › <span class="btn">Saisir</span>. Une grume = un numéro, une essence et un ou plusieurs <b>billons</b> (numérotés 12.1, 12.2…), chacun avec sa qualité, sa longueur en <b>mètres</b> (8,20) et son diamètre médian en <b>cm</b>. Le volume s'affiche aussitôt.</p>
+<ul>
+  <li><span class="btn">+ Billon</span> ajoute un billon à la grume ; <span class="btn">Enregistrer</span> passe à la grume suivante (numéro automatique).</li>
+  <li>La qualité du premier billon reprend celle du billon précédent (réglable dans Paramètres).</li>
+  <li><b>Réduction</b> : <span class="btn">+ Réduction</span> sur un billon permet une réfaction en cm sur la longueur et/ou le diamètre (ex. « −100 » sur un 8 m × 50 : cubé 7 m × 50). Le listing garde la vraie dimension et indique la réduction.</li>
+  <li>Si le lot a des <b>sous-lots</b>, choisissez-en un en haut de l'écran : il reste sélectionné pour les grumes suivantes.</li>
+  <li>Pour corriger une grume : Listing › toucher la ligne › modifier. Un billon vendu ou recoupé (lot client) ne peut plus être supprimé.</li>
+</ul>
+<div class="tip">Le <b>mode vocal</b> (bouton 🎤) permet de dicter chaque billon d'une traite : « chêne, cé a, huit vingt par cinquante ». Voir chapitre 7.</div>
+
+<h2>3.3 Importer un inventaire de bûcheron</h2>
+<p>Module Cubage › <span class="btn">Importer un lot reçu ou un inventaire</span> (ou depuis l'écran du lot). Un fichier Excel / CSV de billons (n°, essence, qualité, longueur, diamètre) crée un nouveau lot ou complète un lot existant.</p>
+
+<h1>4. Sous-lots, grilles de prix et sorties du lot</h1>
+<h2>4.1 Sous-lots</h2>
+<p><span class="btn">Sous-lots</span> : un sous-lot = une destination client (nom du sous-lot, client, grille client). On affecte les grumes pendant la saisie (chips en haut de l'écran) ou après coup : <span class="btn">Affecter des grumes</span> (par plage de numéros ou en touchant les grumes). Les billons non affectés restent « Non affecté ». Chaque sous-lot peut avoir sa propre grille client ; sinon c'est la grille client du lot qui s'applique.</p>
+
+<h2>4.2 Grilles de prix du lot</h2>
+<p><span class="btn">Grilles</span> sur l'écran du lot. Un lot de cubage porte <b>deux grilles</b> :</p>
+<table>
+<tr><th>Grille</th><th>Rôle</th><th>Utilisée pour</th></tr>
+<tr><td><b>Propriétaire</b> (achat)</td><td>Prix payés au propriétaire</td><td>Bordereau de cubage propriétaire, colonne « Achat » du récapitulatif</td></tr>
+<tr><td><b>Client</b> (vente)</td><td>Prix de vente par défaut du lot ; un sous-lot peut avoir la sienne</td><td>Bordereau de réception client, colonne « Vente » du récapitulatif</td></tr>
+</table>
+<p>Pour chaque grille : choisissez une <b>grille du catalogue</b> (diffusée par le bureau), ou créez une <b>grille propre au lot</b> (<span class="btn">Copier … dans le lot pour la modifier</span> ou <span class="btn">Créer une grille propre au lot</span>). Une grille propre au lot se modifie ligne par ligne : essence, qualité, Ø min / Ø max (bornes incluses, ex. 30 à 49 puis 50 et +), prix €/m³. Un champ vide = toutes. La ligne la plus précise l'emporte.</p>
+<div class="tip">Le propriétaire ne voit jamais la grille client, et inversement : chaque bordereau n'utilise que la grille de son destinataire. Le <b>récapitulatif</b> du lot montre les deux montants et la marge bois.</div>
+
+<h2>4.3 Listing et récapitulatif</h2>
+<p><span class="btn">Listing</span> : tous les billons (filtre par sous-lot), avec réductions et statut (vendu, recoupé). <span class="btn">Récapitulatif</span> : par essence et qualité (billons, Ø moyen, longueur moyenne, m³, achat €, vente €), puis par tranche de prix de chaque grille, et comparatif par sous-lot.</p>
+
+<h2>4.4 Sorties</h2>
+<table>
+<tr><th>Bouton</th><th>Document</th></tr>
+<tr><td><span class="btn">Bordereau propriétaire</span></td><td>Bordereau de cubage à remettre au propriétaire : récap essence/qualité, prix par tranche de diamètre (si la grille en a), listing des billons, cadres de signature. Choix <b>sans prix</b> ou <b>avec prix HT</b> (grille propriétaire).</td></tr>
+<tr><td><span class="btn">Bordereau client</span></td><td>Bordereau de réception pour un sous-lot (ou tout le lot s'il n'y a qu'un client) : même contenu, grille client, sans ou avec prix HT.</td></tr>
+<tr><td><span class="btn">PDF interne</span> / <span class="btn">Excel</span></td><td>Documents de travail SBF : récapitulatifs achat et vente, listing complet, sous-lots. Par sous-lot ou tout le lot.</td></tr>
+<tr><td><span class="btn">Envoyer à un collègue</span></td><td>Fichier du lot (.json) à partager (mail, WhatsApp, AirDrop). Votre copie peut passer en lecture seule pour éviter que deux téléphones modifient le même lot.</td></tr>
+</table>
+<p>Chaque document s'ouvre dans la fenêtre de partage du téléphone : enregistrer dans Fichiers, envoyer par mail ou WhatsApp. Les PDF ont le logo et les mentions légales de SBF ; le point GPS y est un lien cliquable vers la carte.</p>
+
+<h2>4.5 Sauvegarder et archiver</h2>
+<p><span class="btn">Sauvegarder sur le Sheet SBF</span> envoie le lot complet (grumes, billons, prix, sous-lots) au bureau. Le bouton reste disponible pour renvoyer après modification. Une fois sauvegardé, le lot peut être <b>archivé</b> : il reste sur le téléphone (liste « lots archivés ») sans encombrer la liste courante.</p>
+
+<h1>5. Estimation de bois sur pied</h1>
+<h2>5.1 Créer un lot</h2>
+<ul>
+  <li><b>Tarif Chaudé par défaut</b> (1 à 20) : tarif appliqué aux tiges, modifiable ensuite par essence et par classe (<span class="btn">Tarifs Chaudé</span>).</li>
+  <li><b>Mode d'inventaire</b> : « pied à pied, diamètre seul » (les hauteurs se donnent ensuite par classe), « par classes avec effectifs » (on pointe un nombre de tiges par classe), ou « pied à pied numéroté » (diamètre + hauteur par tige).</li>
+</ul>
+<h2>5.2 Saisir</h2>
+<p>Essence puis diamètre à 1,30 m : boutons de classes (pas de 5 cm par défaut) ou saisie au cm selon les Paramètres. En mode classes, indiquez l'effectif. En pied à pied numéroté, saisissez aussi la hauteur et, si besoin, les <b>tronçons de qualité</b> (du bas vers le haut : hauteur et code qualité) ; le reste de la tige est compté en « BI » (code réglable).</p>
+<h2>5.3 Hauteurs par classe</h2>
+<p><span class="btn">Hauteurs par classe</span> : pour chaque essence × classe, la hauteur et les tronçons par défaut des tiges sans hauteur propre. La somme des tronçons ne peut pas dépasser la hauteur. Les tiges sans hauteur apparaissent « sans H » dans le récapitulatif et ne sont pas cubées.</p>
+<h2>5.4 Résultats</h2>
+<p>Récapitulatif par essence et classe (tiges, hauteur moyenne, m³, m³/tige), par essence et qualité, par tranche de prix de la grille ; PDF et Excel. Le volume suit le barème Chaudé (décroissance métrique sur la circonférence, tarif choisi).</p>
+
+<h1>6. Lots clients (vente de billons)</h1>
+<p>Module Cubage › <span class="btn">Lots clients</span>. Un lot client regroupe des billons <b>de plusieurs lots</b> du téléphone pour un client donné ; un billon ne peut appartenir qu'à un seul client.</p>
+<ol>
+  <li><span class="btn">+ Nouveau lot client</span> : client, date, référence (contrat, bon), grille de prix du client, remarques.</li>
+  <li><span class="btn">+ Ajouter des billons</span> : par numéro (« 112 », « 112.2 »), par plage (« 100-140 »), ou en collant une liste de numéros (bordereau de chargement). Les billons déjà vendus ou recoupés sont signalés.</li>
+  <li><span class="btn">Prix de vente</span> : la grille choisie est copiée dans le lot et complétée d'une ligne par essence × qualité présente ; renseignez les prix manquants (par tranche de diamètre si besoin).</li>
+  <li><b>Recouper</b> un billon (depuis le listing du lot client) : tronçons du bas vers le haut, nouveau diamètre médian sur chacun ; le premier garde le n° d'origine, les autres reçoivent le n° de la nouvelle plaquette.</li>
+  <li><span class="btn">Transmettre au bureau</span> : le lot passe « Transmis » et devient en lecture seule ; le bureau le <b>valide</b> (vente) ou le repasse en brouillon. Vous voyez le statut après « Mettre à jour depuis le Sheet ».</li>
+  <li><span class="btn">Bordereau de réception (PDF client)</span>, avec ou sans prix HT ; <span class="btn">PDF</span> / <span class="btn">Excel</span> internes.</li>
+</ol>
+<div class="warn">Un lot client supprimé après transmission prévient le Sheet (réseau nécessaire) : les billons repassent en stock.</div>
+
+<h1>7. Mode vocal</h1>
+<p>Bouton <span class="btn">🎤 Mode vocal</span> sur les écrans de saisie. Reconnaissance 100 % locale (aucun son envoyé sur Internet) ; première activation avec du réseau pour charger le modèle (42 Mo), conservé ensuite. Bip aigu = enregistré, bip grave = non compris. « pause » / « reprise » suspendent l'écoute.</p>
+<h3>Cubage bord de route</h3>
+<p>Un billon se dicte dans l'ordre <b>essence, qualité, longueur, diamètre</b> : « chêne, cé a, dix par cinquante » = chêne, CA, 10 m, Ø 50. « huit vingt par quarante-deux » = 8,20 m × 42. Essence et qualité omises = celles du billon précédent. « suivante » passe à la grume suivante, « numéro cent douze » force un numéro, « annule » retire le dernier billon. Les qualités se disent lettre par lettre (CA → « cé a », CXX → « cé double ixe », ST → « esse té », PA → « pé a ») ; « avivé » se dit « avive ».</p>
+<h3>Estimation sur pied (mode diamètre seul)</h3>
+<p>« chêne quarante » (essence + classe), « trente-cinq » (classe seule, essence conservée), « chêne » seul (change l'essence), « annule » (retire la dernière tige). Le téléphone répète l'essence quand elle change.</p>
+<p class="small">Conseils : écran laissé allumé (verrouillé, le micro coupe) ; oreillette ou micro Bluetooth par vent fort. Seuls les mots du vocabulaire français du modèle sont reconnus (aulne → « aune », robinier → « acacia », laricio → « pin corse »). Des mots supplémentaires peuvent être définis dans Paramètres ou par le bureau (Sheet).</p>
+
+<h1>8. Point GPS</h1>
+<ul>
+  <li><span class="btn">📍 Relever la position</span> : position du téléphone (GPS activé, fonctionne sans réseau). La précision est indiquée en mètres ; réessayez à découvert si elle est mauvaise.</li>
+  <li><span class="btn">🗺 Placer sur la carte</span> : touchez la carte pour poser le repère, déplacez-le, ou saisissez latitude / longitude. Le fond de carte (OpenStreetMap) demande du réseau ; « Ma position » centre sur le téléphone.</li>
+  <li><b>Ouvrir dans Google Maps</b> : lien vers le point. Ce même lien figure dans les bordereaux (propriétaire et client) et dans l'export Excel.</li>
+</ul>
+
+<h1>9. Sauvegarde, changement de téléphone, problèmes courants</h1>
+<h2>9.1 Les bons réflexes</h2>
+<ul>
+  <li>Sauvegarder les lots sur le Sheet dès qu'il y a du réseau (accueil › ☁). Le Sheet est la copie de référence pour le bureau.</li>
+  <li>Mettre à jour depuis le Sheet régulièrement pour recevoir les grilles et les statuts de ventes.</li>
+  <li>Paramètres › <span class="btn">Exporter tout (JSON)</span> : copie de secours complète du téléphone, à déposer sur le Drive.</li>
+</ul>
+<h2>9.2 Changement de téléphone</h2>
+<ol>
+  <li>Ouvrir le lien de configuration sur le nouveau téléphone (demandez-le au bureau en cas de téléphone perdu : une nouvelle clé remplace l'ancienne).</li>
+  <li>Paramètres › <span class="btn">Récupérer mes lots depuis le Sheet</span> : vos lots sauvegardés reviennent (les lots déjà présents ne sont pas modifiés).</li>
+</ol>
+<h2>9.3 Problèmes courants</h2>
+<table>
+<tr><th>Message / situation</th><th>Que faire</th></tr>
+<tr><td>« Module PDF (ou Excel) non chargé »</td><td>Ouvrir une fois l'application avec du réseau : les modules se mettent en cache.</td></tr>
+<tr><td>« Fond de carte non chargé »</td><td>Idem : ouvrir l'application en ligne une fois ; la carte elle-même demande du réseau à chaque usage.</td></tr>
+<tr><td>« Accès à la position refusé »</td><td>Réglages du téléphone › Safari / Chrome › Position : autoriser.</td></tr>
+<tr><td>Le n° Xylolink manque (bordure rouge)</td><td>Renseignez-le dans l'écran du lot avant de sauvegarder.</td></tr>
+<tr><td>Lot en lecture seule</td><td>Lot envoyé à un collègue ou copie du Sheet : <span class="btn">Reprendre la main</span> si c'est bien vous qui devez le modifier.</td></tr>
+<tr><td>Échec de sauvegarde</td><td>Vérifiez le réseau et, dans Paramètres, l'URL du script et la clé d'accès ; le lot reste « à sauvegarder » et repartira au prochain essai.</td></tr>
+<tr><td>Grille de prix absente dans la liste</td><td>Mettre à jour depuis le Sheet ; sinon demander au bureau de la publier comme grille commune.</td></tr>
+</table>
+<p class="small">Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas · SIRET 900 809 633 00010 — Application Cubage SBF, logiciel libre, données conservées sur le téléphone et sur le Sheet SBF.</p>
+</body></html>
