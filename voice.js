@@ -68,8 +68,12 @@ function motsDe(code,mots){let v=mots&&mots[code];if(v==null)v=DEFAUT[String(cod
 function motsQ(code,mots){let v=mots&&mots[code];if(v==null)v=epeler(code);
   return [].concat(v).join(',').split(/[,;\/]/).map(norm).filter(Boolean);}
 
+/* Mot de départ (« note ») : seules les phrases qui commencent par ce mot sont prises en compte ; tout le reste
+   (conversation, bruit) est ignoré. Vide = aucun mot de départ. */
+const motDepart=h=>norm((h&&h.motDepart)||'');
 /* Grammaire (liste de phrases attendues) + lexique de décodage, à partir des essences, qualités et classes du lot */
-function construire(h){const lex=new Map();const ess=[],qual=[];
+function construire(h){const r=construire0(h);const w=motDepart(h);if(w){r.phrases=[w,...r.phrases.map(p=>p==='[unk]'?p:w+' '+p)];r.key+='|'+w;}return r;}
+function construire0(h){const lex=new Map();const ess=[],qual=[];
   for(const code of h.essences||[]){for(const n of motsDe(code,h.mots)){if(!lex.has(n)){lex.set(n,{k:'ess',v:code});ess.push(n);}}}
   const phrases=[];
   if(h.mode==='grumes'){
@@ -117,7 +121,7 @@ function creerReco(){if(!V.model||!V.hook)return;const g=construire(V.hook);if(V
   if(V.rec){try{V.rec.remove();}catch(e){}V.rec=null;}
   V.lex=g.lex;V.gramKey=g.key;const sr=V.ctx?V.ctx.sampleRate:16000;
   const rec=new V.model.KaldiRecognizer(sr,JSON.stringify(g.phrases));V.rec=rec;
-  rec.on('result',m=>{if(V.rec!==rec)return;traiter(m.result&&m.result.text||'');});
+  rec.on('result',m=>{if(V.rec!==rec)return;const ws=(m.result&&m.result.result)||[];const conf=ws.length?Math.min(...ws.map(w=>Number(w.conf)||0)):1;traiter(m.result&&m.result.text||'',conf);});
   rec.on('partialresult',m=>{if(V.rec!==rec)return;const p=m.result&&m.result.partial||'';if(p!==V.partiel){V.partiel=p;majPartiel();}});
   rec.on('error',m=>{console.warn('vocal',m.error);});}
 
@@ -163,7 +167,14 @@ function elements(t){const toks=t.split(' ').filter(Boolean);const out=[];let i=
     fin();out.push({k:e.k,v:e.v});}
   fin();return out;}
 
-function traiter(text){const t=norm(text);if(!t)return;try{console.debug('vocal :',t);}catch(e){}if(V.parle||Date.now()<V.ignorerJusqua)return; // écho de l'annonce vocale
+function traiter(text,conf){let t=norm(text);if(!t)return;try{console.debug('vocal :',t,conf);}catch(e){}if(V.parle||Date.now()<V.ignorerJusqua)return; // écho de l'annonce vocale
+  const strict=!(V.hook&&V.hook.strict===false);
+  // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
+  if(strict&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
+  const w=motDepart(V.hook);
+  if(w){const i=t.indexOf(w);if(i<0||!(i===0||t[i-1]===' ')){V.dernier='ignoré (dites « '+w+' … ») : « '+t+' »';V.partiel='';majBloc();return;}
+    t=t.slice(i+w.length).trim();if(!t){V.dernier='« '+w+' » … ?';V.partiel='';majBloc();return;}
+    t=t.split(' ').filter(x=>x!==w).join(' ');}
   const els=elements(t);
   // commandes communes : pause / reprise
   const cmds=els.filter(e=>e.k==='cmd').map(e=>e.v);
@@ -252,12 +263,12 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const aide=gr?'Dites « chêne, cé a, dix par cinquante » · « suivante » = grume suivante · « annule »':'Dites « chêne quarante », puis « trente-cinq »… « annule » retire la dernière tige';
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante » · « '+px+'suivante » = grume suivante · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc(V.pend?V.cur+' '+(V.curQ||'—')+' · '+fmtL(V.pend.L)+' m · Ø ?':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
     $('#vocPause').onclick=()=>{V.pause=!V.pause;setEtat(V.pause?'pause':'ecoute','');};}
   const b=$('#vocBtn');if(b)b.onclick=basculer;}
 
-window.CubageVoice={disponible,bind,unbind,apresRendu,basculer,arreter:()=>arreter(''),etat:()=>V.etat,nombre,motsDe,motsQ,epeler,_elements:elements};
+window.CubageVoice={disponible,bind,unbind,apresRendu,basculer,arreter:()=>arreter(''),etat:()=>V.etat,nombre,motsDe,motsQ,epeler,_elements:elements,_traiter:traiter,_construire:construire,_V:V};
 })();

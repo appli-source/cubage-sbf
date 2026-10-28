@@ -28,7 +28,7 @@ const DB=(()=>{
 /* ---------- État ---------- */
 const DEF_PARAMS={id:'params',essences:['CH','PIN','DOU','PEU','HET','CHA','FR','EP'],qualites:['A','B','C','D'],
   step:5,stepParEssence:{},classMin:10,classMax:90,repriseQualite:true,saisieDiam:'classe',resteQualite:'BI',operateur:'',syncUrl:'',refLoaded:'',
-  motsVocaux:'',motsVocauxQ:'',vocalAnnonce:true,essencesVocal:{},qualitesVocal:{}};
+  motsVocaux:'',motsVocauxQ:'',vocalAnnonce:true,vocalMot:'note',vocalStrict:true,essencesVocal:{},qualitesVocal:{}};
 /* Mode vocal (voice.js) : noms parlés des essences et des qualités — mots saisis dans les Paramètres (« CH: chêne, chêne rouge ; PIN: pin »)
    prioritaires sur la colonne mots_vocaux des onglets ESSENCES / QUALITES du Sheet ; les codes courants ont des noms par défaut dans voice.js */
 function motsVocauxDe(sheet,champ){const out={};for(const [k,v] of Object.entries(sheet||{}))out[String(k).toUpperCase()]=[].concat(v).join(', ');
@@ -301,7 +301,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(!ed)focusSaisie('input[data-f=lm]');
   /* Mode vocal : chaque billon dicté remplit la ligne vide ou en ajoute une (comme « + Billon »), « suivante » = bouton « Grume suivante » */
   if(vocal){const vide=b=>!(lenM(b)>0)&&!(b.d>0);const lastQ=[...f.billons].reverse().find(b=>b.q)||f.billons[f.billons.length-1];
-    window.CubageVoice.bind({mode:'grumes',essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
+    window.CubageVoice.bind({mode:'grumes',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       onEssence:code=>{if(code!==f.ess){f.ess=code;render();voirElement(null);}},
       onQualite:code=>{const b=f.billons[f.billons.length-1];if(b&&vide(b)&&b.q!==code){b.q=code;render();voirElement('.card[data-b="'+(f.billons.length-1)+'"]');}},
       onBillon:(ess,q,lm,d)=>{if(!(lm>0&&d>0))return null;if(ess!==f.ess)f.ess=ess;let b=f.billons[f.billons.length-1];
@@ -356,7 +356,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   S.flash=null;
   if($('#cl'))$('#cl').onclick=e=>{const b=e.target.closest('button');if(!b)return;f.d=Number(b.dataset.c);if(mode==='diam'&&!ed){S.flash=f.d;try{navigator.vibrate&&navigator.vibrate(30);}catch(x){}commit();}else render();};
   /* Mode vocal : le module appelle exactement ce que font les boutons (changement d'essence, appui sur une classe, « Annuler dernière ») */
-  if(vocal)window.CubageVoice.bind({essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
+  if(vocal)window.CubageVoice.bind({motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
     onEssence:code=>{if(code===f.ess)return;f.ess=code;f.tarif=tarifDef(l,code);render();},
     onPointage:(code,c)=>{if(!classes.includes(c))return false;if(code!==f.ess){f.ess=code;f.tarif=tarifDef(l,code);}f.d=c;S.flash=c;commit();return true;},
     onAnnule:()=>{if(!l.arbres.length)return false;l.arbres.pop();save();toast('Dernière tige annulée');render();return true;}});
@@ -751,6 +751,8 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <p class="muted" style="margin:0">Facultatif : les codes courants (CH, HET, CHA, PIN, DOU, EP, SAP, PEU, FR…) ont déjà leurs mots ; la colonne « mots_vocaux » de l’onglet ESSENCES du Sheet complète la liste pour tous les téléphones.</p>
   <label class="f"><span class="l">Mode vocal · mots pour les qualités (code : mots, séparés par ;)</span><textarea id="motsVQ" rows="2" style="width:100%" placeholder="AVIVE: avive ; SCA: sciage a">${esc(p.motsVocauxQ||'')}</textarea></label>
   <p class="muted" style="margin:0">Sans indication, un code se dit lettre par lettre (CA → « cé a », CXX → « cé double ixe », ST → « esse té », PA → « pé a »). Seuls les mots connus du modèle français sont reconnus (« avivé » → dire « avive »).</p>
+  <label class="f"><span class="l">Mode vocal · mot de départ (chaque phrase doit commencer par ce mot ; vide = aucun)</span><input id="vocMot" value="${esc(p.vocalMot==null?'note':p.vocalMot)}" placeholder="note"></label>
+  <label class="f"><span class="l">Mode vocal · ignorer les phrases mal comprises (mots inconnus, faible confiance)</span><select id="vocS"><option value="1"${p.vocalStrict!==false?' selected':''}>Oui (recommandé)</option><option value="0"${p.vocalStrict===false?' selected':''}>Non</option></select></label>
   <label class="f"><span class="l">Mode vocal · annonce de l’essence à voix haute</span><select id="vocA"><option value="1"${p.vocalAnnonce!==false?' selected':''}>Oui (le téléphone répète l’essence quand elle change)</option><option value="0"${p.vocalAnnonce===false?' selected':''}>Non, bips seulement</option></select></label>`:''}
   <label class="f"><span class="l">En-tête des bordereaux (entreprise, adresse…)</span><textarea id="entete" rows="2" style="width:100%">${esc(p.entete||'Services Bois et Forêts SAS\nLoirecopark 1 · 72500 Vaas')}</textarea></label>
   <label class="f"><span class="l">Opérateur${p.opLocked?' <span class="muted">(défini par votre clé d’accès)</span>':''}</span><input id="op" value="${esc(p.operateur)}"${p.opLocked?' disabled':''}></label></div>
@@ -766,7 +768,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
     p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';if(!p.opLocked)p.operateur=$('#op').value.trim();
-    if($('#motsV'))p.motsVocaux=$('#motsV').value.trim();if($('#motsVQ'))p.motsVocauxQ=$('#motsVQ').value.trim();if($('#vocA'))p.vocalAnnonce=$('#vocA').value==='1';p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
+    if($('#motsV'))p.motsVocaux=$('#motsV').value.trim();if($('#motsVQ'))p.motsVocauxQ=$('#motsVQ').value.trim();if($('#vocA'))p.vocalAnnonce=$('#vocA').value==='1';if($('#vocMot'))p.vocalMot=$('#vocMot').value.trim().toLowerCase();if($('#vocS'))p.vocalStrict=$('#vocS').value==='1';p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
   $('#main').querySelectorAll('input,select,textarea').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=()=>{upd();loadRefUI();};
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
