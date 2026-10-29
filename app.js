@@ -273,6 +273,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   <div class="row"><label class="f" style="flex:2"><span class="l">Commune</span><input id="commune" value="${esc(l.commune||'')}"></label><label class="f" style="flex:1"><span class="l">Dépt</span><input id="dept" inputmode="numeric" maxlength="3" value="${esc(l.dept||'')}"></label></div>
   ${gpsBlock(l.gps)}
   <div class="row"><label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(l.operateur||'')}"></label>${l.type==='pied'?`<label class="f"><span class="l">Tarif par défaut</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="${l.tarif}"></label>`:''}</div>
+  ${l.type==='grumes'?`<label class="f"><span class="l">Longueur des billons</span><select id="lgFixe"><option value="0"${l.lgFixe?'':' selected'}>Saisie à chaque billon</option><option value="1"${l.lgFixe?' selected':''}>Fixe : reprend la dernière longueur enregistrée (billons de même longueur)</option></select></label>`:''}
   ${l.type==='pied'?`<label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam"${l.mode==='diam'?' selected':''}>Diamètre seul</option><option value="classes"${l.mode==='classes'?' selected':''}>Classes avec effectifs</option><option value="pieds"${l.mode==='pieds'?' selected':''}>Pied à pied numéroté</option></select></label>`:''}
   <div class="row"><button class="btn grow" id="arch"${(!l.archive&&!l.test&&l.sync!=='done')?' disabled':''}>${l.archive?'Désarchiver (remettre en cours)':'Archiver ce lot'}</button><button class="btn danger grow" id="delLot">Supprimer ce lot</button></div>
   ${(!l.archive&&!l.test&&l.sync!=='done')?'<span class="muted">Archivage possible une fois le lot sauvegardé sur le Sheet. Un lot archivé reste sur le téléphone (liste « lots archivés ») mais n’encombre plus la liste.</span>':''}</div></div>`;
@@ -280,6 +281,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   bindGps(()=>l.gps,g=>{if(l.readonly&&!l.remote){toast('Lot en lecture seule');return;}l.gps=g;if(l.remote){l.updated=new Date().toISOString();DB.put('lots',l);pushLotGps(l);}else{save();toast('Point GPS enregistré');}render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
+  if($('#lgFixe'))$('#lgFixe').onchange=e=>{l.lgFixe=e.target.value==='1';save();toast(l.lgFixe?'Longueur fixe : la dernière longueur sera reprise à chaque billon':'Longueur saisie à chaque billon');};
   if($('#impInv'))$('#impInv').onchange=e=>{const f=e.target.files[0];if(f)importInventory(f,l);e.target.value='';};
   if($('#bProp'))$('#bProp').onclick=()=>{if(!l.grumes.length){toast('Aucun billon dans ce lot');return;}CubageDocs.bordereauAsk('Bordereau de cubage propriétaire','Document destiné au propriétaire : récapitulatif par essence et qualité, listing des billons, prix HT de la grille propriétaire si demandé.',!!lotGrille(l),w=>CubageDocs.bordereauProprietaire(l,w));};
   if($('#bCli'))$('#bCli').onclick=()=>bordereauCliAsk(l);
@@ -295,7 +297,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
 /* --- Saisie grumes --- */
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
-  if(!S.form.g){const last=l.grumes[l.grumes.length-1];S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],sl:l.slCur||null,billons:[{rang:1,lm:null,d:null,q:(p.repriseQualite&&last&&last.billons.length)?last.billons[last.billons.length-1].q:''}]};}
+  if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(p.repriseQualite&&lastB)?lastB.q:''}]};}
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Saisie grumes',`${f3(t.v)} m³ · ${t.n} grumes`);
   if(ed&&f.sl===undefined){const u=[...new Set(f.billons.map(b=>b.sl||null))];f.sl=u.length===1?u[0]:'mixte';}
   const hasSL=(l.sousLots||[]).length>0;
@@ -326,7 +328,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button type="button" class="btn big" id="addB">+ Billon</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
-  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll('input[data-f=lm]')].pop();x&&x.focus();},0);};
+  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:(l.lgFixe&&lenM(lb)>0)?lenM(lb):null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll(l.lgFixe?'input[data-f=d]':'input[data-f=lm]')].pop();x&&x.focus();},0);};
   // Entrée / « suivant » au clavier : longueur → diamètre → billon suivant ou grume suivante
   $('#main').querySelectorAll('input[data-f=lm],input[data-f=d]').forEach(i=>{i.setAttribute('enterkeyhint','next');i.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const k=i.dataset.f,n=Number(i.dataset.i);
     const nx=k==='lm'?document.querySelector(`input[data-f=d][data-i="${n}"]`):document.querySelector(`input[data-f=lm][data-i="${n+1}"]`);if(nx)nx.focus();else $('#ok').click();};});
@@ -337,7 +339,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
     f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.rl=b.rl>0?Math.round(b.rl):0;b.rd=b.rd>0?Math.round(b.rd):0;if(b.rl>=b.lm*100||b.rd>=b.d){toast('Réduction supérieure à la dimension du billon '+b.rang);throw new Error('red');}b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
     if(ed){Object.assign(g,{num:numS,ess:f.ess,modifie:new Date().toISOString(),billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
     l.grumes.push({id:uid(),num:numS,ess:f.ess,saisi:new Date().toISOString(),billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();focusSaisie('input[data-f=lm]');}catch(e){if(e.message!=='red')throw e;}};
-  if(!ed)focusSaisie('input[data-f=lm]');
+  if(!ed)focusSaisie(l.lgFixe?'input[data-f=d]':'input[data-f=lm]');
   /* Mode vocal : chaque billon dicté remplit la ligne vide ou en ajoute une (comme « + Billon »), « suivante » = bouton « Grume suivante » */
   if(vocal){const vide=b=>!(lenM(b)>0)&&!(b.d>0);const lastQ=[...f.billons].reverse().find(b=>b.q)||f.billons[f.billons.length-1];
     window.CubageVoice.bind({mode:'grumes',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
