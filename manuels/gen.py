@@ -3,7 +3,7 @@
 import os, re, html
 D = os.path.dirname(os.path.abspath(__file__))
 IMG = os.path.join(D, 'img')
-VERSION, SCRIPT, DATE = '66', '3.0', 'Octobre 2026'
+VERSION, SCRIPT, DATE = '67', '3.0', 'Octobre 2026'
 
 def parts(n):
     """Nom d'image -> liste des volets existants (n_p1, n_p2…) ou [n]."""
@@ -61,13 +61,13 @@ T.append(f'''
 <div class="tip"><b>Rien à craindre sans réseau.</b> L'application fonctionne entièrement hors connexion une fois installée. Le réseau ne sert qu'à
 sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte et, la première fois, télécharger le mode vocal.</div>
 <div class="warn">Une pastille orange <b>« n à sauvegarder »</b> sur l'accueil signale des lots qui ne sont encore que sur le téléphone. Ne désinstallez jamais l'application et ne changez pas de téléphone tant qu'elle est affichée.</div>
-<h2>Les nouveautés de cette version (66)</h2>
+<h2>Les nouveautés de cette version (67)</h2>
 <ul>
 <li><b>Commentaire par billon</b> ({B('+ Note')}) : gélivure, pourriture, bois de réserve… repris dans le listing, les exports, le Sheet et les bordereaux.</li>
 <li><b>Longueur fixe par lot</b> : la dernière longueur est reprise à chaque billon (lots de billons de même longueur) — on ne tape plus que le diamètre.</li>
 <li><b>Mode vocal : mot de départ « note »</b> : chaque phrase commence par « note » ; les conversations et bruits sont ignorés, les phrases mal comprises rejetées.</li>
 <li><b>Fonctionnement hors ligne renforcé</b> : le téléphone ouvre sa propre copie de l'application si l'hébergement est en panne, supprimé ou lent (plus de 3 s) ; une fois installée, l'application et les lots ne sont plus effacés quand le téléphone manque de place.</li>
-<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV, format au 3.12).</li>
+<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV, format au 3.12) : colonne <b>Note</b> reprise dans le commentaire du billon, CSV français à virgule décimale acceptés.</li>
 </ul>
 
 <h1>1. Installer l'application</h1>
@@ -227,14 +227,15 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 <tr><td>Qualité</td><td>facultatif</td><td>Qualité, Qual, Q, Classe</td><td>Code (CA, CB, ST…), converti en majuscules.</td></tr>
 <tr><td>Essence</td><td>facultatif</td><td>Essence, Ess, Esp, Espèce</td><td>Code (CH, HET…), converti en majuscules.</td></tr>
 <tr><td>Réduction L</td><td>facultatif</td><td>Réduction L, Réduction longueur, Red L</td><td>Réfaction en <b>cm</b> sur la longueur (100 = 1 m).</td></tr>
-<tr><td>Réduction Ø</td><td>facultatif</td><td>Réduction D, Réduction diamètre, Red D, Réduction Ø</td><td>Réfaction en <b>cm</b> sur le diamètre.</td></tr></table>
+<tr><td>Réduction Ø</td><td>facultatif</td><td>Réduction D, Réduction diamètre, Red D, Réduction Ø</td><td>Réfaction en <b>cm</b> sur le diamètre.</td></tr>
+<tr><td>Note</td><td>facultatif</td><td>Note, Commentaire, Observation, Obs, Remarque, Rem</td><td>Commentaire du billon (gélivure, pourriture au pied…), repris dans le listing, les exports, le Sheet et les bordereaux.</td></tr></table>
 <h3>Exemple (fichier modèle <code>modele-import-inventaire.xlsx</code>, dossier <code>manuels/</code> du dépôt GitHub)</h3>
-<table style="width:auto"><tr><th>numero</th><th>essence</th><th>qualite</th><th>longueur_m</th><th>diametre_cm</th><th>reduction_l</th><th>reduction_d</th></tr>
-<tr><td>101</td><td>CH</td><td>CA</td><td class="r">8,20</td><td class="r">52</td><td></td><td></td></tr>
-<tr><td>102</td><td>CH</td><td>CB</td><td class="r">6,40</td><td class="r">47</td><td class="r">100</td><td></td></tr>
-<tr><td>103</td><td>HET</td><td>CX</td><td class="r">10,00</td><td class="r">61</td><td></td><td></td></tr>
-<tr><td>104</td><td>CH</td><td>ST</td><td class="r">4,50</td><td class="r">31</td><td></td><td></td></tr></table>
-<div class="warn"><b>Préférez un fichier Excel (.xlsx).</b> Dans un fichier <b>CSV</b>, la longueur doit être écrite avec un <b>point</b> (8.20) : avec une virgule (8,20), l'application lit actuellement 820 m. Un CSV enregistré par Excel en français utilise la virgule : dans ce cas, réenregistrez-le en .xlsx avant l'import, et contrôlez toujours le volume total annoncé à la fin de l'import.</div>
+<table style="width:auto"><tr><th>numero</th><th>essence</th><th>qualite</th><th>longueur_m</th><th>diametre_cm</th><th>reduction_l</th><th>reduction_d</th><th>note</th></tr>
+<tr><td>101</td><td>CH</td><td>CA</td><td class="r">8,20</td><td class="r">52</td><td></td><td></td><td></td></tr>
+<tr><td>102</td><td>CH</td><td>CB</td><td class="r">6,40</td><td class="r">47</td><td class="r">100</td><td></td><td>gélivure</td></tr>
+<tr><td>103</td><td>HET</td><td>CX</td><td class="r">10,00</td><td class="r">61</td><td></td><td></td><td></td></tr>
+<tr><td>104</td><td>CH</td><td>ST</td><td class="r">4,50</td><td class="r">31</td><td></td><td></td><td></td></tr></table>
+<div class="tip"><b>Excel ou CSV.</b> Un CSV enregistré par Excel en français (séparateur point-virgule, virgule décimale « 8,20 », accents) est lu correctement, de même qu'un CSV à point décimal (8.20). Contrôlez toujours le volume total annoncé à la fin de l'import.</div>
 <h3>Règles à connaître</h3>
 <ul><li><b>Une ligne = une grume d'un seul billon.</b> Une grume en plusieurs billons doit être complétée ensuite à la saisie ({B('Listing')} › ✎ › {B('+ Billon')}).</li>
 <li>Lignes ignorées : sans numéro, ou longueur / diamètre vides ou nuls. Numéros <b>déjà présents</b> dans le lot : ignorés et comptés dans le message final.</li>
@@ -351,6 +352,7 @@ U.append(f'''
 <li><b>Longueur fixe par lot</b> (billons de même longueur) : réglage du lot, sans effet sur le Sheet.</li>
 <li><b>Mode vocal</b> : mot de départ « note » et rejet des phrases mal comprises, réglables par téléphone.</li>
 <li><b>Hors ligne</b> : les téléphones ouvrent leur propre copie de l'application si GitHub est en panne, supprimé ou lent ; une fois installée, l'application demande un stockage persistant (lots et application non effacés en cas de manque de place).</li>
+<li><b>Import d'inventaire</b> : colonne Note/Commentaire reprise, CSV d'Excel français (virgule décimale) correctement lus.</li>
 <li>Script du Sheet inchangé : <b>version {SCRIPT}</b>.</li></ul>
 
 <h1>1. Comment c'est construit</h1>

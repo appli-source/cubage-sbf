@@ -1,7 +1,7 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Guide administratif bureau</title>
 <link rel="stylesheet" href="style.css"></head><body>
 <div class="cover"><img src="logo.png"><h1>Cubage SBF<br>Guide administratif bureau</h1><div class="sub">Clés d’accès · Espace Bureau · Ventes · Bordereaux · Référentiel · Maintenance</div>
-<div class="meta">Application version 66 · Script Sheet version 3.0 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
+<div class="meta">Application version 67 · Script Sheet version 3.0 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
 <h1 class="first">Sommaire</h1><ol class="toc"><li>L'essentiel en une page</li><li>Comment c'est construit</li><li>Le poste bureau</li><li>Mise en place et mise à jour du script du Sheet</li><li>Clés d'accès et équipement des téléphones</li><li>L'espace Bureau (stock, ventes, lots des techniciens, ramasse, grilles)</li><li>Grilles de prix : propriétaire, client, catalogue et copies</li><li>Bordereaux propriétaire et client</li><li>Les données dans le Sheet</li><li>Maintenance et dépannage</li></ol>
 
 <h1 class="first">L'essentiel en une page</h1>
@@ -20,6 +20,7 @@
 <li><b>Longueur fixe par lot</b> (billons de même longueur) : réglage du lot, sans effet sur le Sheet.</li>
 <li><b>Mode vocal</b> : mot de départ « note » et rejet des phrases mal comprises, réglables par téléphone.</li>
 <li><b>Hors ligne</b> : les téléphones ouvrent leur propre copie de l'application si GitHub est en panne, supprimé ou lent ; une fois installée, l'application demande un stockage persistant (lots et application non effacés en cas de manque de place).</li>
+<li><b>Import d'inventaire</b> : colonne Note/Commentaire reprise, CSV d'Excel français (virgule décimale) correctement lus.</li>
 <li>Script du Sheet inchangé : <b>version 3.0</b>.</li></ul>
 
 <h1>1. Comment c'est construit</h1>
@@ -46,7 +47,7 @@
 <li><b>Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer</b>. L'adresse <code>/exec</code> ne change pas : rien à refaire sur les téléphones.</li></ol>
 <p>Version 3.0 : action <code>setLotGps</code> (point GPS placé depuis le bureau). Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>, <code>commentaire</code>…) se créent d'elles-mêmes à la première sauvegarde.</p>
 <h2>3.3 Mettre à jour l'application</h2>
-<p>Une modification sur la branche <code>main</code> du dépôt est en ligne en une à deux minutes. Les téléphones la prennent à la prochaine ouverture avec du réseau ; le numéro de version est en bas de l'accueil (actuellement 66). Le mode vocal (<code>vendor/</code>, <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
+<p>Une modification sur la branche <code>main</code> du dépôt est en ligne en une à deux minutes. Les téléphones la prennent à la prochaine ouverture avec du réseau ; le numéro de version est en bas de l'accueil (actuellement 67). Le mode vocal (<code>vendor/</code>, <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
 
 <h1>4. Clés d'accès et équipement des téléphones</h1>
 <p>Une clé = un technicien (rôle <b>terrain</b>) ou un poste bureau (rôle <b>bureau</b> : valide les ventes, voit tout le stock). L'opérateur attaché à la clé est <b>imposé</b> sur toutes les lignes que ce téléphone envoie : c'est lui qui identifie l'auteur d'un lot.</p>
@@ -132,7 +133,7 @@
 <tr><td>Billon « indisponible » lors d'une vente</td><td>Déjà vendu ou recoupé dans un autre lot client : Stock bord de route › Vendus / Recoupés.</td></tr>
 <tr><td>Bordereau sans la grille attendue</td><td>Le bordereau propriétaire ignore les grilles client (et inversement) : vérifier les grilles du lot ou du sous-lot.</td></tr>
 <tr><td>Point GPS absent d'un bordereau</td><td>Le placer sur la carte (téléphone ou Bureau › Lots des techniciens).</td></tr>
-<tr><td>Téléphone sur une ancienne version</td><td>Le faire ouvrir avec du réseau puis fermer/rouvrir ; comparer le numéro en bas de l'accueil (actuellement 66).</td></tr>
+<tr><td>Téléphone sur une ancienne version</td><td>Le faire ouvrir avec du réseau puis fermer/rouvrir ; comparer le numéro en bas de l'accueil (actuellement 67).</td></tr>
 <tr><td>Mode vocal qui n'enregistre rien</td><td>Chaque phrase doit commencer par le mot de départ (« note » par défaut, Paramètres du téléphone).</td></tr>
 <tr><td>Modifier le logo ou les mentions légales</td><td><code>docs.js</code> du dépôt : constante <code>SBF</code> (textes) et <code>SBF_LOGO</code> (image).</td></tr></table>
 

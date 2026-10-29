@@ -978,20 +978,23 @@ async function loadRefUI(){const set=statusBox();if(!S.params.syncUrl){set('Sync
 function lotFile(l){const gids=[l.grilleId,l.grilleCliId,...(l.sousLots||[]).map(x=>x.grilleId)].filter(Boolean);return new Blob([JSON.stringify({app:'cubage-sbf',lot:l,grilles:S.grilles.filter(g=>gids.includes(g.id))},null,1)],{type:'application/json'});}
 /* Import d'un inventaire de grumes (fichier Excel ou CSV d'un bûcheron) dans un lot de cubage.
    Lecture souple : la ligne d'en-tête est cherchée dans chaque onglet (colonnes Numéro, Longueur, Diamètre, et en option
-   Qualité, Essence, Réduction L/Ø) ; une ligne = une grume d'un billon. Format CSV standard : numero;essence;qualite;longueur_m;diametre_cm */
+   Qualité, Essence, Réduction L/Ø, Note/Commentaire) ; une ligne = une grume d'un billon. Format CSV standard : numero;essence;qualite;longueur_m;diametre_cm */
 async function importInventory(file,l){if(!window.XLSX){toast('Module Excel non chargé (ouvrir une fois en ligne)');return;}
-  let wb;try{wb=XLSX.read(await file.arrayBuffer(),{type:'array'});}catch(e){toast('Fichier illisible');return;}
+  /* CSV : lu en texte brut (raw) pour garder « 8,20 » tel quel (sinon SheetJS y voit un séparateur de milliers → 820) ;
+     encodage UTF-8, ou Windows-1252 pour un CSV enregistré par Excel en français */
+  let wb;try{if(/\.csv$/i.test(file.name)){const buf=await file.arrayBuffer();let txt;try{txt=new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch(e){txt=new TextDecoder('windows-1252').decode(buf);}
+    wb=XLSX.read(txt.replace(/^\uFEFF/,''),{type:'string',raw:true});}else wb=XLSX.read(await file.arrayBuffer(),{type:'array'});}catch(e){toast('Fichier illisible');return;}
   const key=h=>String(h==null?'':h).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
-  const COLS={num:['numero','num','n','no','ngrume','grume','numerogrume'],lm:['longueur','longueurm','long','l','lg','lgm'],d:['diametre','diametrecm','diam','d','o','diamm','diametremedian'],q:['qualite','qual','q','classe'],ess:['essence','ess','esp','espece'],rl:['reductionl','reductionlongueur','redl'],rd:['reductiond','reductiondiametre','redd','reductiono']};
+  const COLS={num:['numero','num','n','no','ngrume','grume','numerogrume'],lm:['longueur','longueurm','long','l','lg','lgm'],d:['diametre','diametrecm','diam','d','o','diamm','diametremedian'],q:['qualite','qual','q','classe'],ess:['essence','ess','esp','espece'],rl:['reductionl','reductionlongueur','redl'],rd:['reductiond','reductiondiametre','redd','reductiono'],note:['note','notes','commentaire','commentaires','comment','observation','observations','obs','remarque','remarques','rem']};
   const rows=[];const feuilles=[];
   for(const name of wb.SheetNames){const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});let hi=-1,map={};
     for(let i=0;i<Math.min(aoa.length,30);i++){const r=aoa[i]||[];const m={};r.forEach((c,j)=>{const k=key(c);for(const f of Object.keys(COLS))if(m[f]==null&&COLS[f].includes(k))m[f]=j;});if(m.num!=null&&m.lm!=null&&m.d!=null){hi=i;map=m;break;}}
     if(hi<0)continue;let n=0;
     for(let i=hi+1;i<aoa.length;i++){const r=aoa[i]||[];const num=r[map.num],lm=Number(String(r[map.lm]==null?'':r[map.lm]).replace(',','.')),d=Number(String(r[map.d]==null?'':r[map.d]).replace(',','.'));
       if(num==null||String(num).trim()===''||!(lm>0)||!(d>0))continue;
-      rows.push({num:String(num).trim().replace(/\.0+$/,''),lm:Math.round(lm*100)/100,d:Math.floor(d),q:map.q!=null&&r[map.q]!=null?String(r[map.q]).trim().toUpperCase():'',ess:map.ess!=null&&r[map.ess]!=null?String(r[map.ess]).trim().toUpperCase():'',rl:map.rl!=null?Math.round(Number(r[map.rl])||0):0,rd:map.rd!=null?Math.round(Number(r[map.rd])||0):0,feuille:name});n++;}
+      rows.push({num:String(num).trim().replace(/\.0+$/,''),lm:Math.round(lm*100)/100,d:Math.floor(d),q:map.q!=null&&r[map.q]!=null?String(r[map.q]).trim().toUpperCase():'',ess:map.ess!=null&&r[map.ess]!=null?String(r[map.ess]).trim().toUpperCase():'',rl:map.rl!=null?Math.round(Number(String(r[map.rl]==null?'':r[map.rl]).replace(',','.'))||0):0,rd:map.rd!=null?Math.round(Number(String(r[map.rd]==null?'':r[map.rd]).replace(',','.'))||0):0,note:map.note!=null&&r[map.note]!=null?String(r[map.note]).trim():'',feuille:name});n++;}
     if(n)feuilles.push(name+' ('+n+')');}
-  if(!rows.length){const set=statusBox();set('Aucune grume trouvée','Le fichier doit contenir une ligne d’en-tête avec les colonnes Numéro, Longueur (m) et Diamètre (cm), puis une ligne par grume. Colonnes facultatives : Qualité, Essence.',true,true);return;}
+  if(!rows.length){const set=statusBox();set('Aucune grume trouvée','Le fichier doit contenir une ligne d’en-tête avec les colonnes Numéro, Longueur (m) et Diamètre (cm), puis une ligne par grume. Colonnes facultatives : Qualité, Essence, Réduction L, Réduction Ø, Note.',true,true);return;}
   // Essence et qualité par défaut pour les lignes qui n'en ont pas
   const essL=lotEss(l),qL=lotQual(l);const needE=rows.some(r=>!r.ess),needQ=rows.some(r=>!r.q);
   const choix=await new Promise(res=>{const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>${rows.length} grume(s) trouvée(s)</b><p class="muted" style="margin:0">Onglets : ${esc(feuilles.join(', '))}. Une ligne = une grume d’un billon.</p>
@@ -1002,7 +1005,7 @@ async function importInventory(file,l){if(!window.XLSX){toast('Module Excel non 
   if(!choix)return;
   const nums=new Set(l.grumes.map(g=>String(g.num)));let n=0,dup=0;const newE=[],newQ=[];const now=new Date().toISOString();
   for(const r of rows){if(nums.has(r.num)){dup++;continue;}const ess=r.ess||choix.ess,q=r.q||choix.q;if(ess&&!essL.includes(ess)&&!newE.includes(ess))newE.push(ess);if(q&&!qL.includes(q)&&!newQ.includes(q))newQ.push(q);
-    l.grumes.push({id:uid(),num:r.num,ess,saisi:now,src:'import',billons:[{id:uid(),rang:1,lm:r.lm,d:r.d,q,rl:r.rl>0?r.rl:0,rd:r.rd>0?r.rd:0,sl:l.slCur||null}]});nums.add(r.num);n++;}
+    l.grumes.push({id:uid(),num:r.num,ess,saisi:now,src:'import',billons:[Object.assign({id:uid(),rang:1,lm:r.lm,d:r.d,q,rl:r.rl>0?r.rl:0,rd:r.rd>0?r.rd:0,sl:l.slCur||null},r.note?{note:r.note}:{})]});nums.add(r.num);n++;}
   if(newE.length){l.essSel=uniqL([...(l.essSel||[]),...newE]);for(const e of newE)if(!S.params.essences.includes(e))S.params.essences.push(e);}
   if(newQ.length){l.qualSel=uniqL([...(l.qualSel||[]),...newQ]);for(const q of newQ)if(!S.params.qualites.includes(q))S.params.qualites.push(q);}
   if(newE.length||newQ.length)saveParams();save(l);
