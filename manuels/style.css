@@ -41,3 +41,5 @@ ol.steps li { margin: 4px 0; }
 @media print { body { -webkit-print-color-adjust: exact; } }
 h1 { page-break-before: auto; }
 h1.first { page-break-before: avoid; }
+pre.code { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; background: #f3f5f7; border-left: 4px solid #37485a; padding: 6px 10px; margin: 6px 0 10px; white-space: pre; page-break-inside: avoid; }
+table td.r { text-align: right; }

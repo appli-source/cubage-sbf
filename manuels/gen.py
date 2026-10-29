@@ -67,7 +67,7 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
 <li><b>Longueur fixe par lot</b> : la dernière longueur est reprise à chaque billon (lots de billons de même longueur) — on ne tape plus que le diamètre.</li>
 <li><b>Mode vocal : mot de départ « note »</b> : chaque phrase commence par « note » ; les conversations et bruits sont ignorés, les phrases mal comprises rejetées.</li>
 <li><b>Fonctionnement hors ligne renforcé</b> : le téléphone ouvre sa propre copie de l'application si l'hébergement est en panne, supprimé ou lent (plus de 3 s) ; une fois installée, l'application et les lots ne sont plus effacés quand le téléphone manque de place.</li>
-<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV).</li>
+<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV, format au 3.12).</li>
 </ul>
 
 <h1>1. Installer l'application</h1>
@@ -125,7 +125,7 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
  (11, '<b>Point GPS</b> : relever à nouveau, corriger sur la carte, ouvrir dans Google Maps.'),
  (12, '<b>Longueur des billons</b> : « Saisie à chaque billon » ou « Fixe » (3.4).')], side=False, w=62)}
 <p>Le bloc <b>Stock et ventes</b> (entre les sorties et la fiche) indique combien de billons du lot sont en stock, vendus (lots clients) ou recoupés : un billon vendu ou recoupé ne peut plus être supprimé.</p>
-<div class="tip">Le bouton {B('Importer un inventaire (Excel / CSV d\'un bûcheron)')} apparaît sur un lot encore vide : il remplit le lot à partir du fichier du bûcheron (n°, essence, qualité, longueur, diamètre).</div>
+<div class="tip">{B('Importer un inventaire (Excel / CSV d\'un bûcheron)')} ajoute au lot les grumes d'un fichier de bûcheron : format au 3.12.</div>
 
 <h2>3.4 Saisir les grumes</h2>
 <p>Une grume = un numéro, une essence et un ou plusieurs billons (12.1, 12.2…), chacun avec sa <b>qualité</b>, sa <b>longueur en mètres</b> (8,20) et son <b>diamètre médian en cm</b>. Le volume s'affiche aussitôt (cubage au diamètre médian, sur écorce).</p>
@@ -214,6 +214,37 @@ et les mentions légales de SBF ; le point GPS est un lien cliquable ; une zone 
 </ul>
 {fig(['t19_liste_lots'], [('🔎','Liste des lots : recherche par n° Xylolink, chantier, commune ou date ; toucher un lot pour l\'ouvrir.')], w=50)}
 
+<h2>3.12 Importer un inventaire de bûcheron (Excel / CSV)</h2>
+<p>Deux entrées : sur l'écran d'un lot, {B("Importer un inventaire (Excel / CSV d'un bûcheron)")} (ajoute au lot ouvert), ou Cubage › {B('Importer un lot reçu ou un inventaire')}
+qui propose <b>Nouveau lot</b> (la fiche s'ouvre : n° Xylolink, essences, qualités) ou l'un de vos lots en cours. Formats acceptés : <b>.xlsx</b>, <b>.xls</b>, <b>.csv</b>.</p>
+<h3>Colonnes reconnues</h3>
+<p>Le fichier doit contenir une <b>ligne d'en-tête</b> (dans les 30 premières lignes de l'onglet, titres et lignes vides au-dessus acceptés), puis <b>une ligne par grume</b>.
+Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° grume », « Diamètre (cm) », « longueur_m » sont reconnus). Les colonnes peuvent être dans n'importe quel ordre ; les autres colonnes sont ignorées.</p>
+<table><tr><th style="width:20%">Donnée</th><th style="width:10%">Statut</th><th style="width:36%">Titres de colonne acceptés</th><th>Contenu</th></tr>
+<tr><td><b>Numéro</b></td><td>obligatoire</td><td>Numéro, Num, N, No, N grume, Grume, Numéro grume</td><td>N° de plaquette (112). Une ligne sans numéro est ignorée.</td></tr>
+<tr><td><b>Longueur</b></td><td>obligatoire</td><td>Longueur, Longueur m, Long, L, Lg, Lg m</td><td><b>En mètres</b> : 8,20 ou 8.20 (arrondi au cm).</td></tr>
+<tr><td><b>Diamètre</b></td><td>obligatoire</td><td>Diamètre, Diamètre cm, Diam, D, Ø, Diamètre médian</td><td><b>En cm</b>, diamètre médian ; les décimales sont tronquées (52,7 → 52).</td></tr>
+<tr><td>Qualité</td><td>facultatif</td><td>Qualité, Qual, Q, Classe</td><td>Code (CA, CB, ST…), converti en majuscules.</td></tr>
+<tr><td>Essence</td><td>facultatif</td><td>Essence, Ess, Esp, Espèce</td><td>Code (CH, HET…), converti en majuscules.</td></tr>
+<tr><td>Réduction L</td><td>facultatif</td><td>Réduction L, Réduction longueur, Red L</td><td>Réfaction en <b>cm</b> sur la longueur (100 = 1 m).</td></tr>
+<tr><td>Réduction Ø</td><td>facultatif</td><td>Réduction D, Réduction diamètre, Red D, Réduction Ø</td><td>Réfaction en <b>cm</b> sur le diamètre.</td></tr></table>
+<h3>Exemple (fichier modèle <code>modele-import-inventaire.xlsx</code>, dossier <code>manuels/</code> du dépôt GitHub)</h3>
+<table style="width:auto"><tr><th>numero</th><th>essence</th><th>qualite</th><th>longueur_m</th><th>diametre_cm</th><th>reduction_l</th><th>reduction_d</th></tr>
+<tr><td>101</td><td>CH</td><td>CA</td><td class="r">8,20</td><td class="r">52</td><td></td><td></td></tr>
+<tr><td>102</td><td>CH</td><td>CB</td><td class="r">6,40</td><td class="r">47</td><td class="r">100</td><td></td></tr>
+<tr><td>103</td><td>HET</td><td>CX</td><td class="r">10,00</td><td class="r">61</td><td></td><td></td></tr>
+<tr><td>104</td><td>CH</td><td>ST</td><td class="r">4,50</td><td class="r">31</td><td></td><td></td></tr></table>
+<div class="warn"><b>Préférez un fichier Excel (.xlsx).</b> Dans un fichier <b>CSV</b>, la longueur doit être écrite avec un <b>point</b> (8.20) : avec une virgule (8,20), l'application lit actuellement 820 m. Un CSV enregistré par Excel en français utilise la virgule : dans ce cas, réenregistrez-le en .xlsx avant l'import, et contrôlez toujours le volume total annoncé à la fin de l'import.</div>
+<h3>Règles à connaître</h3>
+<ul><li><b>Une ligne = une grume d'un seul billon.</b> Une grume en plusieurs billons doit être complétée ensuite à la saisie ({B('Listing')} › ✎ › {B('+ Billon')}).</li>
+<li>Lignes ignorées : sans numéro, ou longueur / diamètre vides ou nuls. Numéros <b>déjà présents</b> dans le lot : ignorés et comptés dans le message final.</li>
+<li>Sans colonne Essence ou Qualité (ou cellule vide), l'application demande à l'import l'essence et la qualité à appliquer à ces lignes.</li>
+<li>Une essence ou une qualité inconnue du lot y est ajoutée automatiquement (vérifiez l'orthographe des codes dans le fichier).</li>
+<li>Tous les onglets du classeur sont lus : chaque onglet qui contient la ligne d'en-tête est importé.</li>
+<li>Si un sous-lot est sélectionné dans la saisie, les grumes importées y sont affectées.</li>
+<li>Le lot reste <b>à sauvegarder</b> : pensez à l'envoyer sur le Sheet.</li></ul>
+<div class="warn">Si l'application répond « Aucune grume trouvée », la ligne d'en-tête n'a pas été reconnue : vérifiez qu'il existe bien trois colonnes intitulées Numéro, Longueur et Diamètre.</div>
+
 <h1>4. Lots clients (vente de billons)</h1>
 <p>Un lot client regroupe des billons d'un ou plusieurs lots du téléphone pour un client. <b>Un billon ne peut appartenir qu'à un seul client.</b></p>
 {fig(['t21_nouveau_lot_client'], [
@@ -293,7 +324,7 @@ et les mentions légales de SBF ; le point GPS est un lien cliquable ; une zone 
 tech = page('Cubage SBF — Guide du technicien terrain',
             'Cubage bord de route · Estimation sur pied · Lots clients · Mode vocal',
             f'Application version {VERSION} · {DATE}',
-            ["L'essentiel en une page", "Installer l'application", "L'écran d'accueil", "Cubage bord de route (saisie, vocal, sous-lots, grilles, bordereaux)",
+            ["L'essentiel en une page", "Installer l'application", "L'écran d'accueil", "Cubage bord de route (saisie, vocal, sous-lots, grilles, bordereaux, import d'inventaire)",
              "Lots clients (vente de billons)", "Estimation de bois sur pied", "Sauvegarde, changement de téléphone, problèmes courants", "Paramètres"],
             ''.join(T))
 open(os.path.join(D, 'technicien.html'), 'w').write(tech)
