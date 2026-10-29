@@ -1097,7 +1097,9 @@ function render(){chipCb=null;if(S.screen!=='newLot'&&S.screen!=='lot')S.pending
   let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
   render();if(cfgOk)toast('Synchronisation configurée');
   if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();});
-  if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}})();
+  if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+  /* Stockage persistant (appli installée) : le navigateur n'efface ni les lots ni la copie de l'appli quand le téléphone manque de place */
+  try{if(navigator.storage&&navigator.storage.persist&&(matchMedia('(display-mode: standalone)').matches||navigator.standalone))navigator.storage.persist().catch(()=>{});}catch(e){}})();
 /* Fonctions métier exposées aux documents PDF (docs.js), qui se chargent avant ce fichier */
 window.CubageApp={recap,qualRecap,priceRecap,prixLine,grilleFor,lotGrille,lotGrilleCli,volB,cubD,cubL,lenM,redTxt,slMatch,clientVirtual,origins,shareFile,safe,today,gpsUrl,toast,esc,NONE,get S(){return S;}};
 })();

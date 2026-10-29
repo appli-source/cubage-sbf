@@ -7,6 +7,9 @@ index.html, app.js, docs.js, calc.js, voice.js, voice-worklet.js, manifest.json,
 Installation sur téléphone : ouvrir l'URL dans Safari (iPhone) ou Chrome (Android), puis
 « Partager > Sur l'écran d'accueil » / « Ajouter à l'écran d'accueil ». Ouvrir l'application une
 première fois en ligne : elle se met ensuite en cache et fonctionne sans réseau.
+Elle ne dépend plus alors de l'hébergement : si GitHub est en panne, supprimé ou lent (plus de 3 s), le téléphone
+ouvre sa propre copie (sw.js) ; GitHub ne sert qu'aux mises à jour, aux nouvelles installations et au premier
+téléchargement du modèle vocal. Le numéro « Version » en bas de l'accueil est celui de app.js?v= dans index.html.
 
 Synchronisation Google Sheet : coller sync.gs dans Extensions > Apps Script du Sheet cible,
 déployer en application web (Exécuter en tant que moi, accès tout le monde), copier l'URL /exec
