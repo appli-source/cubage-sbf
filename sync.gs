@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.0 (point GPS d'un lot modifiable depuis le bureau, grille client).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.1 (point GPS modifiable depuis le bureau ; numéros écrits en texte, plus de conversion en dates).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -77,6 +77,13 @@ function sheetRows_(ss, name) { if (ROWS_CACHE_[name]) return ROWS_CACHE_[name];
   const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 1) return (ROWS_CACHE_[name] = []);
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
   return (ROWS_CACHE_[name] = v.slice(1).map(r => { const o = {}; h.forEach((k,i) => { if (k) o[k] = r[i]; }); return o; })); }
+/* Colonnes à écrire en texte brut : sinon Google Sheets (réglage régional français) transforme « 1.2 » en date (1er février)
+   et « 1 » en date du mois, ce qui casse les numéros de grumes et de billons. */
+const COLONNES_TEXTE = ['num','numero','parent_num','billon_key','parent_key','piece_key','lot_id','billon_id','grume_id','piece_id','arbre_id','recoupe_id','client_id','sous_lot_id',
+  'chantier_xylolink','chantier','commune','dept','operateur','essence','qualite','sous_lot','client','grille','reduction','commentaire','date','saisi_le','saisi_heure','origine','ref','note','statut','cle','role','data'];
+function texte_(sh, row, nb, headers) {
+  headers.forEach((h, i) => { if (COLONNES_TEXTE.indexOf(String(h)) >= 0) sh.getRange(row, i + 1, nb, 1).setNumberFormat('@'); });
+}
 function replaceRows_(ss, tables, keyCol, keyVal, rowsByTable) {
   // Remplace les lignes d'une clé : lecture en bloc, puis une seule réécriture à partir de la première ligne concernée.
   tables.forEach(name => {
@@ -98,10 +105,10 @@ function replaceRows_(ss, tables, keyCol, keyVal, rowsByTable) {
     if (first < 0 && !rows.length) return;
     if (headers.length !== nh0) { sh.getRange(1,1,1,headers.length).setValues([headers]); sh.setFrozenRows(1); }
     const vals = rows.map(r => headers.map(h => r[h] === undefined || r[h] === null ? '' : r[h]));
-    if (first < 0) { if (vals.length) sh.getRange(body.length + 2, 1, vals.length, headers.length).setValues(vals); return; }
+    if (first < 0) { if (vals.length) { texte_(sh, body.length + 2, vals.length, headers); sh.getRange(body.length + 2, 1, vals.length, headers.length).setValues(vals); } return; }
     const tail = kept.slice(first).map(r => headers.map((h, i) => i < r.length && r[i] !== undefined ? r[i] : '')).concat(vals);
     sh.getRange(first + 2, 1, body.length - first, Math.max(lastCol, headers.length)).clearContent();
-    if (tail.length) sh.getRange(first + 2, 1, tail.length, headers.length).setValues(tail);
+    if (tail.length) { texte_(sh, first + 2, tail.length, headers); sh.getRange(first + 2, 1, tail.length, headers.length).setValues(tail); }
   });
 }
 
