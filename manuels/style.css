@@ -1,6 +1,6 @@
 @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
 body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10.5pt; color: #222; line-height: 1.45; }
-.cover { height: 240mm; display: flex; flex-direction: column; justify-content: center; }
+.cover { height: 235mm; page-break-after: always; display: flex; flex-direction: column; justify-content: center; }
 .cover img { width: 110mm; margin-bottom: 18mm; }
 .cover h1 { font-size: 30pt; color: #37485a; margin: 0 0 6mm; line-height: 1.15; }
 .cover .sub { font-size: 14pt; color: #cd8a63; margin-bottom: 14mm; }
@@ -23,3 +23,21 @@ td { border-bottom: 1px solid #d6dbe0; padding: 4px 6px; vertical-align: top; }
 code { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; background: #f3f5f7; padding: 0 3px; }
 .toc li { margin: 3px 0; }
 .small { font-size: 9pt; color: #788088; }
+/* Figures avec captures (gen.py) */
+table.fig { width: auto; border-collapse: separate; border-spacing: 0; margin: 8px 0 4px; page-break-inside: avoid; }
+table.fig td { border: 0; padding: 0 8px 0 0; vertical-align: top; }
+td.shot img { border: 1px solid #c9ced3; border-radius: 6px; display: block; }
+td.shot img.doc { border-radius: 0; }
+td.legcell { padding-left: 6px !important; width: 100%; }
+table.leg { border-collapse: collapse; margin: 0 0 8px; font-size: 9.6pt; page-break-inside: auto; }
+table.leg td { border: 0; border-bottom: 1px solid #e3e6e9; padding: 3px 4px; vertical-align: top; }
+table.leg tr { page-break-inside: avoid; }
+td.num { width: 26px; padding-right: 6px !important; }
+td.num span, span.n { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; border-radius: 10px; background: #d9480f; color: #fff; font-weight: bold; text-align: center; font-size: 9pt; padding: 0 2px; }
+.cap { font-size: 8.8pt; color: #66707a; font-style: italic; margin: 2px 0 10px; }
+table.day td { vertical-align: top; }
+ol.steps li { margin: 4px 0; }
+
+@media print { body { -webkit-print-color-adjust: exact; } }
+h1 { page-break-before: auto; }
+h1.first { page-break-before: avoid; }

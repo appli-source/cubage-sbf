@@ -1,24 +1,23 @@
-import subprocess, io, sys
+# Construit les guides PDF à partir des sources HTML (gen.py) avec Chromium (Playwright) :
+# mise en page A4 fidèle au CSS, pied de page avec titre et numéro de page (sauf couverture).
+import os, io
+from playwright.sync_api import sync_playwright
 from pypdf import PdfReader, PdfWriter
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-pdfmetrics.registerFont(TTFont('DejaVu','/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-DOCS=[('technicien','Cubage-SBF-Guide-technicien-terrain.pdf','Cubage SBF · Guide du technicien terrain'),
-      ('bureau','Cubage-SBF-Guide-administratif-bureau.pdf','Cubage SBF · Guide administratif bureau')]
-for src,out,label in DOCS:
-    tmp=src+'_raw.pdf'
-    subprocess.run(['wkhtmltopdf','-q','--enable-local-file-access','--disable-smart-shrinking','--dpi','96','--zoom','1.25','--page-size','A4','--margin-top','16mm','--margin-bottom','20mm','--margin-left','16mm','--margin-right','16mm',src+'.html',tmp],check=True,stderr=subprocess.DEVNULL)
-    r=PdfReader(tmp);w=PdfWriter();n=len(r.pages)
-    for i,p in enumerate(r.pages):
-        if i>0:
-            buf=io.BytesIO();c=canvas.Canvas(buf,pagesize=A4);W,H=A4
-            c.setFont('DejaVu',7.5);c.setFillColorRGB(0.47,0.50,0.53)
-            c.setStrokeColorRGB(0.84,0.86,0.88);c.setLineWidth(0.4);c.line(16*2.835,34,W-16*2.835,34)
-            c.drawString(16*2.835,24,label);c.drawRightString(W-16*2.835,24,f'Page {i+1} / {n}');c.save()
-            p.merge_page(PdfReader(io.BytesIO(buf.getvalue())).pages[0])
-        w.add_page(p)
-    w.add_metadata({'/Title':label,'/Author':'Services Bois et Forêts SAS'})
-    with open(out,'wb') as f:w.write(f)
-    print(out,n,'pages')
+D = os.path.dirname(os.path.abspath(__file__))
+DOCS = [('technicien', 'Cubage-SBF-Guide-technicien-terrain.pdf', 'Cubage SBF · Guide du technicien terrain'),
+        ('bureau', 'Cubage-SBF-Guide-administratif-bureau.pdf', 'Cubage SBF · Guide administratif bureau')]
+FOOT = '''<div style="width:100%;font:7.5pt Arial,sans-serif;color:#788088;margin:0 16mm;display:flex;justify-content:space-between;border-top:.4pt solid #d6dbe0;padding-top:4px">
+<span>{label}</span><span>Page <span class="pageNumber"></span> / <span class="totalPages"></span></span></div>'''
+with sync_playwright() as pw:
+    b = pw.chromium.launch(); p = b.new_page()
+    for src, out, label in DOCS:
+        if not os.path.exists(os.path.join(D, src + '.html')): continue
+        p.goto('file://' + os.path.join(D, src + '.html')); p.wait_for_load_state('networkidle')
+        pdf = p.pdf(format='A4', print_background=True, display_header_footer=True, header_template='<div></div>',
+                    footer_template=FOOT.format(label=label), margin={'top': '16mm', 'bottom': '18mm', 'left': '16mm', 'right': '16mm'})
+        r = PdfReader(io.BytesIO(pdf)); w = PdfWriter()
+        for pg in r.pages: w.add_page(pg)
+        w.add_metadata({'/Title': label, '/Author': 'Services Bois et Forêts SAS'})
+        with open(os.path.join(D, out), 'wb') as f: w.write(f)
+        print(out, len(r.pages), 'pages', os.path.getsize(os.path.join(D, out)) // 1024, 'Ko')
+    b.close()
