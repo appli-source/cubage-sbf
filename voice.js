@@ -82,11 +82,13 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('par',{k:'par'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
     for(const w of Object.keys(CMD))lex.set(w,{k:'cmd',v:CMD[w]});
     lex.set('billon suivant',{k:'cmd',v:'billon'});lex.set('billon',{k:'cmd',v:'billon'});lex.set('grume suivante',{k:'cmd',v:'suivante'});lex.set('grume',{k:'cmd',v:'suivante'});lex.set('arbre suivant',{k:'cmd',v:'suivante'});lex.set('arbre',{k:'cmd',v:'suivante'});
-    lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
+    lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});
+    lex.set('réduction',{k:'fld',v:'rl'});lex.set('réduction longueur',{k:'fld',v:'rl'});lex.set('réduction diamètre',{k:'fld',v:'rd'});lex.set('commentaire',{k:'cmd',v:'comm'});lex.set('remarque',{k:'cmd',v:'comm'});
+    for(const w of (h.motsC||[]).map(norm).filter(Boolean))if(!lex.has(w))lex.set(w,{k:'com',v:w});for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
     phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
-    phrases.push('billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
-    return{lex,phrases,key:JSON.stringify(['g',ess,qual])};}
+    phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque',...(h.motsC||[]).map(norm).filter(Boolean),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
+    return{lex,phrases,key:JSON.stringify(['g',ess,qual,h.motsC||[]])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
   for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
   for(const e of ess){phrases.push(e);for(const n of nums)phrases.push(e+' '+n);}
@@ -136,7 +138,17 @@ async function demarrerAudio(pMic){const AC=window.AudioContext||window.webkitAu
   let ok=false;if(V.ctx.audioWorklet){try{await V.ctx.audioWorklet.addModule('voice-worklet.js');V.node=new AudioWorkletNode(V.ctx,'sbf-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});V.node.port.onmessage=e=>pousser(e.data);ok=true;}catch(e){ok=false;}}
   if(!ok){V.node=V.ctx.createScriptProcessor(4096,1,1);V.node.onaudioprocess=e=>{const o=e.outputBuffer.getChannelData(0);o.fill(0);pousser(new Float32Array(e.inputBuffer.getChannelData(0)));};}
   V.src.connect(V.node);V.node.connect(V.ctx.destination);}
-function pousser(buf){if(!V.rec||V.etat!=='ecoute'&&V.etat!=='pause')return;if(V.parle)return;try{V.rec.acceptWaveformFloat(buf,V.ctx.sampleRate);}catch(e){}}
+function pousser(buf){const rec=V.libre?V.recLibre:V.rec;if(!rec||V.etat!=='ecoute'&&V.etat!=='pause')return;if(V.parle)return;try{rec.acceptWaveformFloat(buf,V.ctx.sampleRate);}catch(e){}}
+/* Commentaire libre : second décodeur sans grammaire (tout le vocabulaire du modèle), actif le temps d'une phrase */
+function libreStart(){if(!V.model)return false;const sr=V.ctx?V.ctx.sampleRate:16000;
+  if(!V.recLibre){const r=new V.model.KaldiRecognizer(sr);V.recLibre=r;
+    r.on('result',m=>{if(!V.libre)return;const txt=norm(m.result&&m.result.text||'').replace(/\[unk\]/g,'').trim();if(!txt)return;libreStop();
+      const D=V.draft||(V.draft={L:null,d:null});D.note=(D.note?D.note+' ':'')+txt;montrer();V.dernier='commentaire : « '+txt+' »';bipOk();dire('commentaire noté');majBloc();});
+    r.on('partialresult',m=>{if(!V.libre)return;const p=m.result&&m.result.partial||'';if(p!==V.partiel){V.partiel=p;majPartiel();}});}
+  V.libre=true;clearTimeout(V.libreTo);V.libreTo=setTimeout(()=>{if(V.libre){libreStop();V.dernier='commentaire : rien entendu';bipErr();majBloc();}},12000);majBloc();return true;}
+function libreStop(){V.libre=false;clearTimeout(V.libreTo);V.partiel='';majPartiel();}
+/* Affiche le billon en cours à l'écran (longueur, diamètre, réductions, commentaire) */
+function montrer(){const D=V.draft||(V.draft={L:null,d:null});if(V.hook&&V.hook.onDraft)V.hook.onDraft(V.cur,V.curQ,D.L,D.d,{rl:D.rl||0,rd:D.rd||0,note:D.note||''});majBloc();}
 function couperAudio(){try{if(V.node){V.node.disconnect();if(V.node.port)V.node.port.onmessage=null;V.node.onaudioprocess=null;}}catch(e){}try{V.src&&V.src.disconnect();}catch(e){}try{V.stream&&V.stream.getTracks().forEach(t=>{t.onended=null;t.stop();});}catch(e){}V.node=null;V.src=null;V.stream=null;}
 async function veille(on){try{if(on){if(navigator.wakeLock&&!V.wake){V.wake=await navigator.wakeLock.request('screen');V.wake.addEventListener('release',()=>{V.wake=null;});}}else if(V.wake){await V.wake.release();V.wake=null;}}catch(e){V.wake=null;}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(V.etat==='ecoute'||V.etat==='pause')){veille(true);if(V.ctx&&V.ctx.state==='suspended')V.ctx.resume().catch(()=>{});}});
@@ -153,7 +165,7 @@ async function demarrer(){if(V.chargement)return;V.chargement=true;try{const a=d
     V.pause=false;V.pend=null;V.draft=null;creerReco();V.cur=V.hook.cur||'';V.curQ=V.hook.curQ||'';V.dernier='';V.partiel='';setEtat('ecoute','');veille(true);bipEss();}
   catch(e){couperAudio();const m=(e&&e.name==='NotAllowedError')?'Micro refusé : autorisez-le pour cette application dans les réglages du téléphone':(e&&e.message)||String(e);setEtat('erreur',m);}
   finally{V.chargement=false;}}
-function arreter(msg){couperAudio();if(V.rec){try{V.rec.remove();}catch(e){}V.rec=null;V.gramKey='';}V.pause=false;V.pend=null;veille(false);try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}setEtat(msg?'erreur':'off',msg||'');}
+function arreter(msg){couperAudio();libreStop();if(V.recLibre){try{V.recLibre.remove();}catch(e){}V.recLibre=null;}if(V.rec){try{V.rec.remove();}catch(e){}V.rec=null;V.gramKey='';}V.pause=false;V.pend=null;veille(false);try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}setEtat(msg?'erreur':'off',msg||'');}
 function basculer(){if(V.etat==='ecoute'||V.etat==='pause')arreter('');else if(V.etat!=='chargement')demarrer();}
 
 /* ---------- Interprétation ---------- */
@@ -169,7 +181,7 @@ function elements(t){const toks=t.split(' ').filter(Boolean);const out=[];let i=
     fin();out.push({k:e.k,v:e.v});}
   fin();return out;}
 
-function traiter(text,conf){let t=norm(text);if(!t)return;try{console.debug('vocal :',t,conf);}catch(e){}if(V.parle||Date.now()<V.ignorerJusqua)return; // écho de l'annonce vocale
+function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{console.debug('vocal :',t,conf);}catch(e){}if(V.parle||Date.now()<V.ignorerJusqua)return; // écho de l'annonce vocale
   const strict=!(V.hook&&V.hook.strict===false);const w=motDepart(V.hook);
   // Commandes d'enregistrement dites seules (« billon suivant », « grume suivante ») : acceptées sans le mot de départ,
   // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation. « grume » n'est pas
@@ -216,12 +228,12 @@ function traiterClasses(els){let n=0;const faits=[];
    sinon retire le dernier billon enregistré. « numéro cent douze » change le n° de grume. */
 function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(V.draft={L:null,d:null});
   let seq=[],attenteNum=false,fld=null;
-  const montrer=()=>{if(h()&&h().onDraft)h().onDraft(V.cur,V.curQ,D.L,D.d);majBloc();};
-  const etat=()=>(D.L!=null?fmtL(D.L)+' m':'L ?')+' · Ø '+(D.d!=null?D.d:'?');
+  const etat=()=>(D.L!=null?fmtL(D.L)+' m':'L ?')+' · Ø '+(D.d!=null?D.d:'?')+(D.rl>0?' · L −'+D.rl+' cm':'')+(D.rd>0?' · Ø −'+D.rd+' cm':'')+(D.note?' · « '+D.note+' »':'');
   const flush=()=>{ // nombres dictés → longueur et/ou diamètre du billon en cours
     if(!seq.length){fld=null;return;}const nums=seq.filter(x=>x.k==='num');if(!nums.length){seq=[];fld=null;return;}
     const iP=seq.findIndex(x=>x.k==='par');
     if(fld==='d'){D.d=nums[nums.length-1].v;}
+    else if(fld==='rl'||fld==='rd'){const r=nums[nums.length-1].v;if(!(r>0&&r<1000)){faits.push('réduction '+r+' ?');bipErr();seq=[];fld=null;return;}D[fld]=r;}
     else if(fld==='L'||iP>=0||D.L==null){
       const avant=iP>=0?seq.slice(0,iP):seq,apres=iP>=0?seq.slice(iP+1):[];
       const nAv=avant.filter(x=>x.k==='num'),nAp=apres.filter(x=>x.k==='num');
@@ -241,34 +253,37 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(
     montrer();faits.push(etat());bipEss();};
   const enregistrer=()=>{ // « billon suivant » : enregistre le billon en cours
     if(D.L==null||D.d==null||!V.cur){faits.push('billon incomplet : '+(!V.cur?'essence ? ':'')+etat());bipErr();return false;}
-    const r=h()&&h().onBillonSuivant&&h().onBillonSuivant(V.cur,V.curQ,Math.round(D.L*100)/100,Math.round(D.d));
+    const r=h()&&h().onBillonSuivant&&h().onBillonSuivant(V.cur,V.curQ,Math.round(D.L*100)/100,Math.round(D.d),{rl:D.rl||0,rd:D.rd||0,note:D.note||''});
     if(!r){faits.push('billon refusé');bipErr();return false;}
-    faits.push((r.label?r.label+' enregistré · ':'')+V.cur+' '+(V.curQ||'—')+' · '+fmtL(D.L)+' m · Ø '+Math.round(D.d));bipOk();vibrer(30);
-    dire((V.curQ?(motsQ(V.curQ,h()&&h().motsQ)[0]||V.curQ)+', ':'')+longueurParlee(D.L)+', '+nombre(Math.round(D.d)));
-    D.L=r.L>0?r.L:null;D.d=null;return true;};
+    faits.push((r.label?r.label+' enregistré · ':'')+V.cur+' '+(V.curQ||'—')+' · '+etat());bipOk();vibrer(30);
+    dire((V.curQ?(motsQ(V.curQ,h()&&h().motsQ)[0]||V.curQ)+', ':'')+longueurParlee(D.L)+', '+nombre(Math.round(D.d))+(D.rl>0||D.rd>0?', avec réduction':'')+(D.note?', commenté':''));
+    D.L=r.L>0?r.L:null;D.d=null;D.rl=0;D.rd=0;D.note='';return true;};
   for(let i=0;i<els.length;i++){const e=els[i];
     if(e.k==='num'||e.k==='m'||e.k==='par'||e.k==='virg'||e.k==='demi'){
       if(attenteNum&&e.k==='num'){attenteNum=false;const ok=h()&&h().onNumero&&h().onNumero(e.v);faits.push(ok?'grume n° '+e.v:'numéro refusé');if(ok){bipEss();dire('grume '+nombre(e.v));}else bipErr();continue;}
       seq.push(e);continue;}
     if(e.k==='fld'){flush();fld=e.v;continue;}
+    if(e.k==='com'){flush();D.note=(D.note&&!D.note.split(' ').includes(e.v)?D.note+' ':'')+(D.note&&D.note.split(' ').includes(e.v)?'':e.v);montrer();faits.push('commentaire : '+D.note);bipEss();continue;}
     flush();
     if(e.k==='ess'){V.cur=e.v;if(h()&&h().onEssence)h().onEssence(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}montrer();continue;}
     if(e.k==='q'){V.curQ=e.v;if(h()&&h().onQualite)h().onQualite(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk')bipEss();montrer();continue;}
     if(e.k==='cmd'){
       if(e.v==='numero'){attenteNum=true;continue;}
+      if(e.v==='comm'){const suiv=els[i+1];if(suiv&&suiv.k==='com')continue; // « commentaire gélivure » : le mot suit
+        if(libreStart())faits.push('dictez le commentaire…');else{faits.push('commentaire libre indisponible');bipErr();}continue;}
       if(e.v==='billon'){enregistrer();continue;}
       if(e.v==='precedent'){ // rouvre le dernier billon enregistré pour le corriger (« note diamètre … », puis « suivant »)
-        if(D.L!=null||D.d!=null){faits.push('billon en cours entamé : dites « annule » avant « précédent »');bipErr();continue;}
+        if(D.L!=null||D.d!=null||D.rl||D.rd||D.note){faits.push('billon en cours entamé : dites « annule » avant « précédent »');bipErr();continue;}
         const r=h()&&h().onPrecedent&&h().onPrecedent();if(!r){faits.push('rien à rouvrir');bipErr();continue;}
-        if(r.ess)V.cur=r.ess;V.curQ=r.q||'';D.L=r.L>0?r.L:null;D.d=r.d>0?r.d:null;majBloc();faits.push(r.label+' rouvert · '+V.cur+' '+(V.curQ||'—')+' · '+etat());bipEss();vibrer([30,60,30]);dire('billon '+(r.grume?'de la grume '+nombre(Number(r.grume)||0)+' ':'')+'rouvert');continue;}
+        if(r.ess)V.cur=r.ess;V.curQ=r.q||'';D.L=r.L>0?r.L:null;D.d=r.d>0?r.d:null;D.rl=r.rl||0;D.rd=r.rd||0;D.note=r.note||'';majBloc();faits.push(r.label+' rouvert · '+V.cur+' '+(V.curQ||'—')+' · '+etat());bipEss();vibrer([30,60,30]);dire('billon '+(r.grume?'de la grume '+nombre(Number(r.grume)||0)+' ':'')+'rouvert');continue;}
       if(e.v==='suivante'){if(D.L!=null||D.d!=null){if(!enregistrer())continue;}
         const r=h()&&h().onSuivante&&h().onSuivante();
         if(r){D.L=null;D.d=null;faits.push('→ grume '+r);bipEss();vibrer([30,60,30]);dire('grume '+nombre(Number(r)||0));}else{faits.push('grume non enregistrée');bipErr();}continue;}
       if(e.v==='annule'){ // « annule » / « annule billon » : billon en cours s'il est entamé, sinon dernier billon enregistré de cette grume
-        if(D.L!=null||D.d!=null){D.L=null;D.d=null;montrer();faits.push('billon en cours effacé');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule('billon');
+        if(D.L!=null||D.d!=null||D.rl||D.rd||D.note){D.L=null;D.d=null;D.rl=0;D.rd=0;D.note='';montrer();faits.push('billon en cours effacé');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule('billon');
         if(r){faits.push('annulé : '+r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler dans cette grume');bipErr();}continue;}
       if(e.v==='annuleG'){ // « annule grume » : vide la grume en cours ; si elle est vide, rouvre la grume précédente
-        D.L=null;D.d=null;const r=h()&&h().onAnnule&&h().onAnnule('grume');
+        D.L=null;D.d=null;D.rl=0;D.rd=0;D.note='';const r=h()&&h().onAnnule&&h().onAnnule('grume');
         if(r){faits.push(r);bipEss();vibrer([30,60,30]);dire(r);}else{faits.push('rien à annuler');bipErr();}continue;}}}
   flush();
   return faits;}
@@ -287,9 +302,9 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'annule » (billon) · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'réduction longueur cinquante », « '+px+'réduction diamètre deux » · « '+px+'commentaire gélivure » ou « '+px+'commentaire » puis la phrase · « '+px+'annule » (billon) · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
-    <div class="voc-last" id="vocLast">${esc((gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
+    <div class="voc-last" id="vocLast">${esc(V.libre?'🎙 Dictez le commentaire (phrase libre)…':(gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+(V.draft.rl>0?' · L −'+V.draft.rl+' cm':'')+(V.draft.rd>0?' · Ø −'+V.draft.rd+' cm':'')+(V.draft.note?' · « '+V.draft.note+' »':'')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
     $('#vocPause').onclick=()=>{V.pause=!V.pause;setEtat(V.pause?'pause':'ecoute','');};}
   const b=$('#vocBtn');if(b)b.onclick=basculer;}

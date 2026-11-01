@@ -28,7 +28,7 @@ const DB=(()=>{
 /* ---------- État ---------- */
 const DEF_PARAMS={id:'params',essences:['CH','PIN','DOU','PEU','HET','CHA','FR','EP'],qualites:['A','B','C','D'],
   step:5,stepParEssence:{},classMin:10,classMax:90,repriseQualite:true,saisieDiam:'classe',resteQualite:'BI',operateur:'',syncUrl:'',refLoaded:'',
-  motsVocaux:'',motsVocauxQ:'',vocalAnnonce:true,vocalMot:'note',vocalStrict:true,essencesVocal:{},qualitesVocal:{}};
+  motsVocaux:'',motsVocauxQ:'',motsVocauxC:'gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve',vocalAnnonce:true,vocalMot:'note',vocalStrict:true,essencesVocal:{},qualitesVocal:{}};
 /* Mode vocal (voice.js) : noms parlés des essences et des qualités — mots saisis dans les Paramètres (« CH: chêne, chêne rouge ; PIN: pin »)
    prioritaires sur la colonne mots_vocaux des onglets ESSENCES / QUALITES du Sheet ; les codes courants ont des noms par défaut dans voice.js */
 function motsVocauxDe(sheet,champ){const out={};for(const [k,v] of Object.entries(sheet||{}))out[String(k).toUpperCase()]=[].concat(v).join(', ');
@@ -342,18 +342,18 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(!ed)focusSaisie(l.lgFixe?'input[data-f=d]':'input[data-f=lm]');
   /* Mode vocal : chaque billon dicté remplit la ligne vide ou en ajoute une (comme « + Billon »), « suivante » = bouton « Grume suivante » */
   if(vocal){const vide=b=>!(lenM(b)>0)&&!(b.d>0);const lastQ=[...f.billons].reverse().find(b=>b.q)||f.billons[f.billons.length-1];
-    window.CubageVoice.bind({mode:'grumes',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
+    window.CubageVoice.bind({mode:'grumes',motsC:String(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC).split(/[,;\n]/).map(x=>x.trim()).filter(Boolean),motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       onEssence:code=>{if(code!==f.ess){f.ess=code;render();voirElement(null);}},
       onQualite:code=>{const b=f.billons[f.billons.length-1];if(b&&vide(b)&&b.q!==code){b.q=code;render();voirElement('.card[data-b="'+(f.billons.length-1)+'"]');}},
       /* Billon en cours (dernière ligne) : rempli au fur et à mesure de la dictée, enregistré sur « billon suivant » */
-      onDraft:(ess,q,lm,d)=>{if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];if(!b)return null;Object.assign(b,{q:q||b.q,lm:lm>0?lm:null,d:d>0?d:null});render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:f.num+'.'+b.rang};},
-      onBillonSuivant:(ess,q,lm,d)=>{if(!(lm>0&&d>0))return null;if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];Object.assign(b,{q:q||b.q,lm,d});
+      onDraft:(ess,q,lm,d,x)=>{if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];if(!b)return null;x=x||{};Object.assign(b,{q:q||b.q,lm:lm>0?lm:null,d:d>0?d:null,rl:x.rl||0,rd:x.rd||0,note:x.note||''});const i=f.billons.length-1;f.redOpen=f.redOpen||{};f.noteOpen=f.noteOpen||{};f.redOpen[i]=!!(x.rl||x.rd);f.noteOpen[i]=!!x.note;render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:f.num+'.'+b.rang};},
+      onBillonSuivant:(ess,q,lm,d,x)=>{if(!(lm>0&&d>0))return null;if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];x=x||{};Object.assign(b,{q:q||b.q,lm,d,rl:x.rl||0,rd:x.rd||0,note:x.note||''});if(b.rl>=lm*100||b.rd>=d){toast('Réduction supérieure à la dimension');return null;}
         const nb={rang:f.billons.length+1,lm:l.lgFixe?lm:null,d:null,q:b.q};f.billons.push(nb);render();voirElement('.card[data-b="'+(nb.rang-1)+'"]');return{label:f.num+'.'+b.rang,L:l.lgFixe?lm:null};},
       /* « précédent » : rouvre le dernier billon enregistré (de cette grume, sinon de la grume précédente) comme billon en cours */
       onPrecedent:()=>{const F=S.form.g;let b=F.billons[F.billons.length-1];if(!b)return null;
         if(vide(b)){if(F.billons.length>1){F.billons.pop();b=F.billons[F.billons.length-1];}
-          else{const g=l.grumes[l.grumes.length-1];if(!g||S.vocalGrume!==g.id)return null;l.grumes.pop();S.vocalGrume=null;S.form.g={num:g.num,ess:g.ess,sl:F.sl,billons:g.billons.map(x=>({...x}))};save();const G=S.form.g;b=G.billons[G.billons.length-1];render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:G.num+'.'+b.rang,ess:G.ess,q:b.q||'',L:lenM(b),d:b.d,grume:G.num};}}
-        render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:F.num+'.'+b.rang,ess:F.ess,q:b.q||'',L:lenM(b),d:b.d};},
+          else{const g=l.grumes[l.grumes.length-1];if(!g||S.vocalGrume!==g.id)return null;l.grumes.pop();S.vocalGrume=null;S.form.g={num:g.num,ess:g.ess,sl:F.sl,billons:g.billons.map(x=>({...x}))};save();const G=S.form.g;b=G.billons[G.billons.length-1];render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:G.num+'.'+b.rang,ess:G.ess,q:b.q||'',L:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,note:b.note||'',grume:G.num};}}
+        render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:F.num+'.'+b.rang,ess:F.ess,q:b.q||'',L:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,note:b.note||''};},
       onSuivante:()=>{if(f.billons.length>1&&vide(f.billons[f.billons.length-1])){f.billons.pop();}
         if(!f.billons.length||f.billons.some(vide))return false;const n=l.grumes.length;const b=$('#ok');if(b)b.click();
         if(l.grumes.length>n){const g=l.grumes[l.grumes.length-1];S.vocalGrume=g.id;voirElement(null);return String(S.form.g?S.form.g.num:nextNum(l));}return false;},
@@ -829,6 +829,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <p class="muted" style="margin:0">Facultatif : les codes courants (CH, HET, CHA, PIN, DOU, EP, SAP, PEU, FR…) ont déjà leurs mots ; la colonne « mots_vocaux » de l’onglet ESSENCES du Sheet complète la liste pour tous les téléphones.</p>
   <label class="f"><span class="l">Mode vocal · mots pour les qualités (code : mots, séparés par ;)</span><textarea id="motsVQ" rows="2" style="width:100%" placeholder="AVIVE: avive ; SCA: sciage a">${esc(p.motsVocauxQ||'')}</textarea></label>
   <p class="muted" style="margin:0">Sans indication, un code se dit lettre par lettre (CA → « cé a », CXX → « cé double ixe », ST → « esse té », PA → « pé a »). Seuls les mots connus du modèle français sont reconnus (« avivé » → dire « avive »).</p>
+  <label class="f"><span class="l">Mode vocal · mots de commentaire reconnus (séparés par des virgules ; « commentaire » seul = phrase libre)</span><textarea id="motsVC" rows="2" style="width:100%">${esc(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC)}</textarea></label>
   <label class="f"><span class="l">Mode vocal · mot de départ (chaque phrase doit commencer par ce mot ; vide = aucun)</span><input id="vocMot" value="${esc(p.vocalMot==null?'note':p.vocalMot)}" placeholder="note"></label>
   <label class="f"><span class="l">Mode vocal · ignorer les phrases mal comprises (mots inconnus, faible confiance)</span><select id="vocS"><option value="1"${p.vocalStrict!==false?' selected':''}>Oui (recommandé)</option><option value="0"${p.vocalStrict===false?' selected':''}>Non</option></select></label>
   <label class="f"><span class="l">Mode vocal · annonce de l’essence à voix haute</span><select id="vocA"><option value="1"${p.vocalAnnonce!==false?' selected':''}>Oui (le téléphone répète l’essence quand elle change)</option><option value="0"${p.vocalAnnonce===false?' selected':''}>Non, bips seulement</option></select></label>`:''}
@@ -846,7 +847,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   const upd=()=>{p.essences=splitList($('#ess').value);p.qualites=splitList($('#qua').value);p.step=Number($('#step').value)||5;p.classMin=Number($('#cmin').value)||10;p.classMax=Number($('#cmax').value)||90;
     p.stepParEssence={};splitList($('#stepE').value).forEach(x=>{const[k,v]=x.split(':');if(k&&Number(v))p.stepParEssence[k.trim()]=Number(v);});
     p.repriseQualite=$('#rep').value==='1';p.saisieDiam=$('#sd').value;p.resteQualite=$('#rq').value.trim()||'BI';if(!p.opLocked)p.operateur=$('#op').value.trim();
-    if($('#motsV'))p.motsVocaux=$('#motsV').value.trim();if($('#motsVQ'))p.motsVocauxQ=$('#motsVQ').value.trim();if($('#vocA'))p.vocalAnnonce=$('#vocA').value==='1';if($('#vocMot'))p.vocalMot=$('#vocMot').value.trim().toLowerCase();if($('#vocS'))p.vocalStrict=$('#vocS').value==='1';p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
+    if($('#motsV'))p.motsVocaux=$('#motsV').value.trim();if($('#motsVQ'))p.motsVocauxQ=$('#motsVQ').value.trim();if($('#vocA'))p.vocalAnnonce=$('#vocA').value==='1';if($('#motsVC'))p.motsVocauxC=$('#motsVC').value.trim();if($('#vocMot'))p.vocalMot=$('#vocMot').value.trim().toLowerCase();if($('#vocS'))p.vocalStrict=$('#vocS').value==='1';p.entete=$('#entete').value;p.syncUrl=$('#url').value.trim();p.syncKey=$('#key').value.trim();p.syncKeyBureau=$('#keyb').value.trim();saveParams();};
   $('#main').querySelectorAll('input,select,textarea').forEach(i=>{if(i.id!=='imp')i.onchange=upd;});
   $('#loadRef').onclick=()=>{upd();loadRefUI();};
   $('#cfgOk').onclick=async()=>{const c=parseCfg($('#cfgLink').value);if(!c){toast('Lien non reconnu : collez le lien complet reçu du bureau');return;}p.syncUrl=c.u;p.syncKey=c.k||'';if(c.b!==undefined)p.syncKeyBureau=c.b||'';await saveParams();const ok=await loadRef(true);toast(ok?'Synchronisation configurée · référentiel chargé':'Configuré · référentiel non chargé (réseau ?)');render();};$('#syncAll').onclick=()=>{upd();syncAllUI();};
