@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.2 (essences et qualités proposées par les techniciens, validées au bureau).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.3 (la colonne « libellé » sert de mot vocal à défaut d'une colonne « mots_vocaux »).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -171,7 +171,7 @@ function setProposition_(ss, body) {
     const name = type === 'qualite' ? 'QUALITES' : 'ESSENCES'; const sh = ss.getSheetByName(name) || ss.insertSheet(name);
     const exists = sh.getLastRow() > 1 && sh.getRange(2,1,sh.getLastRow()-1,1).getValues().some(r => String(r[0]).trim().toUpperCase() === code);
     if (!exists) { const headers = sh.getLastColumn() ? sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String) : [];
-      let vc = headers.findIndex(h => /voca/i.test(h)); if (vc < 0 && body.mots) { vc = Math.max(headers.length, 1); sh.getRange(1, vc + 1).setValue('mots_vocaux'); }
+      let vc = headers.findIndex(h => /voca/i.test(h)); if (vc < 0) vc = headers.findIndex(h => /libell|^nom/i.test(h)); if (vc < 0 && body.mots) { vc = Math.max(headers.length, 1); sh.getRange(1, vc + 1).setValue('mots_vocaux'); }
       const row = sh.getLastRow() + 1; sh.getRange(row, 1).setNumberFormat('@').setValue(code); if (vc >= 0 && body.mots) sh.getRange(row, vc + 1).setValue(String(body.mots)); }
   }
   const sh = ss.getSheetByName('PROPOSITIONS'); if (sh && sh.getLastRow() > 1) { delete ROWS_CACHE_['PROPOSITIONS'];
@@ -249,7 +249,7 @@ function motsVocaux_(ss, name) {
   // Mode vocal : onglet ESSENCES ou QUALITES, colonne dont l'en-tête contient « vocal » (ex. mots_vocaux) : « chêne, chêne rouge » → code de la colonne A
   const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 2) return {};
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
-  const col = v[0].findIndex(h => /voca/i.test(String(h))); if (col < 1) return {};
+  let col = v[0].findIndex(h => /voca/i.test(String(h))); if (col < 1) col = v[0].findIndex(h => /libell|^nom/i.test(String(h))); if (col < 1) return {};
   const out = {};
   v.slice(1).forEach(r => { const code = String(r[0]).trim().toUpperCase(); const w = String(r[col] || '').trim(); if (code && w) out[code] = w; });
   return out;
