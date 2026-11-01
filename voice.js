@@ -170,14 +170,15 @@ function elements(t){const toks=t.split(' ').filter(Boolean);const out=[];let i=
   fin();return out;}
 
 function traiter(text,conf){let t=norm(text);if(!t)return;try{console.debug('vocal :',t,conf);}catch(e){}if(V.parle||Date.now()<V.ignorerJusqua)return; // écho de l'annonce vocale
-  const strict=!(V.hook&&V.hook.strict===false);
-  // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
-  if(strict&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
-  const w=motDepart(V.hook);
+  const strict=!(V.hook&&V.hook.strict===false);const w=motDepart(V.hook);
   // Commandes d'enregistrement dites seules (« billon suivant », « grume suivante ») : acceptées sans le mot de départ,
-  // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation
-  const seule=t.replace(/\[unk\]/g,'').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante'};
-  if(w&&SANS[seule])t=SANS[seule];else
+  // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation. « grume » n'est pas
+  // connu du moteur (il ressort en mot inconnu) : « suivante » seul ou « arbre suivant » font la même chose.
+  const seule=t.replace(/\[unk\]/g,'').replace(/\s+/g,' ').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante'};
+  const cmdSeule=!!SANS[seule]&&(V.hook&&V.hook.mode==='grumes');
+  // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
+  if(strict&&!cmdSeule&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
+  if(cmdSeule)t=SANS[seule];else
   if(w){const i=t.indexOf(w);if(i<0||!(i===0||t[i-1]===' ')){V.dernier='ignoré (dites « '+w+' … ») : « '+t+' »';V.partiel='';majBloc();return;}
     t=t.slice(i+w.length).trim();if(!t){V.dernier='« '+w+' » … ?';V.partiel='';majBloc();return;}
     t=t.split(' ').filter(x=>x!==w).join(' ');}
