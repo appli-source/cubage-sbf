@@ -615,6 +615,7 @@ V.bureau=()=>{head('Bureau','Données de tous les téléphones (Sheet SBF)');con
   <button class="tile light" data-go="bClients" ${b?'':'disabled'}><b>Lots clients de l’entreprise</b><small>${b?b.clients.filter(c=>c.statut==='propose').length+' à valider · '+b.clients.filter(c=>c.statut==='valide').length+' validés':'—'}</small></button>
   <button class="tile light" data-go="bLots"><b>Lots des techniciens</b><small>${S.lots.filter(l=>l.remote).length} lot(s) chargé(s) depuis le Sheet · consultation, listing, récap, PDF</small></button>
   <button class="tile light" id="bNewCli"><b>Lot client multi-techniciens</b><small>Grumes de plusieurs techniciens et de plusieurs lots (ramasse) · à partir des lots chargés</small></button>
+  <button class="tile light" data-go="bProps"><b>Essences et qualités proposées</b><small>Codes créés par les techniciens dans leurs lots · à valider pour le référentiel commun</small></button>
   <button class="tile light" data-go="bKeys"><b>Clés d’accès et liens de configuration</b><small>Une clé par technicien · création, remplacement (téléphone perdu), désactivation</small></button>
   <button class="tile light" id="bGrilles"><b>Grilles de prix communes</b><small>${S.grilles.filter(g=>g.src==='sheet').length} grille(s) sur le Sheet · diffusées à tous les téléphones</small></button></div>`;
   $('#bRefresh').onclick=async()=>{toast('Lecture du Sheet…');if(await loadStock())render();};
@@ -652,6 +653,17 @@ V.bLots=()=>{head('Lots des techniciens','Copies en lecture seule depuis le Shee
 const newKey=()=>{const a=new Uint8Array(18);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
 const cfgLink=(cle,role)=>location.origin+location.pathname+'#cfg='+btoa(unescape(encodeURIComponent(JSON.stringify(role==='bureau'?{u:S.params.syncUrl,k:'',b:cle}:{u:S.params.syncUrl,k:cle,b:''})))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 async function keysApi(body){const url=S.params.syncUrl;const res=body?await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({key:apiKey()},body))}):await fetch(url+(url.includes('?')?'&':'?')+'action=keys&key='+encodeURIComponent(apiKey()));const j=await res.json();if(!j.ok)throw new Error(j.error==='action inconnue'?'Script du Sheet à mettre à jour (version 2.5)':j.error||'refusé');return j;}
+/* ---------- Bureau : codes proposés par les techniciens (onglet PROPOSITIONS du Sheet) ---------- */
+V.bProps=()=>{head('Essences et qualités proposées','Validation pour le référentiel commun');const ps=S.props;
+  const draw=list=>list.length?list.map((x,i)=>`<div class="card stack" data-i="${i}"><div class="row"><div class="grow"><b>${esc(x.code)}</b> <span class="pill">${x.type==='qualite'?'qualité':'essence'}</span><br><span class="muted">proposé par ${esc(x.operateur||'?')}${x.lot?' · lot '+esc(x.lot):''}${x.date?' · '+esc(String(x.date).slice(0,10)):''}</span></div></div>
+    <label class="f"><span class="l">Mot(s) pour le mode vocal (facultatif, séparés par des virgules)</span><input data-mots="${i}" placeholder="${x.type==='qualite'?'ex. sciage':'ex. aulne, verne'}"></label>
+    <div class="row"><button type="button" class="btn primary grow" data-ok="${i}">Valider (ajouter au Sheet)</button><button type="button" class="btn danger grow" data-no="${i}">Refuser</button></div></div>`).join(''):'<p class="muted">Aucune proposition en attente.</p>';
+  $('#main').innerHTML=`<div class="stack"><p class="muted" style="margin:0">Les techniciens peuvent créer un code dans leurs lots sans attendre. Il reste propre à leur téléphone tant qu’il n’est pas validé ici ; une fois validé, tous le reçoivent avec « Mettre à jour depuis le Sheet ».</p><button class="btn block" id="pRefresh">Actualiser la liste</button><div id="pList">${ps?draw(ps):'<p class="muted">Chargement…</p>'}</div></div>`;
+  const reload=async()=>{try{const url=S.params.syncUrl;const res=await fetch(url+(url.includes('?')?'&':'?')+'action=propositions&key='+encodeURIComponent(apiKey()));const j=await res.json();if(!j.ok)throw new Error(j.error==='action inconnue'?'Script du Sheet à mettre à jour (version 3.2)':j.error);S.props=(j.propositions||[]).filter(x=>String(x.statut||'propose')==='propose');render();}catch(e){toast(e.message);}};
+  if(!ps)reload();$('#pRefresh').onclick=()=>{S.props=null;reload();};
+  const act=async(i,statut)=>{const x=S.props[i];const mots=($(`[data-mots="${i}"]`)||{}).value||'';const set=statusBox();set(statut==='valide'?'Validation…':'Refus…',x.code,false);
+    try{await keysApi({action:'setProposition',type:x.type,code:x.code,statut,mots:mots.trim()});set(statut==='valide'?'✓ '+x.code+' ajouté au référentiel commun':'✓ '+x.code+' refusé','Les téléphones le recevront à leur prochaine mise à jour depuis le Sheet.',true);S.props=null;await loadRef(true);reload();}catch(e){set('Échec',e.message,true,true);}};
+  $('#main').querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>act(Number(b.dataset.ok),'valide'));$('#main').querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>act(Number(b.dataset.no),'refuse'));foot('');};
 V.bKeys=()=>{head('Clés d’accès','Une clé = un technicien ou un poste bureau');const ks=S.keys;
   $('#main').innerHTML=`<div class="stack"><div class="card stack"><h2>Nouvelle clé</h2><div class="row"><label class="f grow"><span class="l">Opérateur (prénom / initiales)</span><input id="kOp" autocapitalize="characters"></label><label class="f" style="flex:0 0 140px"><span class="l">Rôle</span><select id="kRole"><option value="terrain">Terrain</option><option value="bureau">Bureau</option></select></label></div><button class="btn primary big block" id="kNew">Créer la clé et le lien</button></div>
   <div id="kList">${ks?(ks.length?ks.map(k=>`<div class="card stack" data-k="${esc(k.cle)}"><div class="row"><div class="grow"><b>${esc(k.operateur||'(sans opérateur)')}</b> <span class="pill${String(k.actif||'oui').toLowerCase().startsWith('non')?' warn':''}">${String(k.actif||'oui').toLowerCase().startsWith('non')?'désactivée':'active'}</span> <span class="muted">· ${esc(k.role||'terrain')}${k.cree_le?' · créée le '+new Date(k.cree_le).toLocaleDateString('fr-FR'):''}</span>${k.note?`<br><span class="muted">${esc(k.note)}</span>`:''}</div></div>
@@ -977,17 +989,21 @@ async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.readonly){if(!qu
   const set=quiet?null:statusBox();const t=lotTotals(l);const what=l.type==='grumes'?`${t.n} grumes · ${t.nb} billons · ${f3(t.v)} m³`:`${t.n} tiges · ${f3(t.v)} m³`;
   if(set)set('Sauvegarde en cours…',(l.chantier||'Lot')+' · '+what,false);
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),45000);
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:apiKey(),lot_id:l.id,rows:lotRows(l)}),signal:ctl.signal});clearTimeout(to);
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:apiKey(),lot_id:l.id,rows:lotRows(l),propositions:propositions(l)}),signal:ctl.signal});clearTimeout(to);
     const j=await res.json();if(!(j&&j.ok))throw new Error(j&&j.error||'réponse invalide');
     l.sync='done';l.synced=new Date().toISOString();await DB.put('lots',l);
     if(set){set('✓ Lot sauvegardé sur le Sheet SBF',(l.chantier||'Lot')+' · '+what+' · '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),true);render();}return true;}
   catch(e){l.sync='pending';DB.put('lots',l);const msg=e.name==='AbortError'?'Le réseau ne répond pas (délai dépassé).':e.message==='clé refusée'?'Clé d’accès refusée : rouvrez le lien de configuration.':'Erreur : '+e.message;
     if(set)set('Échec de la sauvegarde',msg+' Le lot reste enregistré sur le téléphone.',true,true);else toast('Échec : '+(l.chantier||'lot'));return false;}}
+/* Codes d'essence / qualité du lot absents du référentiel commun du Sheet : proposés au bureau à la sauvegarde */
+function propositions(l){const p=S.params;if(!Array.isArray(p.essencesSheet))return null;
+  const usedE=uniqL([...(l.essSel||[]),...(l.grumes||[]).map(g=>g.ess),...(l.arbres||[]).map(a=>a.ess)]),usedQ=uniqL([...(l.qualSel||[]),...(l.grumes||[]).flatMap(g=>g.billons.map(b=>b.q)),...(l.arbres||[]).flatMap(a=>(a.tr||[]).map(t=>t.q))]);
+  const ess=usedE.filter(x=>!p.essencesSheet.includes(x)),qual=usedQ.filter(x=>!(p.qualitesSheet||[]).includes(x));return ess.length||qual.length?{ess,qual}:null;}
 /* Plusieurs lots en un seul appel (action batch, script ≥ 2.3) ; retourne le nombre de lots sauvegardés */
 async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onLine||!lots.length){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}
   if(lots.length===1)return (await syncLot(lots[0],true))?1:0;
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),90000);
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'batch',key:apiKey(),ops:lots.map(l=>({action:'saveLot',lot_id:l.id,rows:lotRows(l)}))}),signal:ctl.signal});clearTimeout(to);
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'batch',key:apiKey(),ops:lots.map(l=>({action:'saveLot',lot_id:l.id,rows:lotRows(l),propositions:propositions(l)}))}),signal:ctl.signal});clearTimeout(to);
     const j=await res.json();if(j&&j.error==='action inconnue'){let n=0;for(const l of lots)if(await syncLot(l,true))n++;return n;}
     const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
@@ -1095,7 +1111,7 @@ async function syncClient(c,quiet){const url=S.params.syncUrl;const set=quiet?nu
   const noX=origs.find(l=>l.type==='grumes'&&!l.xylo);if(noX){if(set)set('N° de chantier Xylolink manquant','Le lot d’origine « '+(noX.chantier||'')+' » doit avoir son n° Xylolink avant la transmission.',true,true);return false;}
   if(origs.length&&set)set('Envoi en cours…',origs.length+' lot(s) d’origine + le lot client, en un seul envoi…',false);
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),60000);const rows=clientRows(c);const cli={action:'saveClient',client:rows.client,lignes:rows.lignes};
-    const body=origs.length?{action:'batch',key:apiKey(),ops:[...origs.map(l=>({action:'saveLot',lot_id:l.id,rows:lotRows(l)})),cli]}:Object.assign({key:apiKey()},cli);
+    const body=origs.length?{action:'batch',key:apiKey(),ops:[...origs.map(l=>({action:'saveLot',lot_id:l.id,rows:lotRows(l),propositions:propositions(l)})),cli]}:Object.assign({key:apiKey()},cli);
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl.signal});clearTimeout(to);
     let j=await res.json();
     if(origs.length){const rs=(j&&j.results)||[];if(j&&j.error==='action inconnue')throw new Error('Le script du Sheet doit être mis à jour (version 2.3).');
@@ -1110,6 +1126,7 @@ async function syncClient(c,quiet){const url=S.params.syncUrl;const set=quiet?nu
 async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)toast('Adresse du script manquante');return false;}
   try{const res=await fetch(url+(url.includes('?')?'&':'?')+'action=params&key='+encodeURIComponent(apiKey()));const j=await res.json();if(j.ok===false)throw new Error(j.error||'refusé');const p=S.params;
   const usedE=uniqL(S.lots.flatMap(l=>l.essSel||[])),usedQ=uniqL(S.lots.flatMap(l=>l.qualSel||[]));
+  if(Array.isArray(j.essences))p.essencesSheet=j.essences;if(Array.isArray(j.qualites))p.qualitesSheet=j.qualites;
   if(j.essences&&j.essences.length)p.essences=uniqL([...j.essences,...usedE.filter(x=>!j.essences.includes(x))]);
   if(j.qualites&&j.qualites.length)p.qualites=uniqL([...j.qualites,...usedQ.filter(x=>!j.qualites.includes(x))]);
   if(j.classes){if(j.classes.step)p.step=j.classes.step;if(j.classes.min)p.classMin=j.classes.min;if(j.classes.max)p.classMax=j.classes.max;p.stepParEssence=j.classes.parEssence||{};}

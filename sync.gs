@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.1 (point GPS modifiable depuis le bureau ; numéros écrits en texte, plus de conversion en dates).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.2 (essences et qualités proposées par les techniciens, validées au bureau).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -40,7 +40,8 @@ function doPost(e) {
 
 function handle_(ss, auth, body) {
   const role = auth.role;
-  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); if (body.propositions) proposer_(ss, auth, body); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'setProposition') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setProposition_(ss, body); }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
   if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps); }
   if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
@@ -67,6 +68,7 @@ function doGet(e) {
   if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur }));
   if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur)));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
+  if (p.action === 'propositions') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, propositions: sheetRows_(ss, 'PROPOSITIONS') }); }
   if (p.action === 'keys') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, keys: sheetRows_(ss, 'CLES') }); }
   return out_({ ok:true, info:'Cubage SBF : script actif', role: role, operateur: auth.operateur });
 }
@@ -148,6 +150,35 @@ function saveGrille_(ss, grille, code) {
   if (all.length) sh.getRange(2,1,all.length,8).setValues(all);
   return { ok:true, code: code, lignes: add.length, at: new Date().toISOString() };
 }
+/* Codes d'essence / qualité créés sur un téléphone : onglet PROPOSITIONS (type, code, operateur, lot, date, statut) */
+function proposer_(ss, auth, body) {
+  const P = body.propositions || {}; const lot = (((body.rows || {}).LOT || [])[0] || {});
+  const sh = ss.getSheetByName('PROPOSITIONS') || ss.insertSheet('PROPOSITIONS'); delete ROWS_CACHE_['PROPOSITIONS'];
+  const H = ['type','code','operateur','lot','date','statut','traite_le'];
+  if (sh.getLastRow() < 1) { sh.getRange(1,1,1,H.length).setValues([H]); sh.setFrozenRows(1); }
+  const have = {}; sheetRows_(ss, 'PROPOSITIONS').forEach(r => have[String(r.type) + '|' + String(r.code).toUpperCase()] = r); delete ROWS_CACHE_['PROPOSITIONS'];
+  const ref = { essence: params_(ss, 'terrain').essences, qualite: params_(ss, 'terrain').qualites };
+  const rows = [];
+  [['essence', P.ess || []], ['qualite', P.qual || []]].forEach(([type, codes]) => codes.forEach(c => { const code = String(c || '').trim().toUpperCase(); if (!code) return;
+    if (ref[type].indexOf(code) >= 0) return; if (have[type + '|' + code]) return;
+    rows.push([type, code, auth.operateur || lot.operateur || '', (lot.chantier_xylolink ? lot.chantier_xylolink + ' · ' : '') + (lot.chantier || ''), new Date().toISOString(), 'propose', '']); have[type + '|' + code] = true; }));
+  if (rows.length) { texte_(sh, sh.getLastRow() + 1, rows.length, H); sh.getRange(sh.getLastRow() + 1, 1, rows.length, H.length).setValues(rows); }
+}
+function setProposition_(ss, body) {
+  const type = String(body.type) === 'qualite' ? 'qualite' : 'essence', code = String(body.code || '').trim().toUpperCase(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse';
+  if (!code) return { ok:false, error:'code vide' };
+  if (statut === 'valide') { // ajout au référentiel : onglet ESSENCES / QUALITES, colonne A = code, colonne « vocal » = mots
+    const name = type === 'qualite' ? 'QUALITES' : 'ESSENCES'; const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    const exists = sh.getLastRow() > 1 && sh.getRange(2,1,sh.getLastRow()-1,1).getValues().some(r => String(r[0]).trim().toUpperCase() === code);
+    if (!exists) { const headers = sh.getLastColumn() ? sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String) : [];
+      let vc = headers.findIndex(h => /voca/i.test(h)); if (vc < 0 && body.mots) { vc = Math.max(headers.length, 1); sh.getRange(1, vc + 1).setValue('mots_vocaux'); }
+      const row = sh.getLastRow() + 1; sh.getRange(row, 1).setNumberFormat('@').setValue(code); if (vc >= 0 && body.mots) sh.getRange(row, vc + 1).setValue(String(body.mots)); }
+  }
+  const sh = ss.getSheetByName('PROPOSITIONS'); if (sh && sh.getLastRow() > 1) { delete ROWS_CACHE_['PROPOSITIONS'];
+    const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String); const ti = h.indexOf('type'), ci = h.indexOf('code'), si = h.indexOf('statut'), di = h.indexOf('traite_le');
+    for (let i = 1; i < v.length; i++) if (String(v[i][ti]) === type && String(v[i][ci]).toUpperCase() === code) { sh.getRange(i+1, si+1).setValue(statut); if (di >= 0) sh.getRange(i+1, di+1).setValue(new Date().toISOString()); } }
+  return { ok:true, type: type, code: code, statut: statut };
+}
 function setKey_(ss, body) {
   // crée ou modifie une ligne de l'onglet CLES (clé = identifiant)
   const k = body.key_row || {}; const cle = String(k.cle || '').trim(); if (!cle) return { ok:false, error:'clé vide' };
@@ -218,7 +249,7 @@ function motsVocaux_(ss, name) {
   // Mode vocal : onglet ESSENCES ou QUALITES, colonne dont l'en-tête contient « vocal » (ex. mots_vocaux) : « chêne, chêne rouge » → code de la colonne A
   const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 2) return {};
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
-  const col = v[0].findIndex(h => /vocal/i.test(String(h))); if (col < 1) return {};
+  const col = v[0].findIndex(h => /voca/i.test(String(h))); if (col < 1) return {};
   const out = {};
   v.slice(1).forEach(r => { const code = String(r[0]).trim().toUpperCase(); const w = String(r[col] || '').trim(); if (code && w) out[code] = w; });
   return out;
