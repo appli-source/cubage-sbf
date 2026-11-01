@@ -409,7 +409,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   if(vocal&&mode==='pieds'){const vide=()=>!(f.d>0)&&!(f.h>0)&&!(f.tr&&f.tr.length);
     window.CubageVoice.bind({mode:'pieds',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l),cur:f.ess,num:f.num,tarif:f.tarif,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       /* Arbre en cours : rempli au fur et à mesure (diamètre, hauteur, tarif, tronçons de qualité), enregistré sur « suivant » */
-      onDraft:(ess,x)=>{if(ess&&ess!==f.ess){f.ess=ess;f.tarif=tarifDef(l,ess);}x=x||{};f.d=x.d>0?x.d:null;f.h=x.h>0?x.h:null;if(x.tarif>0)f.tarif=clampT(x.tarif);f.tr=(x.tr||[]).map(t=>({h:t.h,q:t.q||''}));render();return{num:f.num,tarif:f.tarif};},
+      onDraft:(ess,x)=>{if(ess&&ess!==f.ess){f.ess=ess;f.tarif=tarifDef(l,ess);}x=x||{};f.d=x.d>0?x.d:null;f.h=x.h>0?x.h:null;if(x.tarif>0)f.tarif=clampT(x.tarif);f.tr=(x.tr||[]).map(t=>({h:t.h,q:t.q||''}));render();voirElement(x.last==='tr'?'#tr':'#av');return{num:f.num,tarif:f.tarif};},
       onTarif:t=>{t=Number(t);if(!(t>=1&&t<=20))return false;f.tarif=clampT(t);l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();render();return true;},
       onNumero:n=>{const sn=String(n).replace(/\D/g,'');if(!sn)return false;if(l.arbres.find(x=>String(x.num)===sn)){toast('N° '+sn+' déjà utilisé');return false;}f.num=sn;render();return true;},
       onSuivante:()=>{if(!(f.d>0)||!(f.h>0))return null;const n=l.arbres.length;commit();if(l.arbres.length>n){const a2=l.arbres[l.arbres.length-1];S.vocalArbre=a2.id;const F=S.form.a;return{num:a2.num,vol:f3(arbreCalc(l,a2).v||0),next:F?F.num:nextNum(l),tarif:F?F.tarif:a2.tarif};}return null;},

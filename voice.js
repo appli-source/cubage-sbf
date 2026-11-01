@@ -314,17 +314,17 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(
 function traiterPieds(els){const faits=[];const h=()=>V.hook;const D=V.draft||(V.draft={d:null,h:null,tarif:null,tr:[]});D.tr=D.tr||[];
   let seq=[],fld=null,attenteNum=false,qTr=null,hTr=null;
   const etat=()=>'Ø '+(D.d!=null?D.d:'?')+' · H '+(D.h!=null?fmtL(D.h)+' m':'?')+(D.tarif?' · T'+D.tarif:'')+(D.tr.length?' · '+D.tr.map(t=>fmtL(t.h)+'m '+(t.q||'·')).join(' / '):'');
-  const show=()=>{if(h()&&h().onDraft)h().onDraft(V.cur,{d:D.d,h:D.h,tarif:D.tarif,tr:D.tr});majBloc();};
+  let last='dh';const show=()=>{if(h()&&h().onDraft)h().onDraft(V.cur,{d:D.d,h:D.h,tarif:D.tarif,tr:D.tr,last});majBloc();};
   const dec=(arr)=>{ // nombre avec décimales (« douze virgule cinq », « douze et demi ») à partir d'une séquence
     const nums=arr.filter(x=>x.k==='num');if(!nums.length)return null;let val=nums[0].v;const iV=arr.findIndex(x=>x.k==='virg'),iD=arr.findIndex(x=>x.k==='demi');
     if(iD>=0)val+=.5;else if(iV>=0){const nv=arr.slice(iV+1).find(x=>x.k==='num');if(nv)val+=nv.v<10?nv.v/10:nv.v/100;}return val;};
-  const trPush=()=>{if(hTr==null)return;if(!(hTr>0&&hTr<=60)){faits.push('tronçon '+hTr+' m ?');bipErr();}else{D.tr.push({h:hTr,q:qTr||''});faits.push('tronçon '+fmtL(hTr)+' m '+(qTr||'·'));bipEss();}hTr=null;qTr=null;show();};
+  const trPush=()=>{if(hTr==null)return;if(!(hTr>0&&hTr<=60)){faits.push('tronçon '+hTr+' m ?');bipErr();}else{D.tr.push({h:hTr,q:qTr||''});faits.push('tronçon '+fmtL(hTr)+' m '+(qTr||'·'));bipEss();}hTr=null;qTr=null;last='tr';show();};
   const flush=()=>{if(!seq.length){return;}const nums=seq.filter(x=>x.k==='num');if(!nums.length){seq=[];return;}
     if(fld==='t'){const t=nums[nums.length-1].v;const ok=!!(h()&&h().onTarif&&h().onTarif(t));if(ok){D.tarif=t;faits.push('tarif '+t);bipEss();dire('tarif '+nombre(t));}else{faits.push('tarif '+t+' ? (1 à 20)');bipErr();}}
     else if(fld==='tr'){hTr=dec(seq);if(qTr!=null)trPush();}
-    else if(fld==='h'){D.h=dec(seq);}
-    else if(fld==='d'){D.d=nums[nums.length-1].v;}
-    else{const iP=seq.findIndex(x=>x.k==='par');
+    else if(fld==='h'){D.h=dec(seq);last='dh';}
+    else if(fld==='d'){D.d=nums[nums.length-1].v;last='dh';}
+    else{last='dh';const iP=seq.findIndex(x=>x.k==='par');
       if(iP>=0){const a=seq.slice(0,iP).filter(x=>x.k==='num'),b=seq.slice(iP+1);if(a.length)D.d=a[a.length-1].v;const hh=dec(b);if(hh!=null)D.h=hh;}
       else if(D.d==null){D.d=nums[0].v;if(nums.length>1||seq.some(x=>x.k==='virg'||x.k==='demi')){const hh=dec(seq.slice(seq.indexOf(nums[0])+1));if(hh!=null)D.h=hh;}}
       else if(D.h==null){D.h=dec(seq);}
@@ -344,8 +344,11 @@ function traiterPieds(els){const faits=[];const h=()=>V.hook;const D=V.draft||(V
       seq.push(e);continue;}
     if(e.k==='fld'){flush();fld=e.v;if(fld!=='tr'){hTr=null;qTr=null;}continue;}
     flush();
-    if(e.k==='q'){ // qualité = tronçon : « cé a six » ou « six cé a »
-      if(hTr!=null){qTr=e.v;trPush();}else{qTr=e.v;fld='tr';}continue;}
+    if(e.k==='q'){ // qualité = tronçon : « cé a six », « six cé a », ou « cé a » seul après un « tronçon six » dicté juste avant
+      if(hTr!=null){qTr=e.v;trPush();continue;}
+      const sansQ=D.tr.length&&!D.tr[D.tr.length-1].q?D.tr[D.tr.length-1]:null;
+      if(sansQ&&!(els[i+1]&&els[i+1].k==='num')){sansQ.q=e.v;faits.push('tronçon '+fmtL(sansQ.h)+' m '+e.v);bipEss();last='tr';show();continue;}
+      qTr=e.v;fld='tr';continue;}
     if(e.k==='ess'){V.cur=e.v;faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}show();fld=null;continue;}
     if(e.k==='cmd'){fld=null;
       if(e.v==='numero'){attenteNum=true;continue;}
