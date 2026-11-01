@@ -28,7 +28,7 @@ const DB=(()=>{
 /* ---------- État ---------- */
 const DEF_PARAMS={id:'params',essences:['CH','PIN','DOU','PEU','HET','CHA','FR','EP'],qualites:['A','B','C','D'],
   step:5,stepParEssence:{},classMin:10,classMax:90,repriseQualite:true,saisieDiam:'classe',resteQualite:'BI',operateur:'',syncUrl:'',refLoaded:'',
-  motsVocaux:'',motsVocauxQ:'',motsVocauxC:'gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve',vocalAnnonce:true,vocalMot:'note',vocalStrict:true,essencesVocal:{},qualitesVocal:{}};
+  motsVocaux:'',motsVocauxQ:'',motsVocauxC:'gelé = gélivure, gel = gélivure, pourriture, pourriture de cœur, pourri = pourriture, roulé = roulure, fente, fendu = fente, nœuds, noueux = nœuds, courbure, courbé = courbure, fourche, aubier, échauffé = échauffure, creux, mitraille, éclaté, cassé, tordu, mort = bois mort, sec = bois sec, piqué = piqûres, cannelure, gouttière, chancre, trou, gourmand = gourmands, blessure, cicatrice, fissure, insecte = insectes, tache, champignon, double = double cœur, bois de réserve, brûlé, résine = poche de résine, sain',vocalAnnonce:true,vocalMot:'note',vocalStrict:true,essencesVocal:{},qualitesVocal:{}};
 /* Mode vocal (voice.js) : noms parlés des essences et des qualités — mots saisis dans les Paramètres (« CH: chêne, chêne rouge ; PIN: pin »)
    prioritaires sur la colonne mots_vocaux des onglets ESSENCES / QUALITES du Sheet ; les codes courants ont des noms par défaut dans voice.js */
 function motsVocauxDe(sheet,champ){const out={};for(const [k,v] of Object.entries(sheet||{}))out[String(k).toUpperCase()]=[].concat(v).join(', ');
@@ -859,7 +859,8 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <p class="muted" style="margin:0">Facultatif : les codes courants (CH, HET, CHA, PIN, DOU, EP, SAP, PEU, FR…) ont déjà leurs mots ; la colonne « mots_vocaux » de l’onglet ESSENCES du Sheet complète la liste pour tous les téléphones.</p>
   <label class="f"><span class="l">Mode vocal · mots pour les qualités (code : mots, séparés par ;)</span><textarea id="motsVQ" rows="2" style="width:100%" placeholder="AVIVE: avive ; SCA: sciage a">${esc(p.motsVocauxQ||'')}</textarea></label>
   <p class="muted" style="margin:0">Sans indication, un code se dit lettre par lettre (CA → « cé a », CXX → « cé double ixe », ST → « esse té », PA → « pé a »). Seuls les mots connus du modèle français sont reconnus (« avivé » → dire « avive »).</p>
-  <label class="f"><span class="l">Mode vocal · mots de commentaire reconnus (séparés par des virgules ; « commentaire » seul = phrase libre)</span><textarea id="motsVC" rows="2" style="width:100%">${esc(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC)}</textarea></label>
+  <label class="f"><span class="l">Mode vocal · mots de commentaire (séparés par des virgules ; « mot dit = texte enregistré », ex. gelé = gélivure ; « commentaire » seul = phrase libre)</span><textarea id="motsVC" rows="2" style="width:100%">${esc(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC)}</textarea></label>
+  <button class="btn block" id="vocCheck">Vérifier que les mots vocaux sont connus du moteur</button>
   <label class="f"><span class="l">Mode vocal · mot de départ (chaque phrase doit commencer par ce mot ; vide = aucun)</span><input id="vocMot" value="${esc(p.vocalMot==null?'note':p.vocalMot)}" placeholder="note"></label>
   <label class="f"><span class="l">Mode vocal · ignorer les phrases mal comprises (mots inconnus, faible confiance)</span><select id="vocS"><option value="1"${p.vocalStrict!==false?' selected':''}>Oui (recommandé)</option><option value="0"${p.vocalStrict===false?' selected':''}>Non</option></select></label>
   <label class="f"><span class="l">Mode vocal · annonce de l’essence à voix haute</span><select id="vocA"><option value="1"${p.vocalAnnonce!==false?' selected':''}>Oui (le téléphone répète l’essence quand elle change)</option><option value="0"${p.vocalAnnonce===false?' selected':''}>Non, bips seulement</option></select></label>`:''}
@@ -884,6 +885,15 @@ V.params=()=>{const p=S.params;head('Paramètres');
   if($('#bPurge'))$('#bPurge').onclick=async()=>{const w=prompt('Cette action vide DÉFINITIVEMENT tous les lots du Sheet (tous les téléphones). Tapez VIDER pour confirmer :');if(w!=='VIDER'){if(w!=null)toast('Annulé');return;}const set=statusBox();set('Suppression en cours…','',false);
     try{const j=await keysApi({action:'purgeLots',confirm:'VIDER'});await DB.del('params','bureau');S.bureau=null;set('✓ Sheet vidé',j.lignes_supprimees+' ligne(s) supprimée(s). Pensez à supprimer aussi les lots d’essai sur chaque téléphone (Remise à zéro).',true);render();}catch(e){set('Échec',e.message,true,true);}};
   $('#wipeLots').onclick=async e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer la suppression définitive de '+S.lots.length+' lot(s)';e.target.dataset.c='1';return;}for(const l of S.lots)await DB.del('lots',l.id);S.lots=[];S.lot=null;S.cli=null;toast('Tous les lots ont été supprimés');render();};
+  if($('#vocCheck'))$('#vocCheck').onclick=async()=>{upd();const set=statusBox();set('Lecture du vocabulaire du moteur…','1,3 Mo, une seule fois',false);
+    try{const res=await fetch('models/vocab-fr-0.22.txt',{cache:'force-cache'});if(!res.ok)throw new Error('vocabulaire indisponible');const voc=new Set((await res.text()).split('\n'));const CV=window.CubageVoice;const norm=x=>String(x||'').toLowerCase().normalize('NFC').replace(/[’']/g,' ').replace(/\s+/g,' ').trim();
+      const bad=[];const test=(lab,phr)=>{for(const w of norm(phr).split(' ').filter(Boolean))if(!voc.has(w))bad.push(lab+' : « '+w+' »');};
+      for(const c of p.essences)for(const m of CV.motsDe(c,motsVocaux()))test('essence '+c,m);
+      for(const c of p.qualites)for(const m of CV.motsQ(c,motsVocauxQ()))test('qualité '+c,m);
+      for(const x of String(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC).split(/[,;\n]/).map(t=>t.trim()).filter(Boolean))test('commentaire',x.split(/[=:]/)[0]);
+      if(p.vocalMot)test('mot de départ',p.vocalMot);
+      const u=[...new Set(bad)];set(u.length?u.length+' mot(s) inconnu(s) du moteur':'✓ Tous les mots sont connus du moteur',u.length?u.join('\n')+'\nCes mots ne seront jamais reconnus : remplacez-les (Sheet colonne libellé / mots_vocaux, ou champs ci-dessus).':'Essences, qualités, commentaires et mot de départ : tout est prononçable.',true,u.length>0);}
+    catch(e){set('Vérification impossible',e.message,true,true);}};
   $('#restoreMe').onclick=()=>{upd();restoreUI(false);};$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};

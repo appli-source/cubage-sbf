@@ -71,6 +71,8 @@ function motsQ(code,mots){let v=mots&&mots[code];if(v==null)v=epeler(code);
 /* Mot de départ (« note ») : seules les phrases qui commencent par ce mot sont prises en compte ; tout le reste
    (conversation, bruit) est ignoré. Vide = aucun mot de départ. */
 const motDepart=h=>norm((h&&h.motDepart)||'');
+/* Mots de commentaire : « gelé = gélivure » (mot dit = texte enregistré) ou simplement « fente » (dit et enregistré tels quels) */
+function motsC(h){return (h.motsC||[]).map(x=>{const m=String(x).split(/[=:]/);const dit=norm(m[0]);const texte=m.length>1?String(m.slice(1).join(':')).trim():String(m[0]).trim();return dit?{dit,texte:texte||dit}:null;}).filter(Boolean);}
 /* Grammaire (liste de phrases attendues) + lexique de décodage, à partir des essences, qualités et classes du lot */
 function construire(h){const r=construire0(h);const w=motDepart(h);if(w){r.phrases=[w,...r.phrases.map(p=>p==='[unk]'?p:w+' '+p)];r.key+='|'+w;}return r;}
 function construire0(h){const lex=new Map();const ess=[],qual=[];
@@ -84,10 +86,10 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     lex.set('billon suivant',{k:'cmd',v:'billon'});lex.set('billon',{k:'cmd',v:'billon'});lex.set('grume suivante',{k:'cmd',v:'suivante'});lex.set('grume',{k:'cmd',v:'suivante'});lex.set('arbre suivant',{k:'cmd',v:'suivante'});lex.set('arbre',{k:'cmd',v:'suivante'});
     lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});
     lex.set('réduction',{k:'fld',v:'rl'});lex.set('réduction longueur',{k:'fld',v:'rl'});lex.set('réduction diamètre',{k:'fld',v:'rd'});lex.set('commentaire',{k:'cmd',v:'comm'});lex.set('remarque',{k:'cmd',v:'comm'});
-    for(const w of (h.motsC||[]).map(norm).filter(Boolean))if(!lex.has(w))lex.set(w,{k:'com',v:w});for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});lex.set(a+' commentaire',{k:'cmd',v:'annuleC'});lex.set(a+' remarque',{k:'cmd',v:'annuleC'});lex.set(a+' réduction',{k:'cmd',v:'annuleR'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
+    for(const c of motsC(h)){if(!lex.has(c.dit))lex.set(c.dit,{k:'com',v:c.texte});}for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});lex.set(a+' commentaire',{k:'cmd',v:'annuleC'});lex.set(a+' remarque',{k:'cmd',v:'annuleC'});lex.set(a+' réduction',{k:'cmd',v:'annuleR'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
     phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
-    phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque','annule commentaire','annule réduction',...(h.motsC||[]).map(norm).filter(Boolean),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','terminé','numéro','annule','erreur','pause','stop','reprise','[unk]');
+    phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque','annule commentaire','annule réduction',...motsC(h).map(c=>c.dit),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','terminé','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual,h.motsC||[]])};}
   if(h.mode==='pieds'){ // pied à pied numéroté : essence, diamètre, hauteur, tarif, tronçons de qualité, numéro
     for(const code of h.qualites||[]){for(const n of motsQ(code,h.motsQ)){if(!lex.has(n)){lex.set(n,{k:'q',v:code});qual.push(n);}}}
