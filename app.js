@@ -349,6 +349,11 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
       onDraft:(ess,q,lm,d)=>{if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];if(!b)return null;Object.assign(b,{q:q||b.q,lm:lm>0?lm:null,d:d>0?d:null});render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:f.num+'.'+b.rang};},
       onBillonSuivant:(ess,q,lm,d)=>{if(!(lm>0&&d>0))return null;if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];Object.assign(b,{q:q||b.q,lm,d});
         const nb={rang:f.billons.length+1,lm:l.lgFixe?lm:null,d:null,q:b.q};f.billons.push(nb);render();voirElement('.card[data-b="'+(nb.rang-1)+'"]');return{label:f.num+'.'+b.rang,L:l.lgFixe?lm:null};},
+      /* « précédent » : rouvre le dernier billon enregistré (de cette grume, sinon de la grume précédente) comme billon en cours */
+      onPrecedent:()=>{const F=S.form.g;let b=F.billons[F.billons.length-1];if(!b)return null;
+        if(vide(b)){if(F.billons.length>1){F.billons.pop();b=F.billons[F.billons.length-1];}
+          else{const g=l.grumes[l.grumes.length-1];if(!g||S.vocalGrume!==g.id)return null;l.grumes.pop();S.vocalGrume=null;S.form.g={num:g.num,ess:g.ess,sl:F.sl,billons:g.billons.map(x=>({...x}))};save();const G=S.form.g;b=G.billons[G.billons.length-1];render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:G.num+'.'+b.rang,ess:G.ess,q:b.q||'',L:lenM(b),d:b.d,grume:G.num};}}
+        render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:F.num+'.'+b.rang,ess:F.ess,q:b.q||'',L:lenM(b),d:b.d};},
       onSuivante:()=>{if(f.billons.length>1&&vide(f.billons[f.billons.length-1])){f.billons.pop();}
         if(!f.billons.length||f.billons.some(vide))return false;const n=l.grumes.length;const b=$('#ok');if(b)b.click();
         if(l.grumes.length>n){const g=l.grumes[l.grumes.length-1];S.vocalGrume=g.id;voirElement(null);return String(S.form.g?S.form.g.num:nextNum(l));}return false;},
