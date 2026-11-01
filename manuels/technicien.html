@@ -1,7 +1,7 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Guide du technicien terrain</title>
 <link rel="stylesheet" href="style.css"></head><body>
 <div class="cover"><img src="logo.png"><h1>Cubage SBF<br>Guide du technicien terrain</h1><div class="sub">Cubage bord de route · Estimation sur pied · Lots clients · Mode vocal</div>
-<div class="meta">Application version 67 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
+<div class="meta">Application version 81 · Novembre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
 <h1 class="first">Sommaire</h1><ol class="toc"><li>L'essentiel en une page</li><li>Installer l'application</li><li>L'écran d'accueil</li><li>Cubage bord de route (saisie, vocal, sous-lots, grilles, bordereaux, import d'inventaire)</li><li>Lots clients (vente de billons)</li><li>Estimation de bois sur pied</li><li>Sauvegarde, changement de téléphone, problèmes courants</li><li>Paramètres</li></ol>
 
 <h1 class="first">L'essentiel en une page</h1>
@@ -15,13 +15,14 @@
 <div class="tip"><b>Rien à craindre sans réseau.</b> L'application fonctionne entièrement hors connexion une fois installée. Le réseau ne sert qu'à
 sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte et, la première fois, télécharger le mode vocal.</div>
 <div class="warn">Une pastille orange <b>« n à sauvegarder »</b> sur l'accueil signale des lots qui ne sont encore que sur le téléphone. Ne désinstallez jamais l'application et ne changez pas de téléphone tant qu'elle est affichée.</div>
-<h2>Les nouveautés de cette version (67)</h2>
+<h2>Les nouveautés de cette version (81)</h2>
+<div class="warn"><b>Mode vocal du cubage : le billon dicté n'est plus enregistré tout seul.</b> Il s'affiche en « billon en cours » et n'est enregistré que lorsque vous dites <b>« billon suivant »</b> (ou « suivant », ou « grume suivante » pour passer à la grume suivante). Voir 3.5.</div>
 <ul>
-<li><b>Commentaire par billon</b> (<span class="btn">+ Note</span>) : gélivure, pourriture, bois de réserve… repris dans le listing, les exports, le Sheet et les bordereaux.</li>
-<li><b>Longueur fixe par lot</b> : la dernière longueur est reprise à chaque billon (lots de billons de même longueur) — on ne tape plus que le diamètre.</li>
-<li><b>Mode vocal : mot de départ « note »</b> : chaque phrase commence par « note » ; les conversations et bruits sont ignorés, les phrases mal comprises rejetées.</li>
-<li><b>Fonctionnement hors ligne renforcé</b> : le téléphone ouvre sa propre copie de l'application si l'hébergement est en panne, supprimé ou lent (plus de 3 s) ; une fois installée, l'application et les lots ne sont plus effacés quand le téléphone manque de place.</li>
-<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV, format au 3.12) : colonne <b>Note</b> reprise dans le commentaire du billon, CSV français à virgule décimale acceptés.</li>
+<li><b>Mode vocal, cubage</b> : correction d'un champ (« note diamètre quarante-quatre »), réductions et commentaires à la voix, « précédent » pour rouvrir le dernier billon, « annule grume », « terminé » pour quitter (3.5).</li>
+<li><b>Mode vocal, sur pied</b> : « note tarif huit » change le tarif Chaudé ; nouveau mode vocal en <b>pied à pied numéroté</b> (diamètre, hauteur, tronçons de qualité) (5.2 et 5.3).</li>
+<li><b>Ajouter une essence ou une qualité</b> sur le terrain, dès la création du lot ; le code est proposé au bureau, qui peut l'ajouter au référentiel commun (3.2).</li>
+<li><b>Import d'inventaire</b> : colonne Note reprise dans le commentaire du billon, CSV d'Excel français acceptés (3.12).</li>
+<li>Rappel des versions 66-67 : commentaire par billon, longueur fixe par lot, mot de départ « note », fonctionnement hors ligne renforcé, fusion d'un lot reçu.</li>
 </ul>
 
 <h1>1. Installer l'application</h1>
@@ -43,7 +44,11 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
 
 <h2>3.2 Créer un lot</h2>
 <p>Module Cubage › <span class="btn">+ Ajouter un lot</span>. Remplissez la fiche puis <span class="btn">Créer le lot</span> en bas d'écran.</p>
-<table class="fig"><tr><td class="shot"><img src="img/t04_nouveau_lot_p1.jpg" style="width:62mm"></td><td class="shot"><img src="img/t04_nouveau_lot_p2.jpg" style="width:62mm"></td></tr></table><table class="leg"><tr><td class="num"><span>1</span></td><td><b>N° chantier Xylolink</b> : obligatoire (sauf lot d'essai). C'est lui qui relie le cubage au dossier.</td></tr><tr><td class="num"><span>2</span></td><td><b>Propriétaire</b> : nom seul, tel qu'il doit figurer sur le bordereau propriétaire (pas d'adresse).</td></tr><tr><td class="num"><span>3</span></td><td><b>Point GPS</b> : <span class="btn">📍 Relever la position</span> (GPS du téléphone, sans réseau) ou <span class="btn">🗺 Placer sur la carte</span> (réseau nécessaire). Voir 3.9.</td></tr><tr><td class="num"><span>4</span></td><td><b>Premier n° de grume</b> (n° de la première plaquette) : la numérotation continue ensuite toute seule.</td></tr><tr><td class="num"><span>5</span></td><td><b>Essences et qualités du lot</b> : touchez celles du chantier (vert = cochée). Seules celles-ci apparaîtront à la saisie ; le bouton + en ajoute en cours de route.</td></tr><tr><td class="num"><span>6</span></td><td><b>Grille propriétaire</b> (prix d'achat) : choisie dans le catalogue, ou « Aucune » pour la régler plus tard.</td></tr><tr><td class="num"><span>7</span></td><td><b>Grille client</b> (prix de vente par défaut du lot). Les deux grilles restent modifiables à tout moment (3.7).</td></tr><tr><td class="num"><span>8</span></td><td><b>Lot d'essai / formation</b> : jamais envoyé sur le Sheet, à supprimer ensuite.</td></tr></table>
+<table class="fig"><tr><td class="shot"><img src="img/t04_nouveau_lot_p1.jpg" style="width:62mm"></td><td class="shot"><img src="img/t04_nouveau_lot_p2.jpg" style="width:62mm"></td></tr></table><table class="leg"><tr><td class="num"><span>1</span></td><td><b>N° chantier Xylolink</b> : obligatoire (sauf lot d'essai). C'est lui qui relie le cubage au dossier.</td></tr><tr><td class="num"><span>2</span></td><td><b>Propriétaire</b> : nom seul, tel qu'il doit figurer sur le bordereau propriétaire (pas d'adresse).</td></tr><tr><td class="num"><span>3</span></td><td><b>Point GPS</b> : <span class="btn">📍 Relever la position</span> (GPS du téléphone, sans réseau) ou <span class="btn">🗺 Placer sur la carte</span> (réseau nécessaire). Voir 3.9.</td></tr><tr><td class="num"><span>4</span></td><td><b>Premier n° de grume</b> (n° de la première plaquette) : la numérotation continue ensuite toute seule.</td></tr><tr><td class="num"><span>5</span></td><td><b>Essences et qualités du lot</b> : touchez celles du chantier (vert = cochée). Seules celles-ci apparaîtront à la saisie. Le bouton <b>+</b> crée un code absent de la liste (voir ci-dessous).</td></tr><tr><td class="num"><span>6</span></td><td><b>Grille propriétaire</b> (prix d'achat) : choisie dans le catalogue, ou « Aucune » pour la régler plus tard.</td></tr><tr><td class="num"><span>7</span></td><td><b>Grille client</b> (prix de vente par défaut du lot). Les deux grilles restent modifiables à tout moment (3.7).</td></tr><tr><td class="num"><span>8</span></td><td><b>Lot d'essai / formation</b> : jamais envoyé sur le Sheet, à supprimer ensuite.</td></tr></table>
+
+<h3>Ajouter une essence ou une qualité</h3>
+<table class="fig"><tr><td class="shot"><img src="img/t36_nouvelle_essence.jpg" style="width:50mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>+</span></td><td>Le bouton <b>+</b> (pointillés) des essences ou des qualités ouvre cette fenêtre : tapez le <b>code</b> (ex. CHR, AUL, C+) puis <span class="btn">Ajouter</span>. Il est coché aussitôt dans le lot et reste disponible sur votre téléphone.</td></tr><tr><td class="num"><span>→</span></td><td>Le même bouton existe dans la fiche « Essences et qualités » du lot, sur l'écran de saisie et dans la recoupe d'un lot client.</td></tr><tr><td class="num"><span>✓</span></td><td>À la sauvegarde du lot, le code est <b>proposé au bureau</b>. S'il le valide, il entre dans le référentiel commun et tous les téléphones le reçoivent avec <span class="btn">⟳ Mettre à jour depuis le Sheet</span>.</td></tr></table></td></tr></table>
+<div class="tip">Utilisez de préférence les codes existants : un code créé par erreur (faute de frappe) est lui aussi proposé au bureau, qui le refusera.</div>
 
 <h2>3.3 L'écran du lot</h2>
 <p>C'est le tableau de bord du chantier : volumes en tête, actions, sorties, puis la fiche du lot (modifiable).</p>
@@ -62,19 +67,42 @@ Il suffit de corriger la longueur une fois pour qu'elle serve aux billons suivan
 <p><span class="btn">Listing</span> › ✎ sur la ligne pour rouvrir la grume, ✕ pour la supprimer. Un billon vendu ou recoupé dans un lot client ne peut plus être supprimé.</p>
 
 <h2>3.5 Mode vocal (cubage)</h2>
-<table class="fig"><tr><td class="shot"><img src="img/t40_vocal_grumes.jpg" style="width:56mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>▶</span></td><td><span class="btn">🎤 Mode vocal</span> lance l'écoute. <b>Première fois</b> : avec du réseau, le téléphone télécharge le modèle de reconnaissance (42 Mo, une seule fois). Ensuite tout fonctionne <b>sans réseau</b> ; aucun son ne quitte le téléphone.</td></tr><tr><td class="num"><span>●</span></td><td>Point rouge clignotant = à l'écoute ; l'essence, la qualité et le n° de grume en cours sont rappelés. Bip aigu = enregistré (le téléphone relit le billon), bip grave = non compris.</td></tr><tr><td class="num"><span>?</span></td><td>« Mots reconnus » : la façon de dire les essences et qualités du lot.</td></tr></table></td></tr></table>
-<p><b>Chaque phrase commence par « note »</b> (mot de départ, réglable dans Paramètres). Tout ce qui ne commence pas par « note » est ignoré : vous pouvez parler avec le bûcheron sans rien enregistrer.</p>
-<table><tr><th style="width:48%">Vous dites</th><th>L'application comprend</th></tr>
-<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon chêne, qualité CA, 10 m, Ø 50 (ordre : essence, qualité, longueur, diamètre)</td></tr>
-<tr><td>« note huit vingt par quarante-deux »</td><td>8,20 m × Ø 42, même essence et qualité que le billon précédent</td></tr>
+<table class="fig"><tr><td class="shot"><img src="img/t40_vocal_grumes_p1.jpg" style="width:56mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>1</span></td><td><span class="btn">🎤 Mode vocal</span> lance l'écoute (point rouge clignotant) ; l'essence, la qualité et le n° de grume en cours sont rappelés. <span class="btn">Pause</span> / <span class="btn">Arrêter</span>. <b>Première fois</b> : avec du réseau, téléchargement du modèle de reconnaissance (42 Mo, une seule fois) ; ensuite tout fonctionne <b>sans réseau</b> et aucun son ne quitte le téléphone.</td></tr><tr><td class="num"><span>2</span></td><td>Aide-mémoire des phrases (tableau ci-dessous).</td></tr><tr><td class="num"><span>3</span></td><td>« Mots reconnus » : la façon de dire les essences et qualités du lot.</td></tr></table></td></tr></table>
+<h3>Le principe : dicter, vérifier, puis « billon suivant »</h3>
+<ol class="steps">
+<li>Dictez le billon d'une traite : <b>« note chêne, cé a, dix par cinquante »</b> (essence, qualité, longueur, diamètre). Il apparaît à l'écran comme <b>billon en cours</b>, rien n'est encore enregistré.</li>
+<li>Vérifiez sur l'écran (ou à l'écoute du bip). Corrigez si besoin : « note diamètre quarante-huit », « note longueur huit vingt ». Ajoutez si besoin une réduction ou un commentaire.</li>
+<li>Dites <b>« billon suivant »</b> : le billon est enregistré, le téléphone le relit (« cé a, dix mètres, cinquante ») et un nouveau billon de la même grume s'ouvre.</li>
+<li>Pour changer de grume, dites <b>« grume suivante »</b> : le billon en cours est enregistré, la grume est close et la suivante s'ouvre avec le numéro suivant.</li>
+</ol>
+<table class="fig"><tr><td class="shot"><img src="img/t42_vocal_billon_en_cours_p1.jpg" style="width:56mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>1</span></td><td>Le bloc vocal affiche le <b>billon en cours</b> et rappelle de dire « billon suivant » pour l'enregistrer.</td></tr><tr><td class="num"><span>2</span></td><td>Le billon se remplit à l'écran au fur et à mesure : qualité, longueur, diamètre, réduction (ici « note réduction longueur cinquante ») et commentaire (« note commentaire gélivure »).</td></tr></table></td></tr></table>
+<p><b>Chaque phrase commence par « note »</b> (mot de départ, réglable dans Paramètres) : tout le reste est ignoré, vous pouvez parler avec le bûcheron sans rien enregistrer.
+Exception : les commandes d'enregistrement et de navigation se disent <b>seules</b>, sans « note ».</p>
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td colspan="2" class="grp">Dicter un billon</td></tr>
+<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon en cours : chêne, CA, 10 m, Ø 50</td></tr>
+<tr><td>« note huit vingt par quarante-deux »</td><td>8,20 m × Ø 42, essence et qualité du billon précédent</td></tr>
 <tr><td>« note cé bé, quatre et demi par quarante-quatre »</td><td>Qualité CB, 4,50 m × Ø 44 (essence conservée)</td></tr>
-<tr><td>« note suivante »</td><td>Grume suivante (numéro automatique)</td></tr>
-<tr><td>« note numéro cent douze »</td><td>Force le n° de grume 112</td></tr>
-<tr><td>« note annule »</td><td>Retire le dernier billon (ou rouvre la grume qu'on vient de clore)</td></tr>
+<tr><td>« note diamètre quarante-huit » · « note longueur neuf »</td><td>Corrige un seul champ du billon en cours</td></tr>
+<tr><td>« note réduction longueur cinquante » · « note réduction diamètre deux »</td><td>Réduction de 50 cm sur la longueur / 2 cm sur le diamètre</td></tr>
+<tr><td>« note commentaire gélivure »</td><td>Commentaire avec un mot de la liste (gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve)</td></tr>
+<tr><td>« note commentaire » … puis la phrase</td><td>Commentaire libre : dictez la phrase dans les 12 secondes</td></tr>
+<tr><td colspan="2" class="grp">Enregistrer et naviguer (sans « note »)</td></tr>
+<tr><td>« billon suivant » ou « suivant »</td><td><b>Enregistre</b> le billon en cours et ouvre le billon suivant de la même grume</td></tr>
+<tr><td>« grume suivante » ou « suivante » ou « arbre suivant »</td><td>Enregistre le billon en cours, clôt la grume, passe au numéro suivant</td></tr>
+<tr><td>« précédent »</td><td>Rouvre le dernier billon enregistré pour le corriger (puis « suivant » pour le réenregistrer)</td></tr>
+<tr><td>« terminé »</td><td>Quitte l'écran de saisie (refusé si un billon est entamé)</td></tr>
+<tr><td colspan="2" class="grp">Annuler et autres commandes</td></tr>
+<tr><td>« note annule »</td><td>Efface le billon en cours ; s'il est vide, retire le dernier billon enregistré de la grume</td></tr>
+<tr><td>« note annule commentaire » · « note annule réduction »</td><td>Retire le commentaire / la réduction du billon en cours</td></tr>
+<tr><td>« note annule grume »</td><td>Vide la grume en cours ; si elle est déjà vide, rouvre la grume précédente</td></tr>
+<tr><td>« note numéro cent douze »</td><td>Change le n° de la grume en cours (112)</td></tr>
 <tr><td>« note pause » / « note reprise »</td><td>Suspend / reprend l'écoute</td></tr></table>
 <ul><li>« par » sépare la longueur du diamètre. Sans « par », le dernier nombre est le diamètre. Longueurs : « huit » = 8 m, « huit vingt » = 8,20, « huit et demi », « huit virgule vingt-cinq ».</li>
 <li>Qualités lettre par lettre : CA « cé a », CB « cé bé », CX « cé ixe », CXX « cé double ixe », ST « esse té », PA « pé a » ; « avivé » se dit « avive ». Le merrain n'est pas encore reconnu.</li>
+<li>Avec la <b>longueur fixe</b> (3.4), la longueur est reprise : il suffit de dicter « note quarante-six » puis « suivant ».</li>
 <li>Écran allumé (verrouillé, le micro se coupe) ; par vent fort, une oreillette ou un micro Bluetooth aide beaucoup.</li></ul>
+<div class="warn">Un billon dicté mais jamais suivi de « billon suivant » ou « grume suivante » n'est <b>pas enregistré</b>. Avant de quitter, vérifiez que le bloc vocal n'affiche plus « Billon en cours » (« terminé » refuse de quitter dans ce cas).</div>
 
 <h2>3.6 Sous-lots (destinations client)</h2>
 <p>Un sous-lot = une destination (nom, client, grille client éventuelle). On affecte les grumes pendant la saisie (repère <span class="n">4</span> de la saisie) ou après coup.</p>
@@ -156,12 +184,39 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 <p>Comme pour le cubage : chantier, commune, point GPS, essences et qualités du lot (au moins une qualité doit être cochée).</p>
 <h2>5.2 Pointer les tiges</h2>
 <table class="fig"><tr><td class="shot"><img src="img/t32_saisie_pied.jpg" style="width:56mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>a</span></td><td>Choisissez l'<b>essence</b> (pastilles) ; le compteur indique les tiges du lot et de l'essence.</td></tr><tr><td class="num"><span>b</span></td><td><b>Tarif Chaudé</b> de l'essence : − / +.</td></tr><tr><td class="num"><span>c</span></td><td>Un appui sur une <b>classe de diamètre</b> (à 1,30 m, pas de 5 cm par défaut) = une tige. La pastille indique le nombre de tiges de la classe.</td></tr><tr><td class="num"><span>d</span></td><td><span class="btn">Annuler dernière</span> retire la dernière tige pointée.</td></tr></table></td></tr></table>
-<p>Mode vocal sur pied (même principe, mot de départ « note ») : « note chêne quarante » (essence + classe), « note trente-cinq » (classe seule, essence conservée), « note chêne » (change l'essence sans compter), « note annule ». Le téléphone annonce l'essence quand elle change.</p>
-<table class="fig"><tr><td class="shot"><img src="img/t41_vocal_pied.jpg" style="width:50mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>🎤</span></td><td>Mode vocal sur pied : rappel des phrases et des noms d'essences reconnus.</td></tr></table></td></tr></table>
-<h2>5.3 Hauteurs par classe et tronçons de qualité</h2>
+<h3>Mode vocal (pointage par classes)</h3>
+<p>Même principe que le cubage, chaque phrase commence par « note ». Ici, <b>chaque phrase compte une tige aussitôt</b> (pas de « suivant »).</p>
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td>« note chêne quarante »</td><td>Une tige de chêne en classe 40</td></tr>
+<tr><td>« note trente-cinq »</td><td>Une tige en classe 35, essence conservée</td></tr>
+<tr><td>« note chêne »</td><td>Change l'essence sans compter (le téléphone l'annonce)</td></tr>
+<tr><td>« note tarif onze »</td><td>Tarif Chaudé 11 pour l'essence en cours (1 à 20) <span class="pill new">nouveau</span></td></tr>
+<tr><td>« note annule »</td><td>Retire la dernière tige</td></tr>
+<tr><td>« terminé » (sans « note »)</td><td>Quitte l'écran de saisie <span class="pill new">nouveau</span></td></tr></table>
+<table class="fig"><tr><td class="shot"><img src="img/t41_vocal_pied.jpg" style="width:50mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>🎤</span></td><td>Mode vocal en pointage par classes : rappel des phrases et des essences reconnues.</td></tr></table></td></tr></table>
+
+<h2>5.3 Pied à pied numéroté (et sa dictée)</h2>
+<p>En mode <b>pied à pied numéroté</b>, chaque arbre porte un numéro, son diamètre à 1,30 m, sa hauteur, son tarif et, si besoin, ses tronçons de qualité du bas vers le haut ; le reste de la tige est compté en « BI ». Au clavier : remplir les champs puis <span class="btn">Ajouter ›</span>.
+Le <b>mode vocal</b> y est désormais disponible <span class="pill new">nouveau</span> et fonctionne comme le cubage : l'arbre se remplit à l'écran, puis <b>« suivant »</b> l'enregistre.</p>
+<table class="fig"><tr><td class="shot"><img src="img/t43_vocal_pied_a_pied_p1.jpg" style="width:56mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>1</span></td><td>Le bloc vocal affiche l'<b>arbre en cours</b> et rappelle de dire « suivant » pour l'enregistrer.</td></tr><tr><td class="num"><span>2</span></td><td><b>Diamètre</b> à 1,30 m (cm).</td></tr><tr><td class="num"><span>3</span></td><td><b>Hauteur</b> (m).</td></tr><tr><td class="num"><span>4</span></td><td><b>Tronçons de qualité</b> dictés (ici 6 m en CA) ; le reste jusqu'à la hauteur est compté en « BI ».</td></tr></table></td></tr></table>
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td>« note chêne quarante-cinq par seize »</td><td>Arbre en cours : chêne, Ø 45 cm, hauteur 16 m</td></tr>
+<tr><td>« note hauteur dix-huit virgule cinq » · « note diamètre cinquante »</td><td>Corrige un seul champ</td></tr>
+<tr><td>« note tarif dix »</td><td>Tarif Chaudé 10 pour l'essence</td></tr>
+<tr><td>« note tronçon six cé a » (ou « note cé a six »)</td><td>Tronçon de 6 m en CA, à la suite des précédents (du bas vers le haut)</td></tr>
+<tr><td>« note tronçon quatre » puis « note cé bé »</td><td>Tronçon de 4 m, qualité donnée juste après</td></tr>
+<tr><td>« note annule tronçon »</td><td>Retire le dernier tronçon</td></tr>
+<tr><td>« suivant » (sans « note »)</td><td><b>Enregistre</b> l'arbre (le téléphone annonce son numéro et le suivant)</td></tr>
+<tr><td>« précédent »</td><td>Rouvre le dernier arbre enregistré pour le corriger</td></tr>
+<tr><td>« note annule »</td><td>Efface l'arbre en cours (s'il est vide : supprime le dernier enregistré)</td></tr>
+<tr><td>« note annule arbre »</td><td>Supprime le dernier arbre enregistré</td></tr>
+<tr><td>« note numéro deux cents »</td><td>Change le n° de l'arbre en cours</td></tr>
+<tr><td>« terminé »</td><td>Quitte l'écran (refusé si un arbre est entamé)</td></tr></table>
+<div class="warn">En dictée pied à pied, quand vous changez d'essence (« note hêtre trente par quatorze »), vérifiez le tarif affiché : l'arbre garde actuellement le tarif de l'essence précédente. Dites « note tarif … » si besoin.</div>
+<h2>5.4 Hauteurs par classe et tronçons de qualité</h2>
 <table class="fig"><tr><td class="shot"><img src="img/t33_hauteurs_p1.jpg" style="width:50mm"></td><td class="shot"><img src="img/t33_hauteurs_p2.jpg" style="width:50mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>H</span></td><td>Pour chaque essence × classe : la <b>hauteur</b> (m) appliquée aux tiges sans hauteur propre.</td></tr><tr><td class="num"><span>T</span></td><td><span class="btn">+ Ajouter un tronçon</span> : tronçons de qualité du bas vers le haut (hauteur + qualité). Le reste jusqu'à la hauteur totale est compté en « BI » (code réglable).</td></tr><tr><td class="num"><span>!</span></td><td>La somme des tronçons ne peut pas dépasser la hauteur : un message rouge s'affiche et la ligne n'est pas enregistrée.</td></tr></table></td></tr></table>
 <div class="tip">Les tiges sans hauteur apparaissent « sans H » dans le récapitulatif et ne sont pas cubées : renseignez toutes les classes.</div>
-<h2>5.4 Récapitulatif et tarifs</h2>
+<h2>5.5 Récapitulatif et tarifs</h2>
 <table class="fig"><tr><td class="shot"><img src="img/t34_recap_pied_p1.jpg" style="width:50mm"></td><td class="shot"><img src="img/t35_tarifs_p1.jpg" style="width:50mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>R</span></td><td>Récapitulatif : par essence et classe (tiges, hauteur moyenne, m³), par essence et qualité, par tranche de prix de la grille, puis par essence, qualité et classe. PDF et Excel en bas.</td></tr><tr><td class="num"><span>T</span></td><td><span class="btn">Tarifs Chaudé</span> : tarif de toute l'essence ou classe par classe (affichage en classes de diamètre ou de circonférence). Le tarif choisi devient celui proposé pour les tiges suivantes de l'essence.</td></tr></table></td></tr></table>
 
 <h1>6. Sauvegarde, changement de téléphone, problèmes courants</h1>
@@ -178,7 +233,9 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 <tr><td>« Module PDF (ou Excel) non chargé »</td><td>Ouvrir une fois l'application avec du réseau : les modules se mettent en mémoire.</td></tr>
 <tr><td>« Fond de carte non chargé »</td><td>La carte demande du réseau ; sans réseau, utilisez <span class="btn">📍 Relever la position</span>.</td></tr>
 <tr><td>« Accès à la position refusé »</td><td>Réglages du téléphone › Safari / Chrome › Position : autoriser.</td></tr>
-<tr><td>Le mode vocal n'enregistre rien</td><td>Commencez chaque phrase par « note ». Vérifiez le point rouge (pas en pause), l'accès au micro, et parlez plus près du téléphone.</td></tr>
+<tr><td>Le mode vocal ne réagit pas</td><td>Commencez chaque phrase par « note ». Vérifiez le point rouge (pas en pause), l'accès au micro, et parlez plus près du téléphone.</td></tr>
+<tr><td>Billon dicté absent du listing</td><td>Il n'a pas été enregistré : en cubage, il faut dire « billon suivant » (ou « suivant », « grume suivante ») après chaque billon.</td></tr>
+<tr><td>Commentaire mal compris</td><td>Utilisez les mots de la liste (« note commentaire gélivure ») ; la liste se complète dans Paramètres › Mode vocal. Le commentaire libre (« note commentaire » puis la phrase) est moins fiable.</td></tr>
 <tr><td>Mot d'essence non reconnu</td><td>Seuls les mots du vocabulaire français du modèle passent (aulne → « aune », robinier → « acacia », laricio → « pin corse »). Ajouter des mots : Paramètres › Mode vocal, ou demander au bureau (colonne mots_vocaux du Sheet).</td></tr>
 <tr><td>Le n° Xylolink manque (bordure rouge)</td><td>Le renseigner dans la fiche du lot avant de sauvegarder.</td></tr>
 <tr><td>Lot en lecture seule</td><td>Lot envoyé à un collègue ou copie du Sheet : <span class="btn">Reprendre la main</span> si c'est bien vous qui devez le modifier.</td></tr>
@@ -187,7 +244,7 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 <tr><td>Application affichée dans une ancienne version</td><td>Fermer complètement l'application puis la rouvrir avec du réseau ; comparer le numéro de version en bas de l'accueil.</td></tr></table>
 
 <h1>7. Paramètres</h1>
-<table class="fig"><tr><td class="shot"><img src="img/t50_parametres_p1.jpg" style="width:56mm"></td><td class="shot"><img src="img/t50_parametres_p2.jpg" style="width:56mm"></td><td class="shot"><img src="img/t50_parametres_p3.jpg" style="width:56mm"></td></tr></table><table class="leg"><tr><td class="num"><span>a</span></td><td><b>Référentiel</b> : essences, qualités, pas et bornes des classes (reçus du Sheet).</td></tr><tr><td class="num"><span>b</span></td><td><b>Saisie</b> : qualité du 1<sup>er</sup> billon (reprise ou vide), saisie du diamètre sur pied (boutons de classes ou au cm), code du reste de tige (BI).</td></tr><tr><td class="num"><span>c</span></td><td><b>Mode vocal</b> : mots pour les essences et les qualités, <b>mot de départ</b> (« note » ; vide = aucun), rejet des phrases mal comprises (recommandé), annonce de l'essence à voix haute.</td></tr><tr><td class="num"><span>d</span></td><td><b>Synchronisation</b> : opérateur, adresse du script et clé (remplis par le lien de configuration), « Coller le lien de configuration ».</td></tr><tr><td class="num"><span>e</span></td><td><b>Changement de téléphone</b>, <b>remise à zéro</b> du téléphone (supprime les lots du téléphone, pas ceux du Sheet), <b>copie de secours</b> (Exporter / Importer JSON).</td></tr></table>
+<table class="fig"><tr><td class="shot"><img src="img/t50_parametres_p1.jpg" style="width:56mm"></td><td class="shot"><img src="img/t50_parametres_p2.jpg" style="width:56mm"></td><td class="shot"><img src="img/t50_parametres_p3.jpg" style="width:56mm"></td></tr></table><table class="leg"><tr><td class="num"><span>a</span></td><td><b>Référentiel</b> : essences, qualités, pas et bornes des classes (reçus du Sheet).</td></tr><tr><td class="num"><span>b</span></td><td><b>Saisie</b> : qualité du 1<sup>er</sup> billon (reprise ou vide), saisie du diamètre sur pied (boutons de classes ou au cm), code du reste de tige (BI).</td></tr><tr><td class="num"><span>c</span></td><td><b>Mode vocal</b> : mots pour les essences et les qualités, <b>mots de commentaire</b> reconnus (gélivure, pourriture, roulure… à compléter), <b>mot de départ</b> (« note » ; vide = aucun), rejet des phrases mal comprises (recommandé), annonce de l'essence à voix haute.</td></tr><tr><td class="num"><span>d</span></td><td><b>Synchronisation</b> : opérateur, adresse du script et clé (remplis par le lien de configuration), « Coller le lien de configuration ».</td></tr><tr><td class="num"><span>e</span></td><td><b>Changement de téléphone</b>, <b>remise à zéro</b> du téléphone (supprime les lots du téléphone, pas ceux du Sheet), <b>copie de secours</b> (Exporter / Importer JSON).</td></tr></table>
 
 <p class="small" style="margin-top:20px">Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas · SIRET 900 809 633 00010 — Cubage SBF, logiciel libre.
 Captures réalisées sur un jeu de données de démonstration (chantiers, propriétaires et clients fictifs) ; le fond de carte est illustratif.</p>

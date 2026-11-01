@@ -1,7 +1,7 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Guide administratif bureau</title>
 <link rel="stylesheet" href="style.css"></head><body>
 <div class="cover"><img src="logo.png"><h1>Cubage SBF<br>Guide administratif bureau</h1><div class="sub">Clés d’accès · Espace Bureau · Ventes · Bordereaux · Référentiel · Maintenance</div>
-<div class="meta">Application version 67 · Script Sheet version 3.0 · Octobre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
+<div class="meta">Application version 81 · Script Sheet version 3.3 · Novembre 2026<br>Services Bois et Forêts SAS · Loirecopark 1 · 72500 Vaas</div></div>
 <h1 class="first">Sommaire</h1><ol class="toc"><li>L'essentiel en une page</li><li>Comment c'est construit</li><li>Le poste bureau</li><li>Mise en place et mise à jour du script du Sheet</li><li>Clés d'accès et équipement des téléphones</li><li>L'espace Bureau (stock, ventes, lots des techniciens, ramasse, grilles)</li><li>Grilles de prix : propriétaire, client, catalogue et copies</li><li>Bordereaux propriétaire et client</li><li>Les données dans le Sheet</li><li>Maintenance et dépannage</li></ol>
 
 <h1 class="first">L'essentiel en une page</h1>
@@ -12,6 +12,7 @@
 <tr><td>Valider une vente proposée par un technicien</td><td>Bureau › <span class="btn">Lots clients de l’entreprise</span> › ouvrir › <span class="btn">Valider la vente</span> (5.3)</td></tr>
 <tr><td>Éditer un bordereau propriétaire ou client</td><td>Bureau › <span class="btn">Lots des techniciens</span> › ouvrir le lot › Sorties (5.4)</td></tr>
 <tr><td>Vendre des billons de plusieurs techniciens</td><td>Bureau › <span class="btn">Lot client multi-techniciens</span> (5.5)</td></tr>
+<tr><td>Valider une essence ou une qualité créée sur le terrain</td><td>Bureau › <span class="btn">Essences et qualités proposées</span> (5.7)</td></tr>
 <tr><td>Publier ou modifier une grille de prix</td><td>Bureau › <span class="btn">Grilles de prix communes</span> (5.6)</td></tr>
 <tr><td>Contrôle, rapprochement Xylolink</td><td>Google Sheet, onglet <code>BILLON</code> (chapitre 8)</td></tr></table>
 <h2>Nouveautés depuis la version 63</h2>
@@ -21,7 +22,9 @@
 <li><b>Mode vocal</b> : mot de départ « note » et rejet des phrases mal comprises, réglables par téléphone.</li>
 <li><b>Hors ligne</b> : les téléphones ouvrent leur propre copie de l'application si GitHub est en panne, supprimé ou lent ; une fois installée, l'application demande un stockage persistant (lots et application non effacés en cas de manque de place).</li>
 <li><b>Import d'inventaire</b> : colonne Note/Commentaire reprise, CSV d'Excel français (virgule décimale) correctement lus.</li>
-<li>Script du Sheet inchangé : <b>version 3.0</b>.</li></ul>
+<li><b>Essences et qualités proposées</b> (v81, script 3.2) : les codes créés par les techniciens arrivent dans l'onglet PROPOSITIONS et se valident depuis l'espace Bureau (5.7).</li>
+<li><b>Script 3.1</b> : numéros de grumes et de billons écrits en texte (le Sheet ne les transforme plus en dates). <b>Script 3.3</b> : la colonne « mots_vocaux » est reconnue ; à défaut, la colonne « libellé » des onglets ESSENCES / QUALITES sert de mot vocal.</li>
+<li>Script du Sheet à installer : <b>version 3.3</b> (3.2).</li></ul>
 
 <h1>1. Comment c'est construit</h1>
 <table><tr><th style="width:22%">Élément</th><th style="width:26%">Où</th><th>Rôle</th></tr>
@@ -45,9 +48,9 @@
 <h2>3.2 Mettre à jour le script</h2>
 <ol class="steps"><li>Récupérer <code>sync.gs</code> sur GitHub (la première ligne indique la version), remplacer le code dans Apps Script en <b>conservant vos constantes</b> <code>CLE</code> / <code>CLE_BUREAU</code>.</li>
 <li><b>Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer</b>. L'adresse <code>/exec</code> ne change pas : rien à refaire sur les téléphones.</li></ol>
-<p>Version 3.0 : action <code>setLotGps</code> (point GPS placé depuis le bureau). Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>, <code>commentaire</code>…) se créent d'elles-mêmes à la première sauvegarde.</p>
+<p>Version 3.3 : actions <code>setLotGps</code> (point GPS placé depuis le bureau), <code>propositions</code> / <code>setProposition</code> (codes proposés, 5.7) ; identifiants écrits en texte. Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>, <code>commentaire</code>…) se créent d'elles-mêmes à la première sauvegarde.</p>
 <h2>3.3 Mettre à jour l'application</h2>
-<p>Une modification sur la branche <code>main</code> du dépôt est en ligne en une à deux minutes. Les téléphones la prennent à la prochaine ouverture avec du réseau ; le numéro de version est en bas de l'accueil (actuellement 67). Le mode vocal (<code>vendor/</code>, <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
+<p>Une modification sur la branche <code>main</code> du dépôt est en ligne en une à deux minutes. Les téléphones la prennent à la prochaine ouverture avec du réseau ; le numéro de version est en bas de l'accueil (actuellement 81). Le mode vocal (<code>vendor/</code>, <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
 
 <h1>4. Clés d'accès et équipement des téléphones</h1>
 <p>Une clé = un technicien (rôle <b>terrain</b>) ou un poste bureau (rôle <b>bureau</b> : valide les ventes, voit tout le stock). L'opérateur attaché à la clé est <b>imposé</b> sur toutes les lignes que ce téléphone envoie : c'est lui qui identifie l'auteur d'un lot.</p>
@@ -71,7 +74,7 @@
 <li>Un billon vendu ne peut plus être proposé à un autre client ni supprimé sur le téléphone ; dans le stock il passe en « vendus ».</li></ul>
 <h2>5.4 Lots des techniciens et bordereaux</h2>
 <table class="fig"><tr><td class="shot"><img src="img/b07_lots_techniciens.jpg" style="width:140mm"></td></tr></table><table class="leg"><tr><td class="num"><span>↻</span></td><td><span class="btn">Charger / Actualiser les lots depuis le Sheet</span> : copies en <b>lecture seule</b> des lots de tous les téléphones, avec l'opérateur, le type (cubage, sur pied), la commune et le volume. Recherche par opérateur, n° Xylolink, chantier, commune, date.</td></tr></table>
-<table class="fig"><tr><td class="shot"><img src="img/b08_lot_technicien.jpg" style="width:140mm"></td></tr></table><table class="leg"><tr><td class="num"><span>1</span></td><td><span class="btn">Bordereau propriétaire</span> : sans prix ou avec prix HT de la grille propriétaire.</td></tr><tr><td class="num"><span>2</span></td><td><span class="btn">Bordereau client</span> : choisir le sous-lot (ou tout le lot), sans ou avec prix HT de la grille client.</td></tr><tr><td class="num"><span>3</span></td><td>Point GPS : le placer ou le corriger sur la carte depuis le bureau ; il est écrit sur le Sheet (script 3.0).</td></tr></table>
+<table class="fig"><tr><td class="shot"><img src="img/b08_lot_technicien.jpg" style="width:140mm"></td></tr></table><table class="leg"><tr><td class="num"><span>1</span></td><td><span class="btn">Bordereau propriétaire</span> : sans prix ou avec prix HT de la grille propriétaire.</td></tr><tr><td class="num"><span>2</span></td><td><span class="btn">Bordereau client</span> : choisir le sous-lot (ou tout le lot), sans ou avec prix HT de la grille client.</td></tr><tr><td class="num"><span>3</span></td><td>Point GPS : le placer ou le corriger sur la carte depuis le bureau ; il est écrit sur le Sheet (script 3.3).</td></tr></table>
 <p>Listing, récapitulatif (achat / vente / marge), PDF interne et Excel sont aussi disponibles. Les modèles de bordereaux sont présentés au chapitre 7.</p>
 <div class="warn">Un point GPS placé depuis le bureau est écrasé si le technicien renvoie ensuite ce lot depuis son téléphone (qui n'a pas le point). À faire sur des lots terminés, ou demander au technicien de le placer lui-même.</div>
 <h2>5.5 Lot client multi-techniciens (ramasse)</h2>
@@ -82,6 +85,10 @@
 <table class="fig"><tr><td class="shot"><img src="img/b10_grilles_communes.jpg" style="width:140mm"></td></tr></table>
 <table class="fig"><tr><td class="shot"><img src="img/b12_grille_commune.jpg" style="width:140mm"></td></tr></table><table class="leg"><tr><td class="num"><span>a</span></td><td>Liste des grilles (type grumes ou sur pied, nombre de lignes). <span class="btn">+ Grille commune grumes</span> ou <span class="btn">+ Grille commune sur pied</span> pour en créer une.</td></tr><tr><td class="num"><span>b</span></td><td>Édition : nom, puis une ligne par règle (<span class="btn">+ Ligne</span>) — essence, qualité, Ø min, Ø max, prix €/m³. <span class="btn">Enregistrer sur le Sheet</span> publie la grille (onglet GRILLES) ; les techniciens la reçoivent à leur prochaine mise à jour.</td></tr></table>
 <p>Une grille commune supprimée disparaît des téléphones ; les copies faites dans les lots sont conservées. Convention de nommage conseillée : « Achat … » pour les grilles propriétaire, « Vente … » pour les grilles client, avec l'année ou la saison.</p>
+
+<h2>5.7 Essences et qualités proposées</h2>
+<p>Un technicien peut créer un code d'essence ou de qualité sur son téléphone (bouton + du lot). À la sauvegarde de son lot, le code est inscrit dans l'onglet <code>PROPOSITIONS</code> du Sheet et apparaît ici.</p>
+<table class="fig"><tr><td class="shot"><img src="img/b15_propositions.jpg" style="width:140mm"></td></tr></table><table class="leg"><tr><td class="num"><span>1</span></td><td>Mot(s) pour le mode vocal (facultatif) : la façon de dire le code (ex. « chêne rouge » pour CHR).</td></tr><tr><td class="num"><span>2</span></td><td><span class="btn">Valider (ajouter au Sheet)</span> : le code entre dans l'onglet ESSENCES ou QUALITES ; tous les téléphones le reçoivent à leur prochaine mise à jour. <span class="btn">Refuser</span> le laisse propre au téléphone qui l'a créé (faute de frappe, doublon).</td></tr></table>
 
 <h1>6. Grilles de prix : propriétaire, client, catalogue et copies</h1>
 <table><tr><th style="width:24%">Niveau</th><th>Grille propriétaire (achat)</th><th>Grille client (vente)</th></tr>
@@ -109,6 +116,7 @@
 <tr><td><code>CLASSES</code></td><td>Pas des classes de diamètre (5 cm), bornes, pas particulier par essence.</td></tr>
 <tr><td><code>GRILLES</code></td><td>code, nom, type (grumes / pied), essence, qualité, Ø min, Ø max, prix €/m³ — une ligne par règle.</td></tr>
 <tr><td><code>DMM</code></td><td>Barème Chaudé (facultatif ; sinon barème intégré).</td></tr>
+<tr><td><code>PROPOSITIONS</code></td><td>Codes créés sur le terrain : type, code, operateur, lot, date, statut (propose / valide / refuse), traite_le.</td></tr>
 <tr><td><code>CLES</code></td><td>cle, operateur, role, actif, cree_le, note (géré depuis Bureau › Clés).</td></tr>
 <tr><td><code>LOT</code>, <code>SOUS_LOT</code></td><td>Une ligne par lot (type, n° Xylolink, chantier, propriétaire, commune, GPS, date, opérateur, grilles, volume) ; sous-lots.</td></tr>
 <tr><td><code>GRUME</code> / <code>BILLON</code></td><td>Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>
@@ -133,7 +141,7 @@
 <tr><td>Billon « indisponible » lors d'une vente</td><td>Déjà vendu ou recoupé dans un autre lot client : Stock bord de route › Vendus / Recoupés.</td></tr>
 <tr><td>Bordereau sans la grille attendue</td><td>Le bordereau propriétaire ignore les grilles client (et inversement) : vérifier les grilles du lot ou du sous-lot.</td></tr>
 <tr><td>Point GPS absent d'un bordereau</td><td>Le placer sur la carte (téléphone ou Bureau › Lots des techniciens).</td></tr>
-<tr><td>Téléphone sur une ancienne version</td><td>Le faire ouvrir avec du réseau puis fermer/rouvrir ; comparer le numéro en bas de l'accueil (actuellement 67).</td></tr>
+<tr><td>Téléphone sur une ancienne version</td><td>Le faire ouvrir avec du réseau puis fermer/rouvrir ; comparer le numéro en bas de l'accueil (actuellement 81).</td></tr>
 <tr><td>Mode vocal qui n'enregistre rien</td><td>Chaque phrase doit commencer par le mot de départ (« note » par défaut, Paramètres du téléphone).</td></tr>
 <tr><td>Modifier le logo ou les mentions légales</td><td><code>docs.js</code> du dépôt : constante <code>SBF</code> (textes) et <code>SBF_LOGO</code> (image).</td></tr></table>
 

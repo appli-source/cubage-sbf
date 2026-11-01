@@ -3,7 +3,7 @@
 import os, re, html
 D = os.path.dirname(os.path.abspath(__file__))
 IMG = os.path.join(D, 'img')
-VERSION, SCRIPT, DATE = '67', '3.0', 'Octobre 2026'
+VERSION, SCRIPT, DATE = '81', '3.3', 'Novembre 2026'
 
 def parts(n):
     """Nom d'image -> liste des volets existants (n_p1, n_p2…) ou [n]."""
@@ -61,13 +61,14 @@ T.append(f'''
 <div class="tip"><b>Rien à craindre sans réseau.</b> L'application fonctionne entièrement hors connexion une fois installée. Le réseau ne sert qu'à
 sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte et, la première fois, télécharger le mode vocal.</div>
 <div class="warn">Une pastille orange <b>« n à sauvegarder »</b> sur l'accueil signale des lots qui ne sont encore que sur le téléphone. Ne désinstallez jamais l'application et ne changez pas de téléphone tant qu'elle est affichée.</div>
-<h2>Les nouveautés de cette version (67)</h2>
+<h2>Les nouveautés de cette version (81)</h2>
+<div class="warn"><b>Mode vocal du cubage : le billon dicté n'est plus enregistré tout seul.</b> Il s'affiche en « billon en cours » et n'est enregistré que lorsque vous dites <b>« billon suivant »</b> (ou « suivant », ou « grume suivante » pour passer à la grume suivante). Voir 3.5.</div>
 <ul>
-<li><b>Commentaire par billon</b> ({B('+ Note')}) : gélivure, pourriture, bois de réserve… repris dans le listing, les exports, le Sheet et les bordereaux.</li>
-<li><b>Longueur fixe par lot</b> : la dernière longueur est reprise à chaque billon (lots de billons de même longueur) — on ne tape plus que le diamètre.</li>
-<li><b>Mode vocal : mot de départ « note »</b> : chaque phrase commence par « note » ; les conversations et bruits sont ignorés, les phrases mal comprises rejetées.</li>
-<li><b>Fonctionnement hors ligne renforcé</b> : le téléphone ouvre sa propre copie de l'application si l'hébergement est en panne, supprimé ou lent (plus de 3 s) ; une fois installée, l'application et les lots ne sont plus effacés quand le téléphone manque de place.</li>
-<li><b>Fusion d'un lot reçu</b> dans un lot existant (chantier cubé à plusieurs) et <b>import d'inventaire</b> de bûcheron (Excel/CSV, format au 3.12) : colonne <b>Note</b> reprise dans le commentaire du billon, CSV français à virgule décimale acceptés.</li>
+<li><b>Mode vocal, cubage</b> : correction d'un champ (« note diamètre quarante-quatre »), réductions et commentaires à la voix, « précédent » pour rouvrir le dernier billon, « annule grume », « terminé » pour quitter (3.5).</li>
+<li><b>Mode vocal, sur pied</b> : « note tarif huit » change le tarif Chaudé ; nouveau mode vocal en <b>pied à pied numéroté</b> (diamètre, hauteur, tronçons de qualité) (5.2 et 5.3).</li>
+<li><b>Ajouter une essence ou une qualité</b> sur le terrain, dès la création du lot ; le code est proposé au bureau, qui peut l'ajouter au référentiel commun (3.2).</li>
+<li><b>Import d'inventaire</b> : colonne Note reprise dans le commentaire du billon, CSV d'Excel français acceptés (3.12).</li>
+<li>Rappel des versions 66-67 : commentaire par billon, longueur fixe par lot, mot de départ « note », fonctionnement hors ligne renforcé, fusion d'un lot reçu.</li>
 </ul>
 
 <h1>1. Installer l'application</h1>
@@ -104,10 +105,17 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
  (2, '<b>Propriétaire</b> : nom seul, tel qu\'il doit figurer sur le bordereau propriétaire (pas d\'adresse).'),
  (3, f'<b>Point GPS</b> : {B("📍 Relever la position")} (GPS du téléphone, sans réseau) ou {B("🗺 Placer sur la carte")} (réseau nécessaire). Voir 3.9.'),
  (4, '<b>Premier n° de grume</b> (n° de la première plaquette) : la numérotation continue ensuite toute seule.'),
- (5, '<b>Essences et qualités du lot</b> : touchez celles du chantier (vert = cochée). Seules celles-ci apparaîtront à la saisie ; le bouton + en ajoute en cours de route.'),
+ (5, '<b>Essences et qualités du lot</b> : touchez celles du chantier (vert = cochée). Seules celles-ci apparaîtront à la saisie. Le bouton <b>+</b> crée un code absent de la liste (voir ci-dessous).'),
  (6, '<b>Grille propriétaire</b> (prix d\'achat) : choisie dans le catalogue, ou « Aucune » pour la régler plus tard.'),
  (7, '<b>Grille client</b> (prix de vente par défaut du lot). Les deux grilles restent modifiables à tout moment (3.7).'),
  (8, '<b>Lot d\'essai / formation</b> : jamais envoyé sur le Sheet, à supprimer ensuite.')], side=False, w=62)}
+
+<h3>Ajouter une essence ou une qualité</h3>
+{fig(['t36_nouvelle_essence'], [
+ ('+', 'Le bouton <b>+</b> (pointillés) des essences ou des qualités ouvre cette fenêtre : tapez le <b>code</b> (ex. CHR, AUL, C+) puis {0}. Il est coché aussitôt dans le lot et reste disponible sur votre téléphone.'.format(B('Ajouter'))),
+ ('→', 'Le même bouton existe dans la fiche « Essences et qualités » du lot, sur l\'écran de saisie et dans la recoupe d\'un lot client.'),
+ ('✓', 'À la sauvegarde du lot, le code est <b>proposé au bureau</b>. S\'il le valide, il entre dans le référentiel commun et tous les téléphones le reçoivent avec {0}.'.format(B('⟳ Mettre à jour depuis le Sheet')))], w=50)}
+<div class="tip">Utilisez de préférence les codes existants : un code créé par erreur (faute de frappe) est lui aussi proposé au bureau, qui le refusera.</div>
 
 <h2>3.3 L'écran du lot</h2>
 <p>C'est le tableau de bord du chantier : volumes en tête, actions, sorties, puis la fiche du lot (modifiable).</p>
@@ -152,21 +160,46 @@ Il suffit de corriger la longueur une fois pour qu'elle serve aux billons suivan
 
 <h2>3.5 Mode vocal (cubage)</h2>
 {fig(['t40_vocal_grumes'], [
- ('▶', f'{B("🎤 Mode vocal")} lance l\'écoute. <b>Première fois</b> : avec du réseau, le téléphone télécharge le modèle de reconnaissance (42 Mo, une seule fois). Ensuite tout fonctionne <b>sans réseau</b> ; aucun son ne quitte le téléphone.'),
- ('●', 'Point rouge clignotant = à l\'écoute ; l\'essence, la qualité et le n° de grume en cours sont rappelés. Bip aigu = enregistré (le téléphone relit le billon), bip grave = non compris.'),
- ('?', '« Mots reconnus » : la façon de dire les essences et qualités du lot.')])}
-<p><b>Chaque phrase commence par « note »</b> (mot de départ, réglable dans Paramètres). Tout ce qui ne commence pas par « note » est ignoré : vous pouvez parler avec le bûcheron sans rien enregistrer.</p>
-<table><tr><th style="width:48%">Vous dites</th><th>L'application comprend</th></tr>
-<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon chêne, qualité CA, 10 m, Ø 50 (ordre : essence, qualité, longueur, diamètre)</td></tr>
-<tr><td>« note huit vingt par quarante-deux »</td><td>8,20 m × Ø 42, même essence et qualité que le billon précédent</td></tr>
+ (1, f'{B("🎤 Mode vocal")} lance l\'écoute (point rouge clignotant) ; l\'essence, la qualité et le n° de grume en cours sont rappelés. {B("Pause")} / {B("Arrêter")}. <b>Première fois</b> : avec du réseau, téléchargement du modèle de reconnaissance (42 Mo, une seule fois) ; ensuite tout fonctionne <b>sans réseau</b> et aucun son ne quitte le téléphone.'),
+ (2, 'Aide-mémoire des phrases (tableau ci-dessous).'),
+ (3, '« Mots reconnus » : la façon de dire les essences et qualités du lot.')], maxparts=1)}
+<h3>Le principe : dicter, vérifier, puis « billon suivant »</h3>
+<ol class="steps">
+<li>Dictez le billon d'une traite : <b>« note chêne, cé a, dix par cinquante »</b> (essence, qualité, longueur, diamètre). Il apparaît à l'écran comme <b>billon en cours</b>, rien n'est encore enregistré.</li>
+<li>Vérifiez sur l'écran (ou à l'écoute du bip). Corrigez si besoin : « note diamètre quarante-huit », « note longueur huit vingt ». Ajoutez si besoin une réduction ou un commentaire.</li>
+<li>Dites <b>« billon suivant »</b> : le billon est enregistré, le téléphone le relit (« cé a, dix mètres, cinquante ») et un nouveau billon de la même grume s'ouvre.</li>
+<li>Pour changer de grume, dites <b>« grume suivante »</b> : le billon en cours est enregistré, la grume est close et la suivante s'ouvre avec le numéro suivant.</li>
+</ol>
+{fig(['t42_vocal_billon_en_cours'], [
+ (1, 'Le bloc vocal affiche le <b>billon en cours</b> et rappelle de dire « billon suivant » pour l\'enregistrer.'),
+ (2, 'Le billon se remplit à l\'écran au fur et à mesure : qualité, longueur, diamètre, réduction (ici « note réduction longueur cinquante ») et commentaire (« note commentaire gélivure »).')], maxparts=1)}
+<p><b>Chaque phrase commence par « note »</b> (mot de départ, réglable dans Paramètres) : tout le reste est ignoré, vous pouvez parler avec le bûcheron sans rien enregistrer.
+Exception : les commandes d'enregistrement et de navigation se disent <b>seules</b>, sans « note ».</p>
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td colspan="2" class="grp">Dicter un billon</td></tr>
+<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon en cours : chêne, CA, 10 m, Ø 50</td></tr>
+<tr><td>« note huit vingt par quarante-deux »</td><td>8,20 m × Ø 42, essence et qualité du billon précédent</td></tr>
 <tr><td>« note cé bé, quatre et demi par quarante-quatre »</td><td>Qualité CB, 4,50 m × Ø 44 (essence conservée)</td></tr>
-<tr><td>« note suivante »</td><td>Grume suivante (numéro automatique)</td></tr>
-<tr><td>« note numéro cent douze »</td><td>Force le n° de grume 112</td></tr>
-<tr><td>« note annule »</td><td>Retire le dernier billon (ou rouvre la grume qu'on vient de clore)</td></tr>
+<tr><td>« note diamètre quarante-huit » · « note longueur neuf »</td><td>Corrige un seul champ du billon en cours</td></tr>
+<tr><td>« note réduction longueur cinquante » · « note réduction diamètre deux »</td><td>Réduction de 50 cm sur la longueur / 2 cm sur le diamètre</td></tr>
+<tr><td>« note commentaire gélivure »</td><td>Commentaire avec un mot de la liste (gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve)</td></tr>
+<tr><td>« note commentaire » … puis la phrase</td><td>Commentaire libre : dictez la phrase dans les 12 secondes</td></tr>
+<tr><td colspan="2" class="grp">Enregistrer et naviguer (sans « note »)</td></tr>
+<tr><td>« billon suivant » ou « suivant »</td><td><b>Enregistre</b> le billon en cours et ouvre le billon suivant de la même grume</td></tr>
+<tr><td>« grume suivante » ou « suivante » ou « arbre suivant »</td><td>Enregistre le billon en cours, clôt la grume, passe au numéro suivant</td></tr>
+<tr><td>« précédent »</td><td>Rouvre le dernier billon enregistré pour le corriger (puis « suivant » pour le réenregistrer)</td></tr>
+<tr><td>« terminé »</td><td>Quitte l'écran de saisie (refusé si un billon est entamé)</td></tr>
+<tr><td colspan="2" class="grp">Annuler et autres commandes</td></tr>
+<tr><td>« note annule »</td><td>Efface le billon en cours ; s'il est vide, retire le dernier billon enregistré de la grume</td></tr>
+<tr><td>« note annule commentaire » · « note annule réduction »</td><td>Retire le commentaire / la réduction du billon en cours</td></tr>
+<tr><td>« note annule grume »</td><td>Vide la grume en cours ; si elle est déjà vide, rouvre la grume précédente</td></tr>
+<tr><td>« note numéro cent douze »</td><td>Change le n° de la grume en cours (112)</td></tr>
 <tr><td>« note pause » / « note reprise »</td><td>Suspend / reprend l'écoute</td></tr></table>
 <ul><li>« par » sépare la longueur du diamètre. Sans « par », le dernier nombre est le diamètre. Longueurs : « huit » = 8 m, « huit vingt » = 8,20, « huit et demi », « huit virgule vingt-cinq ».</li>
 <li>Qualités lettre par lettre : CA « cé a », CB « cé bé », CX « cé ixe », CXX « cé double ixe », ST « esse té », PA « pé a » ; « avivé » se dit « avive ». Le merrain n'est pas encore reconnu.</li>
+<li>Avec la <b>longueur fixe</b> (3.4), la longueur est reprise : il suffit de dicter « note quarante-six » puis « suivant ».</li>
 <li>Écran allumé (verrouillé, le micro se coupe) ; par vent fort, une oreillette ou un micro Bluetooth aide beaucoup.</li></ul>
+<div class="warn">Un billon dicté mais jamais suivi de « billon suivant » ou « grume suivante » n'est <b>pas enregistré</b>. Avant de quitter, vérifiez que le bloc vocal n'affiche plus « Billon en cours » (« terminé » refuse de quitter dans ce cas).</div>
 
 <h2>3.6 Sous-lots (destinations client)</h2>
 <p>Un sous-lot = une destination (nom, client, grille client éventuelle). On affecte les grumes pendant la saisie (repère {NUM(4)} de la saisie) ou après coup.</p>
@@ -278,15 +311,46 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
  ('b', '<b>Tarif Chaudé</b> de l\'essence : − / +.'),
  ('c', 'Un appui sur une <b>classe de diamètre</b> (à 1,30 m, pas de 5 cm par défaut) = une tige. La pastille indique le nombre de tiges de la classe.'),
  ('d', f'{B("Annuler dernière")} retire la dernière tige pointée.')])}
-<p>Mode vocal sur pied (même principe, mot de départ « note ») : « note chêne quarante » (essence + classe), « note trente-cinq » (classe seule, essence conservée), « note chêne » (change l'essence sans compter), « note annule ». Le téléphone annonce l'essence quand elle change.</p>
-{fig(['t41_vocal_pied'], [('🎤','Mode vocal sur pied : rappel des phrases et des noms d\'essences reconnus.')], w=50)}
-<h2>5.3 Hauteurs par classe et tronçons de qualité</h2>
+<h3>Mode vocal (pointage par classes)</h3>
+<p>Même principe que le cubage, chaque phrase commence par « note ». Ici, <b>chaque phrase compte une tige aussitôt</b> (pas de « suivant »).</p>
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td>« note chêne quarante »</td><td>Une tige de chêne en classe 40</td></tr>
+<tr><td>« note trente-cinq »</td><td>Une tige en classe 35, essence conservée</td></tr>
+<tr><td>« note chêne »</td><td>Change l'essence sans compter (le téléphone l'annonce)</td></tr>
+<tr><td>« note tarif onze »</td><td>Tarif Chaudé 11 pour l'essence en cours (1 à 20) <span class="pill new">nouveau</span></td></tr>
+<tr><td>« note annule »</td><td>Retire la dernière tige</td></tr>
+<tr><td>« terminé » (sans « note »)</td><td>Quitte l'écran de saisie <span class="pill new">nouveau</span></td></tr></table>
+{fig(['t41_vocal_pied'], [('🎤','Mode vocal en pointage par classes : rappel des phrases et des essences reconnues.')], w=50)}
+
+<h2>5.3 Pied à pied numéroté (et sa dictée)</h2>
+<p>En mode <b>pied à pied numéroté</b>, chaque arbre porte un numéro, son diamètre à 1,30 m, sa hauteur, son tarif et, si besoin, ses tronçons de qualité du bas vers le haut ; le reste de la tige est compté en « BI ». Au clavier : remplir les champs puis {B('Ajouter ›')}.
+Le <b>mode vocal</b> y est désormais disponible <span class="pill new">nouveau</span> et fonctionne comme le cubage : l'arbre se remplit à l'écran, puis <b>« suivant »</b> l'enregistre.</p>
+{fig(['t43_vocal_pied_a_pied'], [
+ (1, 'Le bloc vocal affiche l\'<b>arbre en cours</b> et rappelle de dire « suivant » pour l\'enregistrer.'),
+ (2, '<b>Diamètre</b> à 1,30 m (cm).'),
+ (3, '<b>Hauteur</b> (m).'),
+ (4, '<b>Tronçons de qualité</b> dictés (ici 6 m en CA) ; le reste jusqu\'à la hauteur est compté en « BI ».')], maxparts=1)}
+<table><tr><th style="width:46%">Vous dites</th><th>L'application fait</th></tr>
+<tr><td>« note chêne quarante-cinq par seize »</td><td>Arbre en cours : chêne, Ø 45 cm, hauteur 16 m</td></tr>
+<tr><td>« note hauteur dix-huit virgule cinq » · « note diamètre cinquante »</td><td>Corrige un seul champ</td></tr>
+<tr><td>« note tarif dix »</td><td>Tarif Chaudé 10 pour l'essence</td></tr>
+<tr><td>« note tronçon six cé a » (ou « note cé a six »)</td><td>Tronçon de 6 m en CA, à la suite des précédents (du bas vers le haut)</td></tr>
+<tr><td>« note tronçon quatre » puis « note cé bé »</td><td>Tronçon de 4 m, qualité donnée juste après</td></tr>
+<tr><td>« note annule tronçon »</td><td>Retire le dernier tronçon</td></tr>
+<tr><td>« suivant » (sans « note »)</td><td><b>Enregistre</b> l'arbre (le téléphone annonce son numéro et le suivant)</td></tr>
+<tr><td>« précédent »</td><td>Rouvre le dernier arbre enregistré pour le corriger</td></tr>
+<tr><td>« note annule »</td><td>Efface l'arbre en cours (s'il est vide : supprime le dernier enregistré)</td></tr>
+<tr><td>« note annule arbre »</td><td>Supprime le dernier arbre enregistré</td></tr>
+<tr><td>« note numéro deux cents »</td><td>Change le n° de l'arbre en cours</td></tr>
+<tr><td>« terminé »</td><td>Quitte l'écran (refusé si un arbre est entamé)</td></tr></table>
+<div class="warn">En dictée pied à pied, quand vous changez d'essence (« note hêtre trente par quatorze »), vérifiez le tarif affiché : l'arbre garde actuellement le tarif de l'essence précédente. Dites « note tarif … » si besoin.</div>
+<h2>5.4 Hauteurs par classe et tronçons de qualité</h2>
 {fig(['t33_hauteurs'], [
  ('H', 'Pour chaque essence × classe : la <b>hauteur</b> (m) appliquée aux tiges sans hauteur propre.'),
  ('T', f'{B("+ Ajouter un tronçon")} : tronçons de qualité du bas vers le haut (hauteur + qualité). Le reste jusqu\'à la hauteur totale est compté en « BI » (code réglable).'),
  ('!', 'La somme des tronçons ne peut pas dépasser la hauteur : un message rouge s\'affiche et la ligne n\'est pas enregistrée.')], w=50, maxparts=2)}
 <div class="tip">Les tiges sans hauteur apparaissent « sans H » dans le récapitulatif et ne sont pas cubées : renseignez toutes les classes.</div>
-<h2>5.4 Récapitulatif et tarifs</h2>
+<h2>5.5 Récapitulatif et tarifs</h2>
 {fig(['t34_recap_pied','t35_tarifs'], [
  ('R', 'Récapitulatif : par essence et classe (tiges, hauteur moyenne, m³), par essence et qualité, par tranche de prix de la grille, puis par essence, qualité et classe. PDF et Excel en bas.'),
  ('T', f'{B("Tarifs Chaudé")} : tarif de toute l\'essence ou classe par classe (affichage en classes de diamètre ou de circonférence). Le tarif choisi devient celui proposé pour les tiges suivantes de l\'essence.')], w=50, maxparts=1)}
@@ -305,7 +369,9 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 <tr><td>« Module PDF (ou Excel) non chargé »</td><td>Ouvrir une fois l'application avec du réseau : les modules se mettent en mémoire.</td></tr>
 <tr><td>« Fond de carte non chargé »</td><td>La carte demande du réseau ; sans réseau, utilisez {B('📍 Relever la position')}.</td></tr>
 <tr><td>« Accès à la position refusé »</td><td>Réglages du téléphone › Safari / Chrome › Position : autoriser.</td></tr>
-<tr><td>Le mode vocal n'enregistre rien</td><td>Commencez chaque phrase par « note ». Vérifiez le point rouge (pas en pause), l'accès au micro, et parlez plus près du téléphone.</td></tr>
+<tr><td>Le mode vocal ne réagit pas</td><td>Commencez chaque phrase par « note ». Vérifiez le point rouge (pas en pause), l'accès au micro, et parlez plus près du téléphone.</td></tr>
+<tr><td>Billon dicté absent du listing</td><td>Il n'a pas été enregistré : en cubage, il faut dire « billon suivant » (ou « suivant », « grume suivante ») après chaque billon.</td></tr>
+<tr><td>Commentaire mal compris</td><td>Utilisez les mots de la liste (« note commentaire gélivure ») ; la liste se complète dans Paramètres › Mode vocal. Le commentaire libre (« note commentaire » puis la phrase) est moins fiable.</td></tr>
 <tr><td>Mot d'essence non reconnu</td><td>Seuls les mots du vocabulaire français du modèle passent (aulne → « aune », robinier → « acacia », laricio → « pin corse »). Ajouter des mots : Paramètres › Mode vocal, ou demander au bureau (colonne mots_vocaux du Sheet).</td></tr>
 <tr><td>Le n° Xylolink manque (bordure rouge)</td><td>Le renseigner dans la fiche du lot avant de sauvegarder.</td></tr>
 <tr><td>Lot en lecture seule</td><td>Lot envoyé à un collègue ou copie du Sheet : {B('Reprendre la main')} si c'est bien vous qui devez le modifier.</td></tr>
@@ -317,7 +383,7 @@ Majuscules, accents, espaces et ponctuation des titres sont ignorés (« N° gru
 {fig(['t50_parametres'], [
  ('a', '<b>Référentiel</b> : essences, qualités, pas et bornes des classes (reçus du Sheet).'),
  ('b', '<b>Saisie</b> : qualité du 1<sup>er</sup> billon (reprise ou vide), saisie du diamètre sur pied (boutons de classes ou au cm), code du reste de tige (BI).'),
- ('c', '<b>Mode vocal</b> : mots pour les essences et les qualités, <b>mot de départ</b> (« note » ; vide = aucun), rejet des phrases mal comprises (recommandé), annonce de l\'essence à voix haute.'),
+ ('c', '<b>Mode vocal</b> : mots pour les essences et les qualités, <b>mots de commentaire</b> reconnus (gélivure, pourriture, roulure… à compléter), <b>mot de départ</b> (« note » ; vide = aucun), rejet des phrases mal comprises (recommandé), annonce de l\'essence à voix haute.'),
  ('d', '<b>Synchronisation</b> : opérateur, adresse du script et clé (remplis par le lien de configuration), « Coller le lien de configuration ».'),
  ('e', '<b>Changement de téléphone</b>, <b>remise à zéro</b> du téléphone (supprime les lots du téléphone, pas ceux du Sheet), <b>copie de secours</b> (Exporter / Importer JSON).')], w=56, side=False)}
 ''')
@@ -344,6 +410,7 @@ U.append(f'''
 <tr><td>Valider une vente proposée par un technicien</td><td>Bureau › {B('Lots clients de l’entreprise')} › ouvrir › {B('Valider la vente')} (5.3)</td></tr>
 <tr><td>Éditer un bordereau propriétaire ou client</td><td>Bureau › {B('Lots des techniciens')} › ouvrir le lot › Sorties (5.4)</td></tr>
 <tr><td>Vendre des billons de plusieurs techniciens</td><td>Bureau › {B('Lot client multi-techniciens')} (5.5)</td></tr>
+<tr><td>Valider une essence ou une qualité créée sur le terrain</td><td>Bureau › {B('Essences et qualités proposées')} (5.7)</td></tr>
 <tr><td>Publier ou modifier une grille de prix</td><td>Bureau › {B('Grilles de prix communes')} (5.6)</td></tr>
 <tr><td>Contrôle, rapprochement Xylolink</td><td>Google Sheet, onglet <code>BILLON</code> (chapitre 8)</td></tr></table>
 <h2>Nouveautés depuis la version 63</h2>
@@ -353,7 +420,9 @@ U.append(f'''
 <li><b>Mode vocal</b> : mot de départ « note » et rejet des phrases mal comprises, réglables par téléphone.</li>
 <li><b>Hors ligne</b> : les téléphones ouvrent leur propre copie de l'application si GitHub est en panne, supprimé ou lent ; une fois installée, l'application demande un stockage persistant (lots et application non effacés en cas de manque de place).</li>
 <li><b>Import d'inventaire</b> : colonne Note/Commentaire reprise, CSV d'Excel français (virgule décimale) correctement lus.</li>
-<li>Script du Sheet inchangé : <b>version {SCRIPT}</b>.</li></ul>
+<li><b>Essences et qualités proposées</b> (v81, script 3.2) : les codes créés par les techniciens arrivent dans l'onglet PROPOSITIONS et se valident depuis l'espace Bureau (5.7).</li>
+<li><b>Script 3.1</b> : numéros de grumes et de billons écrits en texte (le Sheet ne les transforme plus en dates). <b>Script 3.3</b> : la colonne « mots_vocaux » est reconnue ; à défaut, la colonne « libellé » des onglets ESSENCES / QUALITES sert de mot vocal.</li>
+<li>Script du Sheet à installer : <b>version {SCRIPT}</b> (3.2).</li></ul>
 
 <h1>1. Comment c'est construit</h1>
 <table><tr><th style="width:22%">Élément</th><th style="width:26%">Où</th><th>Rôle</th></tr>
@@ -386,7 +455,7 @@ U.append(f'''
 <h2>3.2 Mettre à jour le script</h2>
 <ol class="steps"><li>Récupérer <code>sync.gs</code> sur GitHub (la première ligne indique la version), remplacer le code dans Apps Script en <b>conservant vos constantes</b> <code>CLE</code> / <code>CLE_BUREAU</code>.</li>
 <li><b>Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer</b>. L'adresse <code>/exec</code> ne change pas : rien à refaire sur les téléphones.</li></ol>
-<p>Version {SCRIPT} : action <code>setLotGps</code> (point GPS placé depuis le bureau). Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>, <code>commentaire</code>…) se créent d'elles-mêmes à la première sauvegarde.</p>
+<p>Version {SCRIPT} : actions <code>setLotGps</code> (point GPS placé depuis le bureau), <code>propositions</code> / <code>setProposition</code> (codes proposés, 5.7) ; identifiants écrits en texte. Les colonnes ajoutées par l'application (<code>proprietaire</code>, <code>grille_client</code>, <code>prix_vente_m3</code>, <code>montant_vente</code>, <code>commentaire</code>…) se créent d'elles-mêmes à la première sauvegarde.</p>
 <h2>3.3 Mettre à jour l'application</h2>
 <p>Une modification sur la branche <code>main</code> du dépôt est en ligne en une à deux minutes. Les téléphones la prennent à la prochaine ouverture avec du réseau ; le numéro de version est en bas de l'accueil (actuellement {VERSION}). Le mode vocal (<code>vendor/</code>, <code>models/</code>) n'est téléchargé qu'à la première activation.</p>
 
@@ -437,6 +506,12 @@ U.append(f'''
  ('b', f'Édition : nom, puis une ligne par règle ({B("+ Ligne")}) — essence, qualité, Ø min, Ø max, prix €/m³. {B("Enregistrer sur le Sheet")} publie la grille (onglet GRILLES) ; les techniciens la reçoivent à leur prochaine mise à jour.')], w=140, side=False)}
 <p>Une grille commune supprimée disparaît des téléphones ; les copies faites dans les lots sont conservées. Convention de nommage conseillée : « Achat … » pour les grilles propriétaire, « Vente … » pour les grilles client, avec l'année ou la saison.</p>
 
+<h2>5.7 Essences et qualités proposées</h2>
+<p>Un technicien peut créer un code d'essence ou de qualité sur son téléphone (bouton + du lot). À la sauvegarde de son lot, le code est inscrit dans l'onglet <code>PROPOSITIONS</code> du Sheet et apparaît ici.</p>
+{fig(['b15_propositions'], [
+ (1, 'Mot(s) pour le mode vocal (facultatif) : la façon de dire le code (ex. « chêne rouge » pour CHR).'),
+ (2, f'{B("Valider (ajouter au Sheet)")} : le code entre dans l\'onglet ESSENCES ou QUALITES ; tous les téléphones le reçoivent à leur prochaine mise à jour. {B("Refuser")} le laisse propre au téléphone qui l\'a créé (faute de frappe, doublon).')], w=140, side=False)}
+
 <h1>6. Grilles de prix : propriétaire, client, catalogue et copies</h1>
 <table><tr><th style="width:24%">Niveau</th><th>Grille propriétaire (achat)</th><th>Grille client (vente)</th></tr>
 <tr><td>Lot de cubage</td><td>Une grille : catalogue ou copie propre au lot</td><td>Une grille par défaut : catalogue ou copie propre au lot</td></tr>
@@ -463,6 +538,7 @@ U.append(f'''
 <tr><td><code>CLASSES</code></td><td>Pas des classes de diamètre (5 cm), bornes, pas particulier par essence.</td></tr>
 <tr><td><code>GRILLES</code></td><td>code, nom, type (grumes / pied), essence, qualité, Ø min, Ø max, prix €/m³ — une ligne par règle.</td></tr>
 <tr><td><code>DMM</code></td><td>Barème Chaudé (facultatif ; sinon barème intégré).</td></tr>
+<tr><td><code>PROPOSITIONS</code></td><td>Codes créés sur le terrain : type, code, operateur, lot, date, statut (propose / valide / refuse), traite_le.</td></tr>
 <tr><td><code>CLES</code></td><td>cle, operateur, role, actif, cree_le, note (géré depuis Bureau › Clés).</td></tr>
 <tr><td><code>LOT</code>, <code>SOUS_LOT</code></td><td>Une ligne par lot (type, n° Xylolink, chantier, propriétaire, commune, GPS, date, opérateur, grilles, volume) ; sous-lots.</td></tr>
 <tr><td><code>GRUME</code> / <code>BILLON</code></td><td>Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>

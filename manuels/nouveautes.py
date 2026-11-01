@@ -1,0 +1,95 @@
+# Note de version : ce qui change entre la version du dernier guide et la version actuelle.
+# Usage : python3 nouveautes.py && python3 build.py
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+D = os.path.dirname(os.path.abspath(__file__))
+from gen import fig, B
+AVANT, APRES, DATE = '67', '81', '1er novembre 2026'
+body = f'''
+<div class="head"><img src="logo.png"><div><div class="t">Cubage SBF · Ce qui change</div>
+<div class="s">Version {AVANT} (guide du 29 octobre) → version {APRES} · {DATE}</div></div></div>
+
+<h2 class="top">À retenir en 30 secondes</h2>
+<table class="key"><tr><td class="k">1</td><td><b>Mode vocal du cubage : dites « billon suivant » après chaque billon.</b> Le billon dicté s'affiche « en cours » et n'est enregistré qu'à ce moment-là (ou avec « grume suivante »). Sans cela, il n'est pas enregistré.</td></tr>
+<tr><td class="k">2</td><td><b>Corriger, réduire, commenter à la voix</b> sans toucher l'écran : « note diamètre quarante-huit », « note réduction longueur cinquante », « note commentaire gélivure », « précédent » pour rouvrir le dernier billon.</td></tr>
+<tr><td class="k">3</td><td><b>Nouvelle essence ou qualité ?</b> Bouton <b>+</b> dès la création du lot. Le code est proposé au bureau, qui l'ajoute pour tout le monde.</td></tr></table>
+<p class="small">La mise à jour est automatique : ouvrez l'application avec du réseau, le bas de l'accueil doit afficher <b>Version {APRES}</b>. Rien à réinstaller, vos lots sont conservés.</p>
+
+<h1>1. Mode vocal du cubage : nouveau fonctionnement</h1>
+<table><tr><th style="width:20%"></th><th style="width:40%">Avant (version {AVANT})</th><th>Maintenant (version {APRES})</th></tr>
+<tr><td><b>Enregistrement</b></td><td>Chaque billon dicté était enregistré aussitôt.</td><td>Le billon dicté est <b>en cours</b>, visible à l'écran ; il est enregistré par <b>« billon suivant »</b> (ou « suivant »).</td></tr>
+<tr><td><b>Changer de grume</b></td><td>« note suivante »</td><td><b>« grume suivante »</b> (ou « suivante », « arbre suivant »), <b>sans « note »</b> ; enregistre aussi le billon en cours.</td></tr>
+<tr><td><b>Corriger</b></td><td>« note annule » puis redicter tout le billon.</td><td>« note diamètre … » ou « note longueur … » corrige un seul champ ; <b>« précédent »</b> rouvre le dernier billon enregistré.</td></tr>
+<tr><td><b>Annuler</b></td><td>« note annule » retirait le dernier billon ou rouvrait la grume.</td><td>« note annule » efface le billon <b>en cours</b> (ou, s'il est vide, le dernier enregistré) ; <b>« note annule grume »</b> vide la grume (ou rouvre la précédente).</td></tr>
+<tr><td><b>Réduction</b></td><td>Au clavier seulement.</td><td>« note réduction longueur cinquante », « note réduction diamètre deux » ; « note annule réduction ».</td></tr>
+<tr><td><b>Commentaire</b></td><td>Au clavier seulement.</td><td>« note commentaire gélivure » (mot de la liste) ou « note commentaire » puis une phrase libre ; « note annule commentaire ».</td></tr>
+<tr><td><b>Quitter</b></td><td>Bouton Terminer.</td><td>« terminé » (refusé si un billon est en cours).</td></tr></table>
+{fig(['t42_vocal_billon_en_cours'], [
+ (1, 'Le bloc vocal affiche le billon en cours et rappelle de dire « billon suivant ».'),
+ (2, 'Le billon se remplit à l\'écran : qualité, longueur, diamètre, réduction, commentaire.')], maxparts=1, w=52)}
+<h3>Exemple d'une grume de deux billons</h3>
+<table class="ex"><tr><th style="width:48%">Vous dites</th><th>Ce qui se passe</th></tr>
+<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon en cours : CH, CA, 10 m, Ø 50 (rien d'enregistré)</td></tr>
+<tr><td>« billon suivant »</td><td>Billon 140.1 enregistré, relu à voix haute ; le billon 140.2 s'ouvre</td></tr>
+<tr><td>« note cé bé, huit vingt par quarante-deux »</td><td>Billon en cours : CB, 8,20 m, Ø 42</td></tr>
+<tr><td>« note réduction longueur cinquante » · « note commentaire gélivure »</td><td>Réduction 50 cm et commentaire ajoutés au billon en cours</td></tr>
+<tr><td>« note diamètre quarante »</td><td>Diamètre corrigé : Ø 40</td></tr>
+<tr><td>« grume suivante »</td><td>Billon 140.2 enregistré, grume 140 close, grume 141 ouverte</td></tr></table>
+<p class="small">Exemple rejoué tel quel dans l'application version {APRES}. Les mots de commentaire reconnus par défaut : gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve (liste modifiable dans Paramètres › Mode vocal).</p>
+
+<h1>2. Mode vocal sur pied</h1>
+<ul><li><b>Pointage par classes</b> : « note tarif onze » change le tarif Chaudé de l'essence en cours ; « terminé » quitte l'écran. Le reste ne change pas (chaque phrase compte une tige).</li>
+<li><b>Pied à pied numéroté : le mode vocal est nouveau.</b> Même principe que le cubage : l'arbre se remplit puis « suivant » l'enregistre.</li></ul>
+<table class="ex"><tr><th style="width:48%">Vous dites</th><th>Ce qui se passe</th></tr>
+<tr><td>« note chêne quarante-cinq par seize »</td><td>Arbre en cours : CH, Ø 45, hauteur 16 m</td></tr>
+<tr><td>« note tronçon six cé a » · « note tronçon quatre » puis « note cé bé »</td><td>Tronçons 6 m CA puis 4 m CB (du bas vers le haut) ; le reste compte en BI</td></tr>
+<tr><td>« note tarif dix » · « note hauteur dix-huit virgule cinq »</td><td>Tarif Chaudé 10 ; hauteur corrigée à 18,5 m</td></tr>
+<tr><td>« suivant » · « précédent »</td><td>Enregistre l'arbre · rouvre le dernier arbre enregistré</td></tr>
+<tr><td>« note annule tronçon » · « note annule arbre »</td><td>Retire le dernier tronçon · supprime le dernier arbre enregistré</td></tr></table>
+
+<h1>3. Ajouter une essence ou une qualité sur le terrain</h1>
+{fig(['t36_nouvelle_essence'], [
+ ('+', 'Le bouton <b>+</b> existe maintenant dès la <b>création du lot</b>, dans la fiche « Essences et qualités » du lot et dans la <b>recoupe</b> d\'un lot client (il existait déjà sur l\'écran de saisie).'),
+ ('✓', 'À la sauvegarde du lot, le code est <b>proposé au bureau</b>. Une fois validé, tous les téléphones le reçoivent avec « Mettre à jour depuis le Sheet » ; en attendant il reste utilisable sur votre téléphone.')], w=48)}
+
+<h1>4. Import d'inventaire de bûcheron (version 67)</h1>
+<ul><li>Colonne <b>Note</b> (ou Commentaire, Observation, Remarque) reprise dans le commentaire du billon.</li>
+<li>Les CSV enregistrés par Excel en français (« 8,20 », accents) sont lus correctement ; auparavant « 8,20 » donnait 820 m.</li>
+<li>Modèle à jour : <code>modele-import-inventaire.xlsx</code> (avec colonne note).</li></ul>
+
+<h1>5. Côté bureau</h1>
+<ul><li><b>Installer le script du Sheet version 3.3</b> (Apps Script › Gérer les déploiements › Nouvelle version) : sans lui, les codes proposés par les techniciens ne remontent pas.</li>
+<li>Nouvelle tuile <b>Essences et qualités proposées</b> : valider (avec le mot à dire pour le mode vocal) ou refuser.</li>
+<li>Les numéros de grumes et de billons ne sont plus transformés en dates par le Sheet (script 3.1) ; les anciennes lignes concernées sont remises en forme à l'affichage dans l'espace Bureau.</li>
+<li>Mode vocal : la colonne « mots_vocaux » des onglets ESSENCES / QUALITES est désormais bien prise en compte ; à défaut, la colonne « libellé » sert de mot vocal.</li></ul>
+
+<h1>6. Point d'attention connu</h1>
+<div class="warn">En dictée <b>pied à pied numéroté</b>, quand on change d'essence à la voix (« note hêtre trente par quatorze »), l'arbre garde le tarif Chaudé de l'essence précédente. Vérifiez le tarif affiché et dites « note tarif … » si besoin.</div>
+
+<h1>7. Détail des versions</h1>
+<table class="ver"><tr><th style="width:9%">Version</th><th>Changement</th></tr>
+<tr><td>68</td><td>Bureau : numéros de billons transformés en dates par le Sheet remis en forme (script 3.1 : identifiants écrits en texte).</td></tr>
+<tr><td>69</td><td>Vocal cubage : enregistrement par « billon suivant » / « grume suivante » ; correction « longueur … » / « diamètre … ».</td></tr>
+<tr><td>70-71</td><td>« billon suivant », « grume suivante », « suivant », « suivante », « arbre suivant » acceptés sans « note ».</td></tr>
+<tr><td>72</td><td>« précédent » rouvre le dernier billon enregistré.</td></tr>
+<tr><td>73</td><td>« annule » ne touche que le billon ; « annule grume » vide la grume en cours.</td></tr>
+<tr><td>74-75</td><td>Réductions et commentaires à la voix ; « annule commentaire », « annule réduction ».</td></tr>
+<tr><td>76</td><td>Sur pied : « tarif huit » change le tarif Chaudé.</td></tr>
+<tr><td>77-78</td><td>Mode vocal en pied à pied numéroté (diamètre, hauteur, tarif, tronçons, numéro, suivant / précédent / annule).</td></tr>
+<tr><td>79</td><td>« terminé » quitte l'écran de saisie.</td></tr>
+<tr><td>80</td><td>Ajout d'une essence ou d'une qualité depuis la création de lot, la fiche essences/qualités et la recoupe.</td></tr>
+<tr><td>81</td><td>Codes créés sur le terrain proposés au bureau et validés depuis l'espace Bureau (script 3.2, puis 3.3).</td></tr></table>
+<p class="small">Le guide du technicien terrain version {APRES} intègre l'ensemble de ces changements (sections 3.2, 3.5, 5.2, 5.3, 6.3 et 7).</p>
+'''
+html = f'''<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Ce qui change (v{AVANT} → v{APRES})</title>
+<link rel="stylesheet" href="style.css"><style>
+.head {{ display:flex; align-items:center; gap:14px; border-bottom:2.5px solid #cd8a63; padding-bottom:8px; margin-bottom:8px; }}
+.head img {{ width:58mm; }} .head .t {{ font-size:19pt; font-weight:bold; color:#37485a; }} .head .s {{ color:#cd8a63; font-size:11pt; }}
+h2.top {{ margin-top:10px; }}
+h1 {{ page-break-before: avoid !important; font-size:15pt; margin:18px 0 8px; }}
+table {{ page-break-inside: auto !important; }} tr {{ page-break-inside: avoid; }}
+table.key td {{ border-bottom:1px solid #e3e6e9; font-size:10.5pt; padding:6px; }}
+table.key td.k {{ width:26px; }} table.key td.k {{ font-weight:bold; color:#fff; background:#d9480f; text-align:center; border-radius:4px; }}
+</style></head><body>{body}</body></html>'''
+open(os.path.join(D, 'nouveautes.html'), 'w').write(html)
+print('nouveautes.html')
