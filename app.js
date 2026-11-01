@@ -358,9 +358,11 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
         if(!f.billons.length||f.billons.some(vide))return false;const n=l.grumes.length;const b=$('#ok');if(b)b.click();
         if(l.grumes.length>n){const g=l.grumes[l.grumes.length-1];S.vocalGrume=g.id;voirElement(null);return String(S.form.g?S.form.g.num:nextNum(l));}return false;},
       onNumero:n=>{const s=String(n).replace(/\D/g,'');if(!s||s.length>10)return false;if(l.grumes.find(x=>String(x.num)===s)){toast('N° '+s+' déjà utilisé');return false;}f.num=s;const i=$('#num');if(i)i.value=s;voirElement(null);return true;},
-      onAnnule:()=>{const idx=f.billons.map(vide).lastIndexOf(false);
+      onAnnule:(scope)=>{const idx=f.billons.map(vide).lastIndexOf(false);
+        if(scope==='grume'){if(idx>=0){const q=f.billons[0].q;f.billons.length=0;f.billons.push({rang:1,lm:null,d:null,q});render();voirElement(null);return 'grume '+f.num+' vidée';}
+          const g=l.grumes[l.grumes.length-1];if(g&&S.vocalGrume===g.id){l.grumes.pop();S.vocalGrume=null;S.form.g={num:g.num,ess:g.ess,sl:f.sl,billons:g.billons.map(x=>({...x}))};save();render();voirElement('.card[data-b="'+(g.billons.length-1)+'"]');return 'grume '+g.num+' rouverte';}
+          return false;}
         if(idx>=0){const b=f.billons[idx];f.billons.splice(idx,1);if(!f.billons.length)f.billons.push({rang:1,lm:null,d:null,q:b.q});f.billons.forEach((x,i)=>x.rang=i+1);render();voirElement('.card[data-b="'+(f.billons.length-1)+'"]');return 'billon '+f.num+'.'+(idx+1);}
-        const g=l.grumes[l.grumes.length-1];if(g&&S.vocalGrume===g.id){l.grumes.pop();S.vocalGrume=null;S.form.g={num:g.num,ess:g.ess,sl:f.sl,billons:g.billons.map(x=>({...x}))};save();render();voirElement('.card[data-b="'+(g.billons.length-1)+'"]');return 'grume '+g.num+' rouverte';}
         return false;}});}};
 
 /* --- Saisie sur pied --- */

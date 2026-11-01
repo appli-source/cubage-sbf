@@ -82,10 +82,10 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('par',{k:'par'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
     for(const w of Object.keys(CMD))lex.set(w,{k:'cmd',v:CMD[w]});
     lex.set('billon suivant',{k:'cmd',v:'billon'});lex.set('billon',{k:'cmd',v:'billon'});lex.set('grume suivante',{k:'cmd',v:'suivante'});lex.set('grume',{k:'cmd',v:'suivante'});lex.set('arbre suivant',{k:'cmd',v:'suivante'});lex.set('arbre',{k:'cmd',v:'suivante'});
-    lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
+    lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
     phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
-    phrases.push('billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
+    phrases.push('billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
   for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
@@ -174,6 +174,7 @@ function traiter(text,conf){let t=norm(text);if(!t)return;try{console.debug('voc
   // Commandes d'enregistrement dites seules (« billon suivant », « grume suivante ») : acceptées sans le mot de départ,
   // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation. « grume » n'est pas
   // connu du moteur (il ressort en mot inconnu) : « suivante » seul ou « arbre suivant » font la même chose.
+  t=t.replace(/\b(annule|annuler|efface|erreur) \[unk\]/g,'$1 grume'); // « grume » inconnu du moteur après « annule »
   const seule=t.replace(/\[unk\]/g,'').replace(/\s+/g,' ').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante','billon précédent':'précédent','précédent':'précédent','retour':'précédent'};
   const cmdSeule=!!SANS[seule]&&(V.hook&&V.hook.mode==='grumes');
   // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
@@ -263,8 +264,12 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(
       if(e.v==='suivante'){if(D.L!=null||D.d!=null){if(!enregistrer())continue;}
         const r=h()&&h().onSuivante&&h().onSuivante();
         if(r){D.L=null;D.d=null;faits.push('→ grume '+r);bipEss();vibrer([30,60,30]);dire('grume '+nombre(Number(r)||0));}else{faits.push('grume non enregistrée');bipErr();}continue;}
-      if(e.v==='annule'){if(D.L!=null||D.d!=null){D.L=null;D.d=null;montrer();faits.push('billon en cours effacé');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule();
-        if(r){faits.push('annulé : '+r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler');bipErr();}continue;}}}
+      if(e.v==='annule'){ // « annule » / « annule billon » : billon en cours s'il est entamé, sinon dernier billon enregistré de cette grume
+        if(D.L!=null||D.d!=null){D.L=null;D.d=null;montrer();faits.push('billon en cours effacé');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule('billon');
+        if(r){faits.push('annulé : '+r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler dans cette grume');bipErr();}continue;}
+      if(e.v==='annuleG'){ // « annule grume » : vide la grume en cours ; si elle est vide, rouvre la grume précédente
+        D.L=null;D.d=null;const r=h()&&h().onAnnule&&h().onAnnule('grume');
+        if(r){faits.push(r);bipEss();vibrer([30,60,30]);dire(r);}else{faits.push('rien à annuler');bipErr();}continue;}}}
   flush();
   return faits;}
 
@@ -282,7 +287,7 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'annule » (billon) · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc((gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
