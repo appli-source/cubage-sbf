@@ -117,9 +117,14 @@ const uniqL=a=>[...new Set(a.filter(Boolean))];
 const lotEss=(l,extra)=>uniqL([...((l&&l.essSel&&l.essSel.length)?l.essSel:S.params.essences),...(extra||[])]);
 const lotQual=(l,extra)=>uniqL([...((l&&l.qualSel&&l.qualSel.length)?l.qualSel:S.params.qualites),...(extra||[])]);
 const addBtn=(kind,i)=>`<button type="button" class="chip-add" data-addref="${kind}"${i!=null?` data-i="${i}"`:''} aria-label="Ajouter">+</button>`;
-const multi=(name,all,sel)=>`<div class="chips" data-multi="${name}">${all.map(v=>`<button type="button" class="chip small${sel.includes(v)?' on':''}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+const multi=(name,all,sel)=>`<div class="chips" data-multi="${name}">${all.map(v=>`<button type="button" class="chip small${sel.includes(v)?' on':''}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button type="button" class="chip-add" data-multiadd="${name}" aria-label="Ajouter">+</button></div>`;
 const readMulti=name=>[...document.querySelectorAll(`[data-multi="${name}"] .chip.on`)].map(b=>b.dataset.v);
-function bindMulti(){document.querySelectorAll('[data-multi]').forEach(c=>c.onclick=e=>{const b=e.target.closest('.chip');if(b)b.classList.toggle('on');});}
+function bindMulti(){document.querySelectorAll('[data-multi]').forEach(c=>c.onclick=e=>{const b=e.target.closest('.chip');if(b)b.classList.toggle('on');
+    const add=e.target.closest('[data-multiadd]');if(!add)return;const name=add.dataset.multiadd,isE=name==='essSel';
+    const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Nouvelle ${isE?'essence':'qualité'} (ajoutée au référentiel du téléphone)</b><div class="row"><input id="newRef" placeholder="Code (ex. ${isE?'AUL':'C+'})" style="flex:1" autocapitalize="characters"><button type="button" class="btn primary" id="okRef">Ajouter</button></div><button type="button" class="btn" id="noRef">Annuler</button></div>`;document.body.appendChild(m);
+    const inp=m.querySelector('#newRef');setTimeout(()=>inp.focus(),0);m.querySelector('#noRef').onclick=()=>m.remove();
+    m.querySelector('#okRef').onclick=()=>{const v=inp.value.trim().toUpperCase();if(!v)return;const all=isE?S.params.essences:S.params.qualites;if(!all.includes(v)){all.push(v);saveParams();}
+      let chip=[...c.querySelectorAll('.chip')].find(x=>x.dataset.v===v);if(!chip){chip=document.createElement('button');chip.type='button';chip.className='chip small';chip.dataset.v=v;chip.textContent=v;c.insertBefore(chip,add);}chip.classList.add('on');m.remove();};});}
 /* Ajout d'une essence ou d'une qualité au lot pendant la saisie */
 function bindAddRef(l,onAdded){document.querySelectorAll('[data-addref]').forEach(btn=>btn.onclick=()=>{const kind=btn.dataset.addref,isE=kind==='ess';
   const cur=isE?lotEss(l):lotQual(l),all=isE?S.params.essences:S.params.qualites,rest=all.filter(v=>!cur.includes(v));
@@ -129,7 +134,7 @@ function bindAddRef(l,onAdded){document.querySelectorAll('[data-addref]').forEac
    <button type="button" class="btn" id="mClose">Fermer</button></div>`;
   document.body.appendChild(m);const close=()=>m.remove();m.addEventListener('click',e=>{if(e.target===m)close();});m.querySelector('#mClose').onclick=close;
   const add=v=>{v=String(v||'').trim().toUpperCase();if(!v)return;if(!all.includes(v)){all.push(v);saveParams();}
-    const key=isE?'essSel':'qualSel';l[key]=uniqL([...(isE?lotEss(l):lotQual(l)),v]);save();close();onAdded&&onAdded(kind,v,btn.dataset.i);};
+    const key=isE?'essSel':'qualSel';l[key]=uniqL([...(isE?lotEss(l):lotQual(l)),v]);save(l);close();onAdded&&onAdded(kind,v,btn.dataset.i);};
   m.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>add(b.dataset.pick));m.querySelector('#okRef').onclick=()=>add(m.querySelector('#newRef').value);});}
 const isBureau=()=>!!(S.params&&S.params.syncKeyBureau);
 const apiKey=()=>S.params.syncKeyBureau||S.params.syncKey||'';
@@ -567,11 +572,12 @@ V.recoupe=()=>{const c=S.cli;const it=stockItems().find(x=>x.key===S.rcKey);if(!
   $('#main').innerHTML=`<p class="muted" style="margin-top:0">Tronçons du bas vers le haut. Le premier garde le n° d’origine (modifiable) ; mettez le n° de la nouvelle plaquette sur les autres. Diamètre médian remesuré sur chaque tronçon.</p>
   <div class="stack">${f.pieces.map((p,i)=>`<div class="card stack" data-p="${i}"><div class="row"><b class="grow">Tronçon ${i+1}${i===0?' (bas)':''}</b>${f.pieces.length>1?`<button type="button" class="chip small" data-dp="${i}">✕</button>`:''}</div>
    <div class="row"><label class="f"><span class="l">N° plaquette</span><input data-k="num" value="${esc(p.num||'')}" inputmode="numeric"></label><label class="f"><span class="l">Long. m</span><input data-k="lm" value="${p.lm!=null?String(p.lm).replace('.',','):''}" inputmode="decimal"></label><label class="f"><span class="l">Ø cm</span><input data-k="d" value="${p.d??''}" inputmode="numeric"></label></div>
-   <div class="row"><label class="f"><span class="l">Qualité</span><select data-k="q">${ql.map(q=>`<option${q===p.q?' selected':''}>${esc(q)}</option>`).join('')}</select></label>
+   <div class="row"><label class="f"><span class="l">Qualité</span><select data-k="q">${ql.map(q=>`<option${q===p.q?' selected':''}>${esc(q)}</option>`).join('')}</select></label>${addBtn('q',i)}
    <label class="row" style="flex:1;gap:8px;align-items:center"><input type="checkbox" data-k="add" ${p.add?'checked':''} style="width:24px;min-height:24px"> <span>Mettre dans « ${esc(c.client||'ce lot')} »</span></label></div>
    <div class="vbox"><b data-pv="${i}">—</b><small>m³</small></div></div>`).join('')}
   <button type="button" class="btn add" id="addP">+ Ajouter un tronçon</button>
   <div class="vbox main"><b id="rcRest">—</b><small id="rcRestL">écart de recoupe</small></div></div>`;
+  bindAddRef(it.lot,(k,v,i)=>{if(k==='q'&&i!=null&&f.pieces[Number(i)])f.pieces[Number(i)].q=v;render();});
   const upd=()=>{let L=0,V=0;f.pieces.forEach((p,i)=>{const ok=p.lm>0&&p.d>0,v=ok?Calc.volBillon(p.d,p.lm):0;L+=p.lm>0?p.lm:0;V+=v;const e=document.querySelector(`[data-pv="${i}"]`);if(e)e.textContent=ok?f3(v):'—';});
     $('#rcRest').textContent=f3(it.v-V);$('#rcRestL').textContent=L>it.lm+1e-9?'⚠ longueurs '+f2(L)+' m > '+f2(it.lm)+' m':'écart de recoupe · reste '+f2(Math.max(0,it.lm-L))+' m';};
   $('#main').querySelectorAll('[data-p]').forEach(card=>{const p=f.pieces[Number(card.dataset.p)];card.querySelectorAll('[data-k]').forEach(inp=>{inp.oninput=inp.onchange=()=>{const k=inp.dataset.k;p[k]=k==='add'?inp.checked:k==='lm'||k==='d'?num(inp.value):inp.value.trim();upd();};});});
