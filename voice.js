@@ -89,6 +89,17 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
     phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque','annule commentaire','annule réduction',...(h.motsC||[]).map(norm).filter(Boolean),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual,h.motsC||[]])};}
+  if(h.mode==='pieds'){ // pied à pied numéroté : essence, diamètre, hauteur, tarif, tronçons de qualité, numéro
+    for(const code of h.qualites||[]){for(const n of motsQ(code,h.motsQ)){if(!lex.has(n)){lex.set(n,{k:'q',v:code});qual.push(n);}}}
+    for(const [w,n] of NUMW)lex.set(w,{k:'num',v:n});for(const w of Object.keys(MULT))lex.set(w,{k:'mult',v:MULT[w]});
+    lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('par',{k:'par'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
+    for(const w of Object.keys(CMD))lex.set(w,{k:'cmd',v:CMD[w]});
+    lex.set('diamètre',{k:'fld',v:'d'});lex.set('hauteur',{k:'fld',v:'h'});lex.set('tarif',{k:'fld',v:'t'});lex.set('tronçon',{k:'fld',v:'tr'});lex.set('qualité',{k:'fld',v:'tr'});
+    lex.set('arbre suivant',{k:'cmd',v:'suivante'});lex.set('arbre',{k:'cmd',v:'suivante'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('arbre précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
+    for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' arbre',{k:'cmd',v:'annuleA'});lex.set(a+' tronçon',{k:'cmd',v:'annuleT'});lex.set(a+' qualité',{k:'cmd',v:'annuleT'});}
+    phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('cent','mètres','mètre','par','virgule','demi','diamètre','hauteur','tarif','tronçon','qualité','arbre suivant','arbre précédent','précédent','retour','suivant','suivante','numéro','annule','annule arbre','annule tronçon','erreur','pause','stop','reprise','[unk]');
+    for(const e of ess.slice(0,6))phrases.push(e+' quarante');
+    return{lex,phrases,key:JSON.stringify(['p',ess,qual])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
   for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
   lex.set('tarif',{k:'fld',v:'t'});for(let t=1;t<=20;t++){const n=nombre(t);if(!lex.has(n))lex.set(n,{k:'num',v:t});} // « tarif huit » : tarif Chaudé 1 à 20
@@ -190,7 +201,7 @@ function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{
   // connu du moteur (il ressort en mot inconnu) : « suivante » seul ou « arbre suivant » font la même chose.
   t=t.replace(/\b(annule|annuler|efface|erreur) \[unk\]/g,'$1 grume'); // « grume » inconnu du moteur après « annule »
   const seule=t.replace(/\[unk\]/g,'').replace(/\s+/g,' ').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante','billon précédent':'précédent','précédent':'précédent','retour':'précédent'};
-  const cmdSeule=!!SANS[seule]&&(V.hook&&V.hook.mode==='grumes');
+  const cmdSeule=!!SANS[seule]&&(V.hook&&(V.hook.mode==='grumes'||V.hook.mode==='pieds'));
   // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
   if(strict&&!cmdSeule&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
   if(cmdSeule)t=SANS[seule];else
@@ -202,7 +213,7 @@ function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{
   const cmds=els.filter(e=>e.k==='cmd').map(e=>e.v);
   if(cmds.includes('pause')&&!V.pause){V.pause=true;setEtat('pause','');bipEss();V.dernier='pause';majBloc();return;}
   if(V.pause){if(cmds.includes('reprise')){V.pause=false;setEtat('ecoute','');bipEss();V.dernier='reprise';majBloc();}return;} // en pause, on laisse parler
-  const faits=(V.hook&&V.hook.mode==='grumes')?traiterGrumes(els):traiterClasses(els);
+  const faits=(V.hook&&V.hook.mode==='grumes')?traiterGrumes(els):(V.hook&&V.hook.mode==='pieds')?traiterPieds(els):traiterClasses(els);
   if(faits!==null){V.dernier=faits.length?faits.join(' · '):('non compris : « '+t.replace(/\[unk\]/g,'…')+' »');if(!faits.length)bipErr();}
   V.partiel='';majBloc();}
 
@@ -295,6 +306,60 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(
   flush();
   return faits;}
 
+/* Pied à pied numéroté : l'arbre en cours (diamètre cm, hauteur m, tarif, tronçons de qualité) se dicte en une ou
+   plusieurs fois — « chêne quarante par douze » (Ø 40, H 12), « hauteur quatorze virgule cinq », « tarif huit »,
+   « tronçon six cé a » (6 m en CA, du bas vers le haut), « numéro cent douze » — puis « suivant » l'enregistre.
+   « précédent » rouvre le dernier arbre enregistré ; « annule » efface l'arbre en cours ; « annule arbre » supprime le
+   dernier enregistré ; « annule tronçon » retire le dernier tronçon. */
+function traiterPieds(els){const faits=[];const h=()=>V.hook;const D=V.draft||(V.draft={d:null,h:null,tarif:null,tr:[]});D.tr=D.tr||[];
+  let seq=[],fld=null,attenteNum=false,qTr=null,hTr=null;
+  const etat=()=>'Ø '+(D.d!=null?D.d:'?')+' · H '+(D.h!=null?fmtL(D.h)+' m':'?')+(D.tarif?' · T'+D.tarif:'')+(D.tr.length?' · '+D.tr.map(t=>fmtL(t.h)+'m '+(t.q||'·')).join(' / '):'');
+  const show=()=>{if(h()&&h().onDraft)h().onDraft(V.cur,{d:D.d,h:D.h,tarif:D.tarif,tr:D.tr});majBloc();};
+  const dec=(arr)=>{ // nombre avec décimales (« douze virgule cinq », « douze et demi ») à partir d'une séquence
+    const nums=arr.filter(x=>x.k==='num');if(!nums.length)return null;let val=nums[0].v;const iV=arr.findIndex(x=>x.k==='virg'),iD=arr.findIndex(x=>x.k==='demi');
+    if(iD>=0)val+=.5;else if(iV>=0){const nv=arr.slice(iV+1).find(x=>x.k==='num');if(nv)val+=nv.v<10?nv.v/10:nv.v/100;}return val;};
+  const trPush=()=>{if(hTr==null)return;if(!(hTr>0&&hTr<=60)){faits.push('tronçon '+hTr+' m ?');bipErr();}else{D.tr.push({h:hTr,q:qTr||''});faits.push('tronçon '+fmtL(hTr)+' m '+(qTr||'·'));bipEss();}hTr=null;qTr=null;show();};
+  const flush=()=>{if(!seq.length){return;}const nums=seq.filter(x=>x.k==='num');if(!nums.length){seq=[];return;}
+    if(fld==='t'){const t=nums[nums.length-1].v;const ok=!!(h()&&h().onTarif&&h().onTarif(t));if(ok){D.tarif=t;faits.push('tarif '+t);bipEss();dire('tarif '+nombre(t));}else{faits.push('tarif '+t+' ? (1 à 20)');bipErr();}}
+    else if(fld==='tr'){hTr=dec(seq);if(qTr!=null)trPush();}
+    else if(fld==='h'){D.h=dec(seq);}
+    else if(fld==='d'){D.d=nums[nums.length-1].v;}
+    else{const iP=seq.findIndex(x=>x.k==='par');
+      if(iP>=0){const a=seq.slice(0,iP).filter(x=>x.k==='num'),b=seq.slice(iP+1);if(a.length)D.d=a[a.length-1].v;const hh=dec(b);if(hh!=null)D.h=hh;}
+      else if(D.d==null){D.d=nums[0].v;if(nums.length>1||seq.some(x=>x.k==='virg'||x.k==='demi')){const hh=dec(seq.slice(seq.indexOf(nums[0])+1));if(hh!=null)D.h=hh;}}
+      else if(D.h==null){D.h=dec(seq);}
+      else{faits.push('arbre complet : dites « suivant » (ou « diamètre … », « hauteur … » pour corriger)');bipErr();seq=[];return;}}
+    seq=[];
+    if(D.d!=null&&!(D.d>=5&&D.d<=250)){faits.push('diamètre '+D.d+' ?');D.d=null;bipErr();}
+    if(D.h!=null&&!(D.h>=1&&D.h<=60)){faits.push('hauteur '+D.h+' ?');D.h=null;bipErr();}
+    if(fld!=='t'&&fld!=='tr'){show();faits.push(etat());bipEss();}else show();};
+  const enregistrer=()=>{if(hTr!=null)trPush();if(D.d==null||D.h==null||!V.cur){faits.push('arbre incomplet : '+(!V.cur?'essence ? ':'')+etat());bipErr();return false;}
+    const r=h()&&h().onSuivante&&h().onSuivante();if(!r){faits.push('arbre refusé (tronçons > hauteur ?)');bipErr();return false;}
+    faits.push('arbre '+r.num+' enregistré · '+V.cur+' · '+etat()+' · '+r.vol+' m³ → n° '+r.next);bipOk();vibrer(30);
+    dire('arbre '+nombre(Number(r.num)||0)+', '+nombre(Math.round(D.d))+', '+longueurParlee(D.h)+'. Suivant '+nombre(Number(r.next)||0));
+    D.d=null;D.h=null;D.tr=[];D.tarif=r.tarif||D.tarif;return true;};
+  for(let i=0;i<els.length;i++){const e=els[i];
+    if(e.k==='num'||e.k==='m'||e.k==='par'||e.k==='virg'||e.k==='demi'){
+      if(attenteNum&&e.k==='num'){attenteNum=false;const ok=h()&&h().onNumero&&h().onNumero(e.v);faits.push(ok?'arbre n° '+e.v:'numéro refusé');if(ok){bipEss();dire('arbre '+nombre(e.v));}else bipErr();continue;}
+      seq.push(e);continue;}
+    if(e.k==='fld'){flush();fld=e.v;if(fld!=='tr'){hTr=null;qTr=null;}continue;}
+    flush();
+    if(e.k==='q'){ // qualité = tronçon : « cé a six » ou « six cé a »
+      if(hTr!=null){qTr=e.v;trPush();}else{qTr=e.v;fld='tr';}continue;}
+    if(e.k==='ess'){V.cur=e.v;faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}show();fld=null;continue;}
+    if(e.k==='cmd'){fld=null;
+      if(e.v==='numero'){attenteNum=true;continue;}
+      if(e.v==='suivante'||e.v==='billon'){enregistrer();continue;}
+      if(e.v==='precedent'){if(D.d!=null||D.h!=null||D.tr.length){faits.push('arbre en cours entamé : dites « annule » avant « précédent »');bipErr();continue;}
+        const r=h()&&h().onPrecedent&&h().onPrecedent();if(!r){faits.push('rien à rouvrir');bipErr();continue;}
+        if(r.ess)V.cur=r.ess;D.d=r.d>0?r.d:null;D.h=r.h>0?r.h:null;D.tarif=r.tarif||null;D.tr=(r.tr||[]).map(t=>({h:t.h,q:t.q||''}));majBloc();faits.push('arbre '+r.num+' rouvert · '+etat());bipEss();vibrer([30,60,30]);dire('arbre '+nombre(Number(r.num)||0)+' rouvert');continue;}
+      if(e.v==='annuleT'){if(hTr!=null){hTr=null;qTr=null;faits.push('tronçon abandonné');bipEss();continue;}if(!D.tr.length){faits.push('pas de tronçon');bipErr();continue;}D.tr.pop();show();faits.push('dernier tronçon retiré');bipEss();continue;}
+      if(e.v==='annuleA'){const r=h()&&h().onAnnule&&h().onAnnule('arbre');if(r){D.d=null;D.h=null;D.tr=[];faits.push(r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler');bipErr();}continue;}
+      if(e.v==='annule'){if(D.d!=null||D.h!=null||D.tr.length||hTr!=null){D.d=null;D.h=null;D.tr=[];hTr=null;qTr=null;show();faits.push('arbre en cours effacé');bipEss();continue;}
+        const r=h()&&h().onAnnule&&h().onAnnule('arbre');if(r){faits.push(r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler');bipErr();}continue;}}}
+  flush();if(hTr!=null)trPush();if(hTr==null&&qTr!=null&&fld==='tr'){faits.push('tronçon '+qTr+' : hauteur ?');}
+  return faits;}
+
 /* ---------- Liaison avec l'écran de saisie ---------- */
 function bind(h){const chg=V.hook&&V.hook.mode!==h.mode;V.hook=h;V.bound=true;if(h.cur)V.cur=h.cur;if(h.curQ!==undefined&&h.curQ!==null)V.curQ=h.curQ;if(chg){V.pend=null;V.draft=null;}
   if(V.model&&V.rec&&(V.etat==='ecoute'||V.etat==='pause'))creerReco();majBloc();}
@@ -303,15 +368,15 @@ function apresRendu(){if(!V.bound&&(V.etat==='ecoute'||V.etat==='pause'||V.etat=
 function setEtat(e,msg){V.etat=e;V.msg=msg||'';majBloc();}
 
 function majPartiel(){const el=$('#vocPart');if(el)el.textContent=V.partiel?'… '+V.partiel:'';}
-function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=V.etat,gr=h.mode==='grumes';el.classList.toggle('sticky',e==='ecoute'||e==='pause');
+function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=V.etat,gr=h.mode==='grumes',pi=h.mode==='pieds';el.classList.toggle('sticky',e==='ecoute'||e==='pause');
   const nomsE=(h.essences||[]).map(c=>{const m=motsDe(c,h.mots);return m.length?`<b>${esc(m[0])}</b> <span class="muted">${esc(c)}</span>`:`<span class="muted">${esc(c)} (aucun mot)</span>`;}).join(' · ');
-  const nomsQ=gr?(h.qualites||[]).map(c=>{const m=motsQ(c,h.motsQ);return m.length?`<b>${esc(m[0])}</b> <span class="muted">${esc(c)}</span>`:`<span class="muted">${esc(c)} (aucun mot)</span>`;}).join(' · '):'';
+  const nomsQ=(gr||pi)?(h.qualites||[]).map(c=>{const m=motsQ(c,h.motsQ);return m.length?`<b>${esc(m[0])}</b> <span class="muted">${esc(c)}</span>`:`<span class="muted">${esc(c)} (aucun mot)</span>`;}).join(' · '):'';
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'réduction longueur cinquante », « '+px+'réduction diamètre deux » · « '+px+'commentaire gélivure » ou « '+px+'commentaire » puis la phrase · « '+px+'annule » (billon) · « '+px+'annule commentaire » · « '+px+'annule réduction » · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'tarif huit » change le tarif Chaudé de l’essence en cours · « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
-    el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
-    <div class="voc-last" id="vocLast">${esc(V.libre?'🎙 Dictez le commentaire (phrase libre)…':(gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+(V.draft.rl>0?' · L −'+V.draft.rl+' cm':'')+(V.draft.rd>0?' · Ø −'+V.draft.rd+' cm':'')+(V.draft.note?' · « '+V.draft.note+' »':'')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=pi?'Dites « '+px+'chêne quarante par douze » (Ø 40 cm, H 12 m), « '+px+'tarif huit », « '+px+'tronçon six cé a » (du bas vers le haut), puis « suivant » pour enregistrer · « précédent » rouvre le dernier arbre · « '+px+'numéro cent douze » · « '+px+'annule » (arbre en cours) · « '+px+'annule tronçon »':gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'réduction longueur cinquante », « '+px+'réduction diamètre deux » · « '+px+'commentaire gélivure » ou « '+px+'commentaire » puis la phrase · « '+px+'annule » (billon) · « '+px+'annule commentaire » · « '+px+'annule réduction » · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'tarif huit » change le tarif Chaudé de l’essence en cours · « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+    el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}${pi&&h.num?` · arbre n° ${esc(h.num)}${h.tarif?' · T'+esc(h.tarif):''}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
+    <div class="voc-last" id="vocLast">${esc(V.libre?'🎙 Dictez le commentaire (phrase libre)…':(pi&&V.draft&&(V.draft.d!=null||V.draft.h!=null||(V.draft.tr||[]).length))?'Arbre en cours : '+V.cur+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+' · H '+(V.draft.h!=null?fmtL(V.draft.h)+' m':'?')+((V.draft.tr||[]).length?' · '+V.draft.tr.map(t=>fmtL(t.h)+'m '+(t.q||'·')).join(' / '):'')+' — dites « suivant » pour l’enregistrer':(gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+(V.draft.rl>0?' · L −'+V.draft.rl+' cm':'')+(V.draft.rd>0?' · Ø −'+V.draft.rd+' cm':'')+(V.draft.note?' · « '+V.draft.note+' »':'')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
     $('#vocPause').onclick=()=>{V.pause=!V.pause;setEtat(V.pause?'pause':'ecoute','');};}
   const b=$('#vocBtn');if(b)b.onclick=basculer;}
