@@ -40,7 +40,7 @@ function epeler(code){const c=sansAccent(String(code||'')).toUpperCase().trim();
     if(part.length>3&&/^[A-Z]+$/.test(part))return part.toLowerCase(); // mot entier (ex. un libellé) : tel quel, reconnu s'il est dans le modèle
     const out=[];for(let i=0;i<part.length;i++){const ch=part[i];if(!LETTRES[ch])continue;if(part[i+1]===ch&&/[A-Z]/.test(ch)){out.push('double '+LETTRES[ch]);i++;}else out.push(LETTRES[ch]);}return out.join(' ');})
     .filter(Boolean).join(' ').trim();}
-const CMD={annule:'annule',annuler:'annule',erreur:'annule',efface:'annule',pause:'pause',stop:'pause',reprise:'reprise',reprends:'reprise',suivante:'suivante',suivant:'suivante',numéro:'numero'};
+const CMD={annule:'annule',annuler:'annule',erreur:'annule',efface:'annule',pause:'pause',stop:'pause',reprise:'reprise',reprends:'reprise',suivante:'suivante',suivant:'suivante',numéro:'numero',terminé:'terminer',terminer:'terminer',fin:'terminer'};
 
 /* Nombres en toutes lettres (10 → « dix », 35 → « trente-cinq », 105 → « cent cinq ») et lecture inverse */
 const UNITS=['zéro','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
@@ -87,7 +87,7 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     for(const w of (h.motsC||[]).map(norm).filter(Boolean))if(!lex.has(w))lex.set(w,{k:'com',v:w});for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' billon',{k:'cmd',v:'annule'});lex.set(a+' grume',{k:'cmd',v:'annuleG'});lex.set(a+' arbre',{k:'cmd',v:'annuleG'});lex.set(a+' commentaire',{k:'cmd',v:'annuleC'});lex.set(a+' remarque',{k:'cmd',v:'annuleC'});lex.set(a+' réduction',{k:'cmd',v:'annuleR'});}lex.set('billon précédent',{k:'cmd',v:'precedent'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
     phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
-    phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque','annule commentaire','annule réduction',...(h.motsC||[]).map(norm).filter(Boolean),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
+    phrases.push('réduction longueur','réduction diamètre','réduction','commentaire','remarque','annule commentaire','annule réduction',...(h.motsC||[]).map(norm).filter(Boolean),'billon suivant','grume suivante','arbre suivant','billon précédent','précédent','retour','annule billon','annule grume','annule arbre','billon','grume','arbre','suivant','longueur','diamètre','suivante','terminé','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual,h.motsC||[]])};}
   if(h.mode==='pieds'){ // pied à pied numéroté : essence, diamètre, hauteur, tarif, tronçons de qualité, numéro
     for(const code of h.qualites||[]){for(const n of motsQ(code,h.motsQ)){if(!lex.has(n)){lex.set(n,{k:'q',v:code});qual.push(n);}}}
@@ -97,15 +97,15 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     lex.set('diamètre',{k:'fld',v:'d'});lex.set('hauteur',{k:'fld',v:'h'});lex.set('tarif',{k:'fld',v:'t'});lex.set('tronçon',{k:'fld',v:'tr'});lex.set('qualité',{k:'fld',v:'tr'});
     lex.set('arbre suivant',{k:'cmd',v:'suivante'});lex.set('arbre',{k:'cmd',v:'suivante'});lex.set('précédent',{k:'cmd',v:'precedent'});lex.set('arbre précédent',{k:'cmd',v:'precedent'});lex.set('retour',{k:'cmd',v:'precedent'});
     for(const a of ['annule','annuler','efface','erreur']){lex.set(a+' arbre',{k:'cmd',v:'annuleA'});lex.set(a+' tronçon',{k:'cmd',v:'annuleT'});lex.set(a+' qualité',{k:'cmd',v:'annuleT'});}
-    phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('cent','mètres','mètre','par','virgule','demi','diamètre','hauteur','tarif','tronçon','qualité','arbre suivant','arbre précédent','précédent','retour','suivant','suivante','numéro','annule','annule arbre','annule tronçon','erreur','pause','stop','reprise','[unk]');
+    phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('cent','mètres','mètre','par','virgule','demi','diamètre','hauteur','tarif','tronçon','qualité','arbre suivant','arbre précédent','précédent','retour','suivant','suivante','numéro','annule','annule arbre','annule tronçon','erreur','pause','stop','reprise','terminé','[unk]');
     for(const e of ess.slice(0,6))phrases.push(e+' quarante');
     return{lex,phrases,key:JSON.stringify(['p',ess,qual])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
-  for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
+  for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends','terminé','terminer','fin'])lex.set(w,{k:'cmd',v:CMD[w]});
   lex.set('tarif',{k:'fld',v:'t'});for(let t=1;t<=20;t++){const n=nombre(t);if(!lex.has(n))lex.set(n,{k:'num',v:t});} // « tarif huit » : tarif Chaudé 1 à 20
   for(const e of ess){phrases.push(e);for(const n of nums)phrases.push(e+' '+n);}
   for(const n of nums)phrases.push(n);const some=nums.slice(0,8);for(const a of some)for(const b of some)phrases.push(a+' '+b);
-  phrases.push('tarif');for(let t=1;t<=20;t++)phrases.push('tarif '+nombre(t));
+  phrases.push('tarif','terminé');for(let t=1;t<=20;t++)phrases.push('tarif '+nombre(t));
   phrases.push('annule','erreur','pause','stop','reprise','[unk]');
   return{lex,phrases,key:JSON.stringify(['c',ess,nums])};}
 
@@ -200,8 +200,8 @@ function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{
   // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation. « grume » n'est pas
   // connu du moteur (il ressort en mot inconnu) : « suivante » seul ou « arbre suivant » font la même chose.
   t=t.replace(/\b(annule|annuler|efface|erreur) \[unk\]/g,'$1 grume'); // « grume » inconnu du moteur après « annule »
-  const seule=t.replace(/\[unk\]/g,'').replace(/\s+/g,' ').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante','billon précédent':'précédent','précédent':'précédent','retour':'précédent'};
-  const cmdSeule=!!SANS[seule]&&(V.hook&&(V.hook.mode==='grumes'||V.hook.mode==='pieds'));
+  const seule=t.replace(/\[unk\]/g,'').replace(/\s+/g,' ').trim();const SANS={'billon suivant':'billon suivant','suivant':'billon suivant','grume suivante':'grume suivante','arbre suivant':'grume suivante','suivante':'grume suivante','billon précédent':'précédent','précédent':'précédent','retour':'précédent','terminé':'terminé','terminer':'terminé','fin':'terminé'};
+  const cmdSeule=!!SANS[seule]&&(V.hook&&(V.hook.mode==='grumes'||V.hook.mode==='pieds'||seule==='terminé'||seule==='terminer'));
   // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
   if(strict&&!cmdSeule&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
   if(cmdSeule)t=SANS[seule];else
@@ -213,6 +213,10 @@ function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{
   const cmds=els.filter(e=>e.k==='cmd').map(e=>e.v);
   if(cmds.includes('pause')&&!V.pause){V.pause=true;setEtat('pause','');bipEss();V.dernier='pause';majBloc();return;}
   if(V.pause){if(cmds.includes('reprise')){V.pause=false;setEtat('ecoute','');bipEss();V.dernier='reprise';majBloc();}return;} // en pause, on laisse parler
+  if(cmds.includes('terminer')){ // « terminé » : quitte l'écran de saisie (bouton Terminer), sauf si une saisie est entamée
+    const D=V.draft||{};const entame=D.L!=null||D.d!=null||D.h!=null||(D.tr||[]).length||D.rl||D.rd||D.note;
+    if(entame){V.dernier='saisie en cours : dites « suivant » ou « annule » avant « terminé »';bipErr();majBloc();return;}
+    const ok=V.hook&&V.hook.onTerminer&&V.hook.onTerminer();if(ok){dire('terminé');bipEss();arreter('');}else{V.dernier='impossible de terminer ici';bipErr();majBloc();}return;}
   const faits=(V.hook&&V.hook.mode==='grumes')?traiterGrumes(els):(V.hook&&V.hook.mode==='pieds')?traiterPieds(els):traiterClasses(els);
   if(faits!==null){V.dernier=faits.length?faits.join(' · '):('non compris : « '+t.replace(/\[unk\]/g,'…')+' »');if(!faits.length)bipErr();}
   V.partiel='';majBloc();}

@@ -342,7 +342,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(!ed)focusSaisie(l.lgFixe?'input[data-f=d]':'input[data-f=lm]');
   /* Mode vocal : chaque billon dicté remplit la ligne vide ou en ajoute une (comme « + Billon »), « suivante » = bouton « Grume suivante » */
   if(vocal){const vide=b=>!(lenM(b)>0)&&!(b.d>0);const lastQ=[...f.billons].reverse().find(b=>b.q)||f.billons[f.billons.length-1];
-    window.CubageVoice.bind({mode:'grumes',motsC:String(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC).split(/[,;\n]/).map(x=>x.trim()).filter(Boolean),motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
+    window.CubageVoice.bind({mode:'grumes',onTerminer:()=>{const b=$('#cancel');if(!b)return false;b.click();return true;},motsC:String(p.motsVocauxC==null?DEF_PARAMS.motsVocauxC:p.motsVocauxC).split(/[,;\n]/).map(x=>x.trim()).filter(Boolean),motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       onEssence:code=>{if(code!==f.ess){f.ess=code;render();voirElement(null);}},
       onQualite:code=>{const b=f.billons[f.billons.length-1];if(b&&vide(b)&&b.q!==code){b.q=code;render();voirElement('.card[data-b="'+(f.billons.length-1)+'"]');}},
       /* Billon en cours (dernière ligne) : rempli au fur et à mesure de la dictée, enregistré sur « billon suivant » */
@@ -407,7 +407,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   if($('#cl'))$('#cl').onclick=e=>{const b=e.target.closest('button');if(!b)return;f.d=Number(b.dataset.c);if(mode==='diam'&&!ed){S.flash=f.d;try{navigator.vibrate&&navigator.vibrate(30);}catch(x){}commit();}else render();};
   /* Mode vocal : le module appelle exactement ce que font les boutons (changement d'essence, appui sur une classe, « Annuler dernière ») */
   if(vocal&&mode==='pieds'){const vide=()=>!(f.d>0)&&!(f.h>0)&&!(f.tr&&f.tr.length);
-    window.CubageVoice.bind({mode:'pieds',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l),cur:f.ess,num:f.num,tarif:f.tarif,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
+    window.CubageVoice.bind({mode:'pieds',onTerminer:()=>{const b=$('#cancel');if(!b)return false;b.click();return true;},motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l),cur:f.ess,num:f.num,tarif:f.tarif,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       /* Arbre en cours : rempli au fur et à mesure (diamètre, hauteur, tarif, tronçons de qualité), enregistré sur « suivant » */
       onDraft:(ess,x)=>{if(ess&&ess!==f.ess){f.ess=ess;f.tarif=tarifDef(l,ess);}x=x||{};f.d=x.d>0?x.d:null;f.h=x.h>0?x.h:null;if(x.tarif>0)f.tarif=clampT(x.tarif);f.tr=(x.tr||[]).map(t=>({h:t.h,q:t.q||''}));render();voirElement(x.last==='tr'?'#tr':'#av');return{num:f.num,tarif:f.tarif};},
       onTarif:t=>{t=Number(t);if(!(t>=1&&t<=20))return false;f.tarif=clampT(t);l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();render();return true;},
@@ -415,7 +415,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
       onSuivante:()=>{if(!(f.d>0)||!(f.h>0))return null;const n=l.arbres.length;commit();if(l.arbres.length>n){const a2=l.arbres[l.arbres.length-1];S.vocalArbre=a2.id;const F=S.form.a;return{num:a2.num,vol:f3(arbreCalc(l,a2).v||0),next:F?F.num:nextNum(l),tarif:F?F.tarif:a2.tarif};}return null;},
       onPrecedent:()=>{const a2=l.arbres[l.arbres.length-1];if(!a2||S.vocalArbre!==a2.id)return null;l.arbres.pop();S.vocalArbre=null;S.form.a={num:a2.num,ess:a2.ess,d:a2.d,h:a2.h,n:a2.n||1,tr:(a2.tr||[]).map(t=>({...t})),tarif:a2.tarif,sl:a2.sl||null};save();render();return{num:a2.num,ess:a2.ess,d:a2.d,h:a2.h,tarif:a2.tarif,tr:a2.tr||[]};},
       onAnnule:scope=>{if(scope==='arbre'){const a2=l.arbres[l.arbres.length-1];if(!a2||S.vocalArbre!==a2.id)return false;l.arbres.pop();S.vocalArbre=null;save();render();return 'arbre '+a2.num+' supprimé';}return false;}});}
-  else if(vocal)window.CubageVoice.bind({motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
+  else if(vocal)window.CubageVoice.bind({onTerminer:()=>{const b=$('#cancel');if(!b)return false;b.click();return true;},motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
     onEssence:code=>{if(code===f.ess)return;f.ess=code;f.tarif=tarifDef(l,code);render();},
     onPointage:(code,c)=>{if(!classes.includes(c))return false;if(code!==f.ess){f.ess=code;f.tarif=tarifDef(l,code);}f.d=c;S.flash=c;commit();return true;},
     onTarif:t=>{t=Number(t);if(!(t>=1&&t<=20))return false;f.tarif=clampT(t);l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();render();return true;},
