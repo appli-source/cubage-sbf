@@ -173,7 +173,7 @@ const syncLab=l=>l.sync==='done'?'sauvegardé le '+new Date(l.synced).toLocaleSt
 V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operateur:'');
   const card=m=>{const ls=S.lots.filter(l=>l.type===m&&!l.archive&&!l.remote),todo=ls.filter(l=>l.sync!=='done'&&!l.test).length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
   $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button>
-  <div class="row" style="gap:8px"><button class="btn big" id="hSync" style="flex:1">☁ Sauvegarder les lots${(()=>{const n=lotsToSync().length;return n?` <span class="pill warn">${n}</span>`:'';})()}</button><button class="btn big" id="hRef" style="flex:1">⟳ Mettre à jour depuis le Sheet</button></div>
+  <div class="row" style="gap:8px"><button class="btn big" id="hSync" style="flex:1">☁ Sauvegarder les lots${(()=>{const n=lotsToSync().length;return n?` <span class="pill warn">${n}</span>`:'';})()}</button><button class="btn big${S.params.refStale?' primary':''}" id="hRef" style="flex:1">⟳ Mettre à jour depuis le Sheet${S.params.refStale?' <span class="pill warn">nouveautés</span>':''}</button></div>
   <small class="muted" style="text-align:center">Sauvegarder = envoyer vos lots sur le Sheet SBF · Mettre à jour = recevoir essences, qualités, grilles de prix et statuts des ventes</small>
   <small class="muted" style="text-align:center">Version ${(()=>{const m=/app\.js\?v=(\d+)/.exec([...document.scripts].map(x=>x.src).join(' '));return m?m[1]:'?';})()}</small></div>`;
   $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});$('#hSync').onclick=syncAllUI;$('#hRef').onclick=loadRefUI;foot('');};
@@ -1004,10 +1004,13 @@ async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.readonly){if(!qu
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),45000);
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveLot',key:apiKey(),lot_id:l.id,rows:lotRows(l),propositions:propositions(l)}),signal:ctl.signal});clearTimeout(to);
     const j=await res.json();if(!(j&&j.ok))throw new Error(j&&j.error||'réponse invalide');
-    l.sync='done';l.synced=new Date().toISOString();await DB.put('lots',l);
+    noteRef(j);l.sync='done';l.synced=new Date().toISOString();await DB.put('lots',l);
     if(set){set('✓ Lot sauvegardé sur le Sheet SBF',(l.chantier||'Lot')+' · '+what+' · '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),true);render();}return true;}
   catch(e){l.sync='pending';DB.put('lots',l);const msg=e.name==='AbortError'?'Le réseau ne répond pas (délai dépassé).':e.message==='clé refusée'?'Clé d’accès refusée : rouvrez le lien de configuration.':'Erreur : '+e.message;
     if(set)set('Échec de la sauvegarde',msg+' Le lot reste enregistré sur le téléphone.',true,true);else toast('Échec : '+(l.chantier||'lot'));return false;}}
+/* Version du référentiel commun renvoyée par le Sheet : si elle diffère de celle chargée, « Mettre à jour » est signalé */
+function noteRef(j){if(!j||!j.refVersion)return;const p=S.params;if(p.refVersion&&p.refVersion!==j.refVersion&&!p.refStale){p.refStale=true;saveParams();toast('Le référentiel du Sheet a changé : faites « Mettre à jour depuis le Sheet »');}else if(!p.refVersion){p.refVersion=j.refVersion;saveParams();}}
+async function pingRef(){const url=S.params.syncUrl;if(!url||!navigator.onLine)return;try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),8000);const res=await fetch(url+(url.includes('?')?'&':'?')+'action=ping&key='+encodeURIComponent(apiKey()),{signal:ctl.signal});clearTimeout(to);const j=await res.json();if(j&&j.ok){const was=S.params.refStale;noteRef(j);if(S.params.refStale!==was&&S.screen==='home')render();}}catch(e){}}
 /* Codes d'essence / qualité du lot absents du référentiel commun du Sheet : proposés au bureau à la sauvegarde */
 function propositions(l){const p=S.params;if(!Array.isArray(p.essencesSheet))return null;
   const usedE=uniqL([...(l.essSel||[]),...(l.grumes||[]).map(g=>g.ess),...(l.arbres||[]).map(a=>a.ess)]),usedQ=uniqL([...(l.qualSel||[]),...(l.grumes||[]).flatMap(g=>g.billons.map(b=>b.q)),...(l.arbres||[]).flatMap(a=>(a.tr||[]).map(t=>t.q))]);
@@ -1018,7 +1021,7 @@ async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onL
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),90000);
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'batch',key:apiKey(),ops:lots.map(l=>({action:'saveLot',lot_id:l.id,rows:lotRows(l),propositions:propositions(l)}))}),signal:ctl.signal});clearTimeout(to);
     const j=await res.json();if(j&&j.error==='action inconnue'){let n=0;for(const l of lots)if(await syncLot(l,true))n++;return n;}
-    const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
+    noteRef(j);const rs=(j&&j.results)||[];let n=0;for(let i=0;i<lots.length;i++){const r=rs[i];if(r&&r.ok){lots[i].sync='done';lots[i].synced=r.at||new Date().toISOString();n++;}else lots[i].sync='pending';await DB.put('lots',lots[i]);}return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
 /* Boutons « Sauvegarder les lots » et « Mettre à jour depuis le Sheet » (accueil et Paramètres) */
 const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!l.readonly&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
@@ -1131,7 +1134,7 @@ async function syncClient(c,quiet){const url=S.params.syncUrl;const set=quiet?nu
       for(let i=0;i<origs.length;i++){const r=rs[i];if(r&&r.ok){origs[i].sync='done';origs[i].synced=r.at||new Date().toISOString();await DB.put('lots',origs[i]);}else throw new Error('Lot d’origine « '+(origs[i].xylo||origs[i].chantier||'')+' » : '+(r&&r.error||'non sauvegardé'));}
       j=rs[origs.length]||{ok:false,error:'réponse incomplète'};}
     if(!(j&&j.ok))throw new Error(j&&j.error||'réponse invalide');
-    c.sync='done';c.synced=new Date().toISOString();if(j.statut)c.statut=j.statut;await DB.put('lots',c);
+    noteRef(j);c.sync='done';c.synced=new Date().toISOString();if(j.statut)c.statut=j.statut;await DB.put('lots',c);
     const warn=(j.conflicts||[]).length?' ⚠ Déjà proposés ailleurs : '+j.conflicts.map(x=>x.num+(x.client?' ('+x.client+')':'')).join(', '):'';
     if(set){set('✓ '+(c.statut==='valide'?'Vente validée':c.statut==='propose'?'Transmis au bureau':'Brouillon enregistré')+' sur le Sheet SBF',(c.client||'')+' · '+t.n+' billon(s) · '+f3(t.v)+' m³'+warn,true,!!warn);render();}return true;}
   catch(e){c.sync='pending';DB.put('lots',c);const msg=e.name==='AbortError'?'Le réseau ne répond pas.':e.message;if(set)set('Refusé ou échec',msg,true,true);else toast('Échec : '+(c.client||'lot client'));return false;}}
@@ -1149,6 +1152,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   if(j.essencesVocal&&typeof j.essencesVocal==='object')p.essencesVocal=j.essencesVocal;
   if(j.qualitesVocal&&typeof j.qualitesVocal==='object')p.qualitesVocal=j.qualitesVocal;
   if(j.operateur){p.operateur=j.operateur;p.opLocked=true;}else p.opLocked=false;
+  if(j.refVersion)p.refVersion=j.refVersion;p.refStale=false;
   let chg=[];if(j.clientStatuts){for(const c of S.lots){if(c.type!=='client')continue;const st=j.clientStatuts[c.id];if(st&&st!==c.statut&&c.sync==='done'){chg.push((c.client||'lot client')+' → '+(STL[st]||st));c.statut=st;await DB.put('lots',c);}}}
   S.refInfo={ess:(j.essences||[]).length,qual:(j.qualites||[]).length,grilles:(j.grilles||[]).length,dmm:!!(j.dmm&&Object.keys(j.dmm).length),chg};
   p.refLoaded=new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});await saveParams();if(!silent)toast('Référentiel chargé');return true;}
@@ -1158,7 +1162,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
 function render(){chipCb=null;if(S.screen!=='newLot'&&S.screen!=='lot')S.pendingInv=null;if(window.CubageVoice)window.CubageVoice.unbind();const v=V[S.screen]||V.home;v();if(window.CubageVoice)window.CubageVoice.apresRendu();
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.hist.push(S.screen);S.form={};S.edit=null;go(b.dataset.go);});
   document.querySelectorAll('[data-open]').forEach(b=>{if(!b.onclick)b.onclick=()=>{S.lot=S.lots.find(l=>l.id===b.dataset.open);S.mod=S.lot.type;S.slFilter='';S.hist=['home','module','lots'];go('lot');};});}
-(async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});try{const bs=await DB.get('params','bureau');if(bs&&bs.j&&isBureau())buildStock(bs.j);}catch(e){}if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
+(async()=>{await DB.open();const p=await DB.get('params','params');S.params=Object.assign({},DEF_PARAMS,p||{});setTimeout(()=>{pingRef().catch(()=>{});},1500);try{const bs=await DB.get('params','bureau');if(bs&&bs.j&&isBureau())buildStock(bs.j);}catch(e){}if(S.params.dmm)Object.assign(Calc.DMM,S.params.dmm);
   S.lots=(await DB.all('lots'))||[];S.grilles=(await DB.all('grilles'))||[];S.lots.forEach(l=>{l.grumes=l.grumes||[];l.arbres=l.arbres||[];l.sousLots=l.sousLots||[];l.classH=l.classH||{};});
   /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
   let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}

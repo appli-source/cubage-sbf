@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.3 (la colonne « libellé » sert de mot vocal à défaut d'une colonne « mots_vocaux »).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.4 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -34,7 +34,7 @@ function doPost(e) {
     const auth = auth_(ss, body.key);
     if (!auth) return out_({ ok:false, error:'clé refusée' });
     const lock = LockService.getScriptLock(); lock.waitLock(30000);
-    try { return out_(handle_(ss, auth, body)); } finally { lock.releaseLock(); }
+    try { const r = handle_(ss, auth, body); if (r && typeof r === 'object') r.refVersion = refVersion_(ss); return out_(r); } finally { lock.releaseLock(); }
   } catch (err) { return out_({ ok:false, error: String(err) }); }
 }
 
@@ -65,7 +65,8 @@ function doGet(e) {
   const auth = auth_(ss, p.key);
   if (!auth) return out_({ ok:false, error:'clé refusée' });
   const role = auth.role;
-  if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur }));
+  if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur, refVersion: refVersion_(ss) }));
+  if (p.action === 'ping') return out_({ ok:true, refVersion: refVersion_(ss) });
   if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur)));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
   if (p.action === 'propositions') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, propositions: sheetRows_(ss, 'PROPOSITIONS') }); }
@@ -274,5 +275,13 @@ function stock_(ss) {
     recoupes: sheetRows_(ss, 'RECOUPE'),
     clients: sheetRows_(ss, 'LOT_CLIENT'),
     lignes: sheetRows_(ss, 'LOT_CLIENT_LIGNE') };
+}
+/* Empreinte du référentiel commun (essences, qualités, classes, grilles, barème) : change dès qu'une cellule change */
+function refVersion_(ss) {
+  let h = 0, n = 0;
+  ['ESSENCES','QUALITES','CLASSES','GRILLES','DMM'].forEach(name => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 1) return;
+    const v = sh.getRange(1,1,sh.getLastRow(),Math.max(1,sh.getLastColumn())).getValues();
+    v.forEach(r => r.forEach(c => { const s = String(c); n += s.length; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; })); });
+  return h.toString(36) + '-' + n;
 }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
