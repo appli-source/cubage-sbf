@@ -338,7 +338,9 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#main').querySelectorAll('input[data-f=lm],input[data-f=d]').forEach(i=>{i.setAttribute('enterkeyhint','next');i.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const k=i.dataset.f,n=Number(i.dataset.i);
     const nx=k==='lm'?document.querySelector(`input[data-f=d][data-i="${n}"]`):document.querySelector(`input[data-f=lm][data-i="${n+1}"]`);if(nx)nx.focus();else $('#ok').click();};});
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};
-  $('#ok').onclick=()=>{try{const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
+  $('#ok').onclick=()=>{try{// Les billons de fin laissés vides (ou sans diamètre) sont ignorés : on peut valider la grume et compléter plus tard (✎ dans le listing)
+    while(f.billons.length>1&&!(f.billons[f.billons.length-1].d>0)){const e=f.billons.pop();if(lenM(e)>0&&!l.lgFixe)toast('Billon '+f.num+'.'+e.rang+' sans diamètre ignoré');}
+    const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
     f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.rl=b.rl>0?Math.round(b.rl):0;b.rd=b.rd>0?Math.round(b.rd):0;if(b.rl>=b.lm*100||b.rd>=b.d){toast('Réduction supérieure à la dimension du billon '+b.rang);throw new Error('red');}b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
