@@ -81,9 +81,11 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     for(const [w,n] of NUMW)lex.set(w,{k:'num',v:n});for(const w of Object.keys(MULT))lex.set(w,{k:'mult',v:MULT[w]});
     lex.set('mètres',{k:'m'});lex.set('mètre',{k:'m'});lex.set('par',{k:'par'});lex.set('virgule',{k:'virg'});lex.set('et demi',{k:'demi'});lex.set('demi',{k:'demi'});
     for(const w of Object.keys(CMD))lex.set(w,{k:'cmd',v:CMD[w]});
+    lex.set('billon suivant',{k:'cmd',v:'billon'});lex.set('billon',{k:'cmd',v:'billon'});lex.set('grume suivante',{k:'cmd',v:'suivante'});lex.set('grume',{k:'cmd',v:'suivante'});
+    lex.set('longueur',{k:'fld',v:'L'});lex.set('diamètre',{k:'fld',v:'d'});
     phrases.push(...ess,...qual);for(let n=1;n<100;n++)phrases.push(nombre(n));phrases.push('quatre-vingt','cent','cents','mille','mètres','mètre','par','virgule','demi'); // « et » volontairement absent du vocabulaire : il absorberait un « huit » faible
     for(const e of ess.slice(0,6))for(const q of qual.slice(0,6))phrases.push(e+' '+q);
-    phrases.push('suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
+    phrases.push('billon suivant','grume suivante','billon','grume','longueur','diamètre','suivante','numéro','annule','erreur','pause','stop','reprise','[unk]');
     return{lex,phrases,key:JSON.stringify(['g',ess,qual])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
   for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
@@ -148,7 +150,7 @@ async function demarrer(){if(V.chargement)return;V.chargement=true;try{const a=d
     setEtat('chargement','Accès au micro…');await demarrerAudio(pMic);
     await preparer();if(!V.hook){arreter('');return;}
     if(!V.stream){setEtat('chargement','Accès au micro…');await demarrerAudio();} // écran quitté puis repris pendant le chargement
-    V.pause=false;V.pend=null;creerReco();V.cur=V.hook.cur||'';V.curQ=V.hook.curQ||'';V.dernier='';V.partiel='';setEtat('ecoute','');veille(true);bipEss();}
+    V.pause=false;V.pend=null;V.draft=null;creerReco();V.cur=V.hook.cur||'';V.curQ=V.hook.curQ||'';V.dernier='';V.partiel='';setEtat('ecoute','');veille(true);bipEss();}
   catch(e){couperAudio();const m=(e&&e.name==='NotAllowedError')?'Micro refusé : autorisez-le pour cette application dans les réglages du téléphone':(e&&e.message)||String(e);setEtat('erreur',m);}
   finally{V.chargement=false;}}
 function arreter(msg){couperAudio();if(V.rec){try{V.rec.remove();}catch(e){}V.rec=null;V.gramKey='';}V.pause=false;V.pend=null;veille(false);try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}setEtat(msg?'erreur':'off',msg||'');}
@@ -200,57 +202,65 @@ function traiterClasses(els){let n=0;const faits=[];
    longueur et diamètre (« dix par cinquante », « huit vingt par quarante-deux ») ; sans « par », le dernier nombre est
    le diamètre et ce qui précède la longueur (« huit » = 8 m, « huit vingt » = 8,20). « mètres » est un simple
    séparateur ; « virgule » et « et demi » marquent des décimales. Une longueur dictée seule attend son diamètre. */
-function traiterGrumes(els){const faits=[];const h=()=>V.hook;
-  let seq=[];     // nombres et marqueurs de la longueur/du diamètre en cours
-  let attenteNum=false; // après « numéro »
-  const flush=()=>{ // transforme seq en billon (ou en longueur en attente)
-    if(!seq.length)return;
-    let L=null,d=null;const nums=seq.filter(x=>x.k==='num');
-    if(V.pend){ // une longueur attendait son diamètre : « vingt quarante-deux » complète 8 → 8,20 / Ø 42 ; « quarante-deux » → Ø 42
-      L=V.pend.L;if(nums.length>=2&&!V.pend.dec){L=Math.floor(L)+nums[0].v/100;d=nums[nums.length-1].v;}
-      else if(nums.length>=1)d=nums[nums.length-1].v;}
-    else{
-      if(!nums.length){seq=[];return;}
-      // « par » sépare longueur et diamètre (« dix par cinquante », « huit vingt par quarante-deux ») : aucune ambiguïté
-      const iP=seq.findIndex(x=>x.k==='par');const avant=iP>=0?seq.slice(0,iP):seq,apres=iP>=0?seq.slice(iP+1):[];
+/* Dictée des billons, un billon à la fois : les éléments dictés (essence, qualité, longueur, diamètre) remplissent le billon
+   en cours, visible à l'écran ; rien n'est enregistré tant qu'on n'a pas dit « billon suivant » (ou « grume suivante », qui
+   enregistre le billon en cours puis passe à la grume suivante). « par » sépare longueur et diamètre (« dix par cinquante »,
+   « huit vingt par quarante-deux ») ; sans « par », le dernier nombre est le diamètre et ce qui précède la longueur.
+   « longueur douze » ou « diamètre quarante » corrige un seul champ. « annule » efface le billon en cours s'il est entamé,
+   sinon retire le dernier billon enregistré. « numéro cent douze » change le n° de grume. */
+function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(V.draft={L:null,d:null});
+  let seq=[],attenteNum=false,fld=null;
+  const montrer=()=>{if(h()&&h().onDraft)h().onDraft(V.cur,V.curQ,D.L,D.d);majBloc();};
+  const etat=()=>(D.L!=null?fmtL(D.L)+' m':'L ?')+' · Ø '+(D.d!=null?D.d:'?');
+  const flush=()=>{ // nombres dictés → longueur et/ou diamètre du billon en cours
+    if(!seq.length){fld=null;return;}const nums=seq.filter(x=>x.k==='num');if(!nums.length){seq=[];fld=null;return;}
+    const iP=seq.findIndex(x=>x.k==='par');
+    if(fld==='d'){D.d=nums[nums.length-1].v;}
+    else if(fld==='L'||iP>=0||D.L==null){
+      const avant=iP>=0?seq.slice(0,iP):seq,apres=iP>=0?seq.slice(iP+1):[];
       const nAv=avant.filter(x=>x.k==='num'),nAp=apres.filter(x=>x.k==='num');
-      if(iP>=0&&!nAv.length){faits.push('longueur ?');bipErr();seq=[];return;}
-      if(nAv.length>3||nAp.length>1){faits.push('un billon à la fois');bipErr();seq=[];return;}
+      if(!nAv.length){if(D.L!=null&&nAp.length){D.d=nAp[nAp.length-1].v;seq=[];fld=null;montrer();faits.push(etat());bipEss();return;}faits.push('longueur ?');bipErr();seq=[];fld=null;return;}
       const iV=avant.findIndex(x=>x.k==='virg'),iD=avant.findIndex(x=>x.k==='demi');
-      L=nAv[0].v;let dec=iP>=0;let reste=nAv.slice(1);
-      if(iD>=0){L+=.5;dec=true;}
-      else if(iV>=0){const nv=avant.slice(iV+1).find(x=>x.k==='num');if(nv){L+=nv.v<10?nv.v/10:nv.v/100;dec=true;reste=reste.filter(x=>x!==nv);}}
-      else if(iP>=0&&reste.length>=1){L+=reste[0].v/100;reste=reste.slice(1);}
-      else if(reste.length>=2){L+=reste[0].v/100;dec=true;reste=reste.slice(1);}
-      if(iP>=0){if(nAp.length)d=nAp[0].v;}else if(reste.length)d=reste[reste.length-1].v;
-      if(d==null){seq=[];if(!(L>=0.5&&L<=40)){faits.push('longueur '+fmtL(L)+' m ?');bipErr();return;}V.pend={L,dec};faits.push(fmtL(L)+' m · Ø ?');majBloc();return;}}
-    seq=[];V.pend=null;
-    if(!(L>=0.5&&L<=40)){faits.push('longueur '+fmtL(L)+' m ?');bipErr();return;}
-    if(!(d>=5&&d<=250)){faits.push('diamètre '+d+' ?');bipErr();return;}
-    if(!V.cur){faits.push('essence ?');bipErr();return;}
-    const r=h()&&h().onBillon&&h().onBillon(V.cur,V.curQ,Math.round(L*100)/100,Math.round(d));
-    if(!r){faits.push('billon refusé');bipErr();return;}
-    faits.push((r.label?r.label+' · ':'')+V.cur+' '+(V.curQ||'—')+' · '+fmtL(L)+' m · Ø '+Math.round(d));bipOk();vibrer(30);
-    dire((V.curQ?(motsQ(V.curQ,h()&&h().motsQ)[0]||V.curQ)+', ':'')+longueurParlee(L)+', '+nombre(Math.round(d)));};
-  const oubli=()=>{if(V.pend){faits.push(fmtL(V.pend.L)+' m abandonné');V.pend=null;}};
+      let L=nAv[0].v,reste=nAv.slice(1);
+      if(iD>=0)L+=.5;
+      else if(iV>=0){const nv=avant.slice(iV+1).find(x=>x.k==='num');if(nv){L+=nv.v<10?nv.v/10:nv.v/100;reste=reste.filter(x=>x!==nv);}}
+      else if(reste.length&&(iP>=0||fld==='L'||reste.length>=2)){L+=reste[0].v/100;reste=reste.slice(1);}
+      D.L=L;let d=null;if(iP>=0){if(nAp.length)d=nAp[nAp.length-1].v;}else if(fld!=='L'&&reste.length)d=reste[reste.length-1].v;
+      if(d!=null)D.d=d;}
+    else if(D.d==null){D.d=nums[nums.length-1].v;}
+    else{faits.push('billon complet : dites « billon suivant » (ou « diamètre … » pour corriger)');bipErr();seq=[];fld=null;return;}
+    seq=[];fld=null;
+    if(D.L!=null&&!(D.L>=0.5&&D.L<=40)){faits.push('longueur '+fmtL(D.L)+' m ?');D.L=null;bipErr();}
+    if(D.d!=null&&!(D.d>=5&&D.d<=250)){faits.push('diamètre '+D.d+' ?');D.d=null;bipErr();}
+    montrer();faits.push(etat());bipEss();};
+  const enregistrer=()=>{ // « billon suivant » : enregistre le billon en cours
+    if(D.L==null||D.d==null||!V.cur){faits.push('billon incomplet : '+(!V.cur?'essence ? ':'')+etat());bipErr();return false;}
+    const r=h()&&h().onBillonSuivant&&h().onBillonSuivant(V.cur,V.curQ,Math.round(D.L*100)/100,Math.round(D.d));
+    if(!r){faits.push('billon refusé');bipErr();return false;}
+    faits.push((r.label?r.label+' enregistré · ':'')+V.cur+' '+(V.curQ||'—')+' · '+fmtL(D.L)+' m · Ø '+Math.round(D.d));bipOk();vibrer(30);
+    dire((V.curQ?(motsQ(V.curQ,h()&&h().motsQ)[0]||V.curQ)+', ':'')+longueurParlee(D.L)+', '+nombre(Math.round(D.d)));
+    D.L=r.L>0?r.L:null;D.d=null;return true;};
   for(let i=0;i<els.length;i++){const e=els[i];
     if(e.k==='num'||e.k==='m'||e.k==='par'||e.k==='virg'||e.k==='demi'){
       if(attenteNum&&e.k==='num'){attenteNum=false;const ok=h()&&h().onNumero&&h().onNumero(e.v);faits.push(ok?'grume n° '+e.v:'numéro refusé');if(ok){bipEss();dire('grume '+nombre(e.v));}else bipErr();continue;}
       seq.push(e);continue;}
+    if(e.k==='fld'){flush();fld=e.v;continue;}
     flush();
-    if(e.k==='ess'){oubli();V.cur=e.v;if(h()&&h().onEssence)h().onEssence(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}continue;}
-    if(e.k==='q'){oubli();V.curQ=e.v;if(h()&&h().onQualite)h().onQualite(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk')bipEss();continue;}
+    if(e.k==='ess'){V.cur=e.v;if(h()&&h().onEssence)h().onEssence(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}montrer();continue;}
+    if(e.k==='q'){V.curQ=e.v;if(h()&&h().onQualite)h().onQualite(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk')bipEss();montrer();continue;}
     if(e.k==='cmd'){
       if(e.v==='numero'){attenteNum=true;continue;}
-      if(e.v==='suivante'){oubli();const r=h()&&h().onSuivante&&h().onSuivante();
-        if(r){faits.push('→ grume '+r);bipEss();vibrer([30,60,30]);dire('grume '+nombre(Number(r)||0));}else{faits.push('grume non enregistrée');bipErr();}continue;}
-      if(e.v==='annule'){if(V.pend){V.pend=null;faits.push('longueur annulée');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule();
+      if(e.v==='billon'){enregistrer();continue;}
+      if(e.v==='suivante'){if(D.L!=null||D.d!=null){if(!enregistrer())continue;}
+        const r=h()&&h().onSuivante&&h().onSuivante();
+        if(r){D.L=null;D.d=null;faits.push('→ grume '+r);bipEss();vibrer([30,60,30]);dire('grume '+nombre(Number(r)||0));}else{faits.push('grume non enregistrée');bipErr();}continue;}
+      if(e.v==='annule'){if(D.L!=null||D.d!=null){D.L=null;D.d=null;montrer();faits.push('billon en cours effacé');bipEss();continue;}const r=h()&&h().onAnnule&&h().onAnnule();
         if(r){faits.push('annulé : '+r);bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler');bipErr();}continue;}}}
   flush();
   return faits;}
 
 /* ---------- Liaison avec l'écran de saisie ---------- */
-function bind(h){const chg=V.hook&&V.hook.mode!==h.mode;V.hook=h;V.bound=true;if(h.cur)V.cur=h.cur;if(h.curQ!==undefined&&h.curQ!==null)V.curQ=h.curQ;if(chg)V.pend=null;
+function bind(h){const chg=V.hook&&V.hook.mode!==h.mode;V.hook=h;V.bound=true;if(h.cur)V.cur=h.cur;if(h.curQ!==undefined&&h.curQ!==null)V.curQ=h.curQ;if(chg){V.pend=null;V.draft=null;}
   if(V.model&&V.rec&&(V.etat==='ecoute'||V.etat==='pause'))creerReco();majBloc();}
 function unbind(){V.bound=false;}
 function apresRendu(){if(!V.bound&&(V.etat==='ecoute'||V.etat==='pause'||V.etat==='chargement')){arreter('');}if(!V.bound){V.hook=null;}}
@@ -263,9 +273,9 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante » · « '+px+'suivante » = grume suivante · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « '+px+'billon suivant » pour enregistrer · « '+px+'grume suivante » · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
-    <div class="voc-last" id="vocLast">${esc(V.pend?V.cur+' '+(V.curQ||'—')+' · '+fmtL(V.pend.L)+' m · Ø ?':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
+    <div class="voc-last" id="vocLast">${esc((gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
     $('#vocPause').onclick=()=>{V.pause=!V.pause;setEtat(V.pause?'pause':'ecoute','');};}
   const b=$('#vocBtn');if(b)b.onclick=basculer;}

@@ -345,8 +345,10 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
     window.CubageVoice.bind({mode:'grumes',motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),qualites:lotQual(l,f.billons.map(b=>b.q)),cur:f.ess,curQ:lastQ?lastQ.q||'':'',num:f.num,mots:motsVocaux(),motsQ:motsVocauxQ(),annonce:p.vocalAnnonce!==false,
       onEssence:code=>{if(code!==f.ess){f.ess=code;render();voirElement(null);}},
       onQualite:code=>{const b=f.billons[f.billons.length-1];if(b&&vide(b)&&b.q!==code){b.q=code;render();voirElement('.card[data-b="'+(f.billons.length-1)+'"]');}},
-      onBillon:(ess,q,lm,d)=>{if(!(lm>0&&d>0))return null;if(ess!==f.ess)f.ess=ess;let b=f.billons[f.billons.length-1];
-        if(b&&vide(b))Object.assign(b,{q,lm,d});else{b={rang:f.billons.length+1,lm,d,q};f.billons.push(b);}render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:f.num+'.'+b.rang};},
+      /* Billon en cours (dernière ligne) : rempli au fur et à mesure de la dictée, enregistré sur « billon suivant » */
+      onDraft:(ess,q,lm,d)=>{if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];if(!b)return null;Object.assign(b,{q:q||b.q,lm:lm>0?lm:null,d:d>0?d:null});render();voirElement('.card[data-b="'+(b.rang-1)+'"]');return{label:f.num+'.'+b.rang};},
+      onBillonSuivant:(ess,q,lm,d)=>{if(!(lm>0&&d>0))return null;if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];Object.assign(b,{q:q||b.q,lm,d});
+        const nb={rang:f.billons.length+1,lm:l.lgFixe?lm:null,d:null,q:b.q};f.billons.push(nb);render();voirElement('.card[data-b="'+(nb.rang-1)+'"]');return{label:f.num+'.'+b.rang,L:l.lgFixe?lm:null};},
       onSuivante:()=>{if(f.billons.length>1&&vide(f.billons[f.billons.length-1])){f.billons.pop();}
         if(!f.billons.length||f.billons.some(vide))return false;const n=l.grumes.length;const b=$('#ok');if(b)b.click();
         if(l.grumes.length>n){const g=l.grumes[l.grumes.length-1];S.vocalGrume=g.id;voirElement(null);return String(S.form.g?S.form.g.num:nextNum(l));}return false;},
