@@ -91,8 +91,10 @@ function construire0(h){const lex=new Map();const ess=[],qual=[];
     return{lex,phrases,key:JSON.stringify(['g',ess,qual,h.motsC||[]])};}
   const nums=[];for(const c of h.classes||[]){const n=nombre(c);if(n){lex.set(n,{k:'num',v:c});nums.push(n);}}
   for(const w of ['annule','annuler','erreur','efface','pause','stop','reprise','reprends'])lex.set(w,{k:'cmd',v:CMD[w]});
+  lex.set('tarif',{k:'fld',v:'t'});for(let t=1;t<=20;t++){const n=nombre(t);if(!lex.has(n))lex.set(n,{k:'num',v:t});} // « tarif huit » : tarif Chaudé 1 à 20
   for(const e of ess){phrases.push(e);for(const n of nums)phrases.push(e+' '+n);}
   for(const n of nums)phrases.push(n);const some=nums.slice(0,8);for(const a of some)for(const b of some)phrases.push(a+' '+b);
+  phrases.push('tarif');for(let t=1;t<=20;t++)phrases.push('tarif '+nombre(t));
   phrases.push('annule','erreur','pause','stop','reprise','[unk]');
   return{lex,phrases,key:JSON.stringify(['c',ess,nums])};}
 
@@ -205,8 +207,11 @@ function traiter(text,conf){if(V.libre)return;let t=norm(text);if(!t)return;try{
   V.partiel='';majBloc();}
 
 /* Pointage par classes : « chêne quarante », « quarante », « chêne », « annule » */
-function traiterClasses(els){let n=0;const faits=[];
+function traiterClasses(els){let n=0;const faits=[];let tarif=false;
   for(let i=0;i<els.length;i++){const e=els[i];
+    if(e.k==='fld'&&e.v==='t'){tarif=true;continue;}
+    if(tarif&&e.k==='num'){tarif=false;const ok=!!(V.hook&&V.hook.onTarif&&V.hook.onTarif(e.v));if(ok){faits.push('tarif '+e.v+(V.cur?' ('+V.cur+')':''));bipEss();dire('tarif '+nombre(e.v));}else{faits.push('tarif '+e.v+' ? (1 à 20)');bipErr();}continue;}
+    tarif=false;
     if(e.k==='cmd'){if(e.v==='annule'){const ok=V.hook&&V.hook.onAnnule&&V.hook.onAnnule();if(ok){faits.push('annulé');bipEss();vibrer([30,60,30]);dire('annulé');}else{faits.push('rien à annuler');bipErr();}}continue;}
     if(e.k==='ess'){V.cur=e.v;if(V.hook&&V.hook.onEssence)V.hook.onEssence(e.v);faits.push(e.v);const suiv=els[i+1];
       if(!(suiv&&suiv.k==='num')){bipEss();dire(motsDe(e.v,V.hook&&V.hook.mots)[0]||e.v);}continue;}
@@ -304,7 +309,7 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'réduction longueur cinquante », « '+px+'réduction diamètre deux » · « '+px+'commentaire gélivure » ou « '+px+'commentaire » puis la phrase · « '+px+'annule » (billon) · « '+px+'annule commentaire » · « '+px+'annule réduction » · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » (ou « suivant ») pour enregistrer · « grume suivante » (ou « suivante », « arbre suivant ») · « précédent » rouvre le dernier billon pour le corriger · « '+px+'réduction longueur cinquante », « '+px+'réduction diamètre deux » · « '+px+'commentaire gélivure » ou « '+px+'commentaire » puis la phrase · « '+px+'annule » (billon) · « '+px+'annule commentaire » · « '+px+'annule réduction » · « '+px+'annule grume »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'tarif huit » change le tarif Chaudé de l’essence en cours · « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc(V.libre?'🎙 Dictez le commentaire (phrase libre)…':(gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+(V.draft.rl>0?' · L −'+V.draft.rl+' cm':'')+(V.draft.rd>0?' · Ø −'+V.draft.rd+' cm':'')+(V.draft.note?' · « '+V.draft.note+' »':'')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;

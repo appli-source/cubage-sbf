@@ -409,6 +409,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   if(vocal)window.CubageVoice.bind({motDepart:p.vocalMot==null?'note':p.vocalMot,strict:p.vocalStrict!==false,essences:lotEss(l,[f.ess]),cur:f.ess,classes,mots:motsVocaux(),annonce:p.vocalAnnonce!==false,
     onEssence:code=>{if(code===f.ess)return;f.ess=code;f.tarif=tarifDef(l,code);render();},
     onPointage:(code,c)=>{if(!classes.includes(c))return false;if(code!==f.ess){f.ess=code;f.tarif=tarifDef(l,code);}f.d=c;S.flash=c;commit();return true;},
+    onTarif:t=>{t=Number(t);if(!(t>=1&&t<=20))return false;f.tarif=clampT(t);l.tarifEss=l.tarifEss||{};l.tarifEss[f.ess]=f.tarif;save();render();return true;},
     onAnnule:()=>{if(!l.arbres.length)return false;l.arbres.pop();save();toast('Dernière tige annulée');render();return true;}});
   const hasTr=!!$('#tr');
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${hasTr?'<button type="button" class="btn big" id="addTrF">+ Qualité</button>':''}${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
