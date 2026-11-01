@@ -174,6 +174,10 @@ function traiter(text,conf){let t=norm(text);if(!t)return;try{console.debug('voc
   // Garde-fous contre les fausses saisies : phrase contenant des mots inconnus, ou reconnue avec peu de confiance → ignorée
   if(strict&&(t.includes('[unk]')||(conf!=null&&conf<0.55))){V.dernier='ignoré (pas compris) : « '+t.replace(/\[unk\]/g,'…')+' »';V.partiel='';majBloc();return;}
   const w=motDepart(V.hook);
+  // Commandes d'enregistrement dites seules (« billon suivant », « grume suivante ») : acceptées sans le mot de départ,
+  // la phrase complète est assez caractéristique pour ne pas être confondue avec une conversation
+  const seule=t.replace(/\[unk\]/g,'').trim();const SANS=['billon suivant','grume suivante'];
+  if(w&&SANS.includes(seule))t=seule;else
   if(w){const i=t.indexOf(w);if(i<0||!(i===0||t[i-1]===' ')){V.dernier='ignoré (dites « '+w+' … ») : « '+t+' »';V.partiel='';majBloc();return;}
     t=t.slice(i+w.length).trim();if(!t){V.dernier='« '+w+' » … ?';V.partiel='';majBloc();return;}
     t=t.split(' ').filter(x=>x!==w).join(' ');}
@@ -273,7 +277,7 @@ function majBloc(){const el=$('#vocal');if(!el||!V.hook)return;const h=V.hook,e=
   const curNom=V.cur?(motsDe(V.cur,h.mots)[0]||V.cur):'—';
   if(e==='off'||e==='erreur'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" id="vocBtn">🎤 Mode vocal</button>${e==='erreur'?`<div class="msg bad">${esc(V.msg)}</div>`:''}</div>`;}
   else if(e==='chargement'){el.innerHTML=`<div class="voc"><button type="button" class="btn big block" disabled>⏳ ${esc(V.msg||'Chargement…')}</button></div>`;}
-  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « '+px+'billon suivant » pour enregistrer · « '+px+'grume suivante » · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
+  else{const w=motDepart(h),px=w?w+' ':'';const aide=gr?'Dites « '+px+'chêne, cé a, dix par cinquante », puis « billon suivant » pour enregistrer (sans « '+(w||'note')+' ») · « grume suivante » · « '+px+'annule »':'Dites « '+px+'chêne quarante », puis « '+px+'trente-cinq »… « '+px+'annule » retire la dernière tige'+(w?' · tout ce qui ne commence pas par « '+w+' » est ignoré':'');
     el.innerHTML=`<div class="voc on${e==='pause'?' paused':''}"><div class="voc-head"><span class="voc-dot"></span><span class="grow">${e==='pause'?'En pause · dites « reprise »':'À l’écoute'} · <b>${esc(curNom)}</b>${gr?` <b>${esc(V.curQ||'—')}</b>`:''}${gr&&h.num?` · grume ${esc(h.num)}`:''}</span><button type="button" class="btn" id="vocPause">${e==='pause'?'Reprendre':'Pause'}</button><button type="button" class="btn danger" id="vocBtn">Arrêter</button></div>
     <div class="voc-last" id="vocLast">${esc((gr&&V.draft&&(V.draft.L!=null||V.draft.d!=null))?'Billon en cours : '+V.cur+' '+(V.curQ||'—')+' · '+(V.draft.L!=null?fmtL(V.draft.L)+' m':'L ?')+' · Ø '+(V.draft.d!=null?V.draft.d:'?')+' — dites « billon suivant » pour l’enregistrer':(V.dernier||aide))}</div><div class="voc-part muted" id="vocPart"></div>
     <details class="voc-help muted"><summary>Mots reconnus</summary>${nomsE}${nomsQ?'<br>'+nomsQ:''}</details></div>`;
