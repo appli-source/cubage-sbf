@@ -448,11 +448,11 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   const hasTr=!!$('#tr');
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button>${hasTr?'<button type="button" class="btn big" id="addTrF">+ Qualité</button>':''}${(mode==='diam'&&byClass&&!ed)?'':`<button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Ajouter ›'}</button>`}`);
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};if($('#ok'))$('#ok').onclick=commit;
-  if($('#addTrF'))$('#addTrF').onclick=()=>{const root=$('#tr');if(!root)return;const list=readTr('tr');list.push({h:null,q:''});root.outerHTML=trEditor(list,'tr',true);rebindTr();const x=[...document.querySelectorAll('#tr [data-f=h]')].pop();x&&x.focus();};
+  if($('#addTrF'))$('#addTrF').onclick=()=>{const root=$('#tr');if(!root)return;const list=readTr('tr');list.push({h:null,q:''});root.outerHTML=trEditor(list,'tr',true);rebindTr();const x=[...document.querySelectorAll('#tr [data-f=h]')].pop();if(x){x.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>x.focus(),250);}};
   if(!ed&&$('#d'))focusSaisie('#d');};
 function lastArbre(l){const a=l.arbres[l.arbres.length-1];if(!a)return '';return (a.n>1?a.n+'×':'')+a.ess+' '+a.d+(a.h?' · '+a.h+' m':'')+' · T'+tarifOf(l,a);}
 function bindTr(id,onChange){const root=$('#'+id);if(!root)return;root.addEventListener('click',e=>{const d=e.target.closest('[data-del]');if(d){d.closest('.tr-row').remove();onChange&&onChange();return;}
-  const ad=e.target.closest('[data-add-tr]');if(ad){const list=readTr(id);list.push({h:null,q:''});root.outerHTML=trEditor(list,id,root.dataset.nobtn==='1');bindTr(id,onChange);const x=[...document.querySelectorAll(`#${id} [data-f=h]`)].pop();x&&x.focus();}});
+  const ad=e.target.closest('[data-add-tr]');if(ad){const list=readTr(id);list.push({h:null,q:''});root.outerHTML=trEditor(list,id,root.dataset.nobtn==='1');bindTr(id,onChange);const x=[...document.querySelectorAll(`#${id} [data-f=h]`)].pop();if(x){x.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>x.focus(),250);}}});
   root.addEventListener('input',()=>onChange&&onChange());root.addEventListener('change',()=>onChange&&onChange());}
 
 /* --- Hauteurs par classe --- */
