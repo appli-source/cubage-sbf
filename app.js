@@ -839,7 +839,7 @@ V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots
    :`<div class="row"><button type="button" class="btn grow" id="sl${i}Copy"${catGrille(s.grilleId)?'':' disabled'}>Copier dans le sous-lot pour modifier</button><button type="button" class="btn grow" id="sl${i}New">Grille propre au sous-lot</button></div>`}
    <button type="button" class="btn primary" data-assign="${s.id}">Affecter des ${G?'grumes':'tiges'}</button></div>`).join('')}
   ${l.sousLots.length?`<div class="card"><b>Non affecté</b><br><span class="muted">${stat(NONE)}</span></div>`:''}</div>
-  <h2>Nouveau sous-lot</h2><div class="card stack"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" list="clDL" autocomplete="off" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client <span class="muted">(liste commune ou nom libre)</span></span><input id="cli" list="clDL" autocomplete="off" placeholder="choisir dans la liste ou taper"></label>${clientDatalist()}<label class="f"><span class="l">Grille client (vente)</span><select id="slg"><option value="">${G?'Grille client du lot':'Celle du lot'}</option>${S.grilles.filter(g=>g.type===l.type).map(g=>`<option value="${g.id}">${esc(g.nom)}</option>`).join('')}</select></label><button class="btn primary" id="add">Ajouter</button></div>`;
+  <h2>Nouveau sous-lot</h2><div class="card stack"><label class="f"><span class="l">Nom du sous-lot</span><input id="nom" placeholder="ex. Scierie X"></label><label class="f"><span class="l">Client</span><input id="cli"></label><label class="f"><span class="l">Grille client (vente)</span><select id="slg"><option value="">${G?'Grille client du lot':'Celle du lot'}</option>${S.grilles.filter(g=>g.type===l.type).map(g=>`<option value="${g.id}">${esc(g.nom)}</option>`).join('')}</select></label><button class="btn primary" id="add">Ajouter</button></div>`;
   l.sousLots.forEach((s,i)=>bindGrilleSlot(s,'grilleId','grilleLocal',l.type,'sl'+i,n=>n?n+' ('+s.nom+')':'Prix '+(s.client||s.nom),{sl:s.id}));
   $('#add').onclick=()=>{const n=$('#nom').value.trim();if(!n)return;l.sousLots.push({id:uid(),nom:n,client:$('#cli').value.trim(),grilleId:$('#slg').value||null});save();render();};
   $('#main').querySelectorAll('[data-assign]').forEach(b=>b.onclick=()=>{S.hist.push('sousLots');go('slAssign',{slTarget:b.dataset.assign});});
@@ -1076,9 +1076,7 @@ async function pingRef(){const url=S.params.syncUrl;if(!url||!navigator.onLine)r
 /* Codes d'essence / qualité du lot absents du référentiel commun du Sheet : proposés au bureau à la sauvegarde */
 function propositions(l){const p=S.params;if(!Array.isArray(p.essencesSheet))return null;
   const usedE=uniqL([...(l.essSel||[]),...(l.grumes||[]).map(g=>g.ess),...(l.arbres||[]).map(a=>a.ess)]),usedQ=uniqL([...(l.qualSel||[]),...(l.grumes||[]).flatMap(g=>g.billons.map(b=>b.q)),...(l.arbres||[]).flatMap(a=>(a.tr||[]).map(t=>t.q))]);
-  const ess=usedE.filter(x=>!p.essencesSheet.includes(x)),qual=usedQ.filter(x=>!(p.qualitesSheet||[]).includes(x));
-  const known=new Set((p.clients||[]).map(x=>x.trim().toUpperCase()));const cli=[...new Set((l.sousLots||[]).flatMap(sl=>[sl.client,sl.nom]).map(x=>String(x||'').trim()).filter(x=>x&&!known.has(x.toUpperCase())))];
-  return ess.length||qual.length||cli.length?{ess,qual,cli}:null;}
+  const ess=usedE.filter(x=>!p.essencesSheet.includes(x)),qual=usedQ.filter(x=>!(p.qualitesSheet||[]).includes(x));return ess.length||qual.length?{ess,qual}:null;}
 /* Plusieurs lots en un seul appel (action batch, script ≥ 2.3) ; retourne le nombre de lots sauvegardés */
 async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onLine||!lots.length){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}
   if(lots.length===1)return (await syncLot(lots[0],true))?1:0;
