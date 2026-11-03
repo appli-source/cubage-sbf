@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.4 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -44,7 +44,7 @@ function handle_(ss, auth, body) {
   if (body.action === 'setProposition') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setProposition_(ss, body); }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
   if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps); }
-  if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur); }
+  if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur, body.facture_xylolink); }
   if (body.action === 'purgeLots') { // vide tous les onglets de lots (référentiel et clés conservés) — réservé au bureau, confirmation 'VIDER'
     if (auth.cle !== CLE_BUREAU) return { ok:false, error:'réservé à la clé maître du bureau (constante CLE_BUREAU du script)' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
     let n = 0; TABLES.concat(TABLES_CLIENT).forEach(name => { const sh = ss.getSheetByName(name); if (!sh) return; delete ROWS_CACHE_[name]; const last = sh.getLastRow(); if (last > 1) { sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).clearContent(); n += last - 1; } });
@@ -83,7 +83,7 @@ function sheetRows_(ss, name) { if (ROWS_CACHE_[name]) return ROWS_CACHE_[name];
 /* Colonnes à écrire en texte brut : sinon Google Sheets (réglage régional français) transforme « 1.2 » en date (1er février)
    et « 1 » en date du mois, ce qui casse les numéros de grumes et de billons. */
 const COLONNES_TEXTE = ['num','numero','parent_num','billon_key','parent_key','piece_key','lot_id','billon_id','grume_id','piece_id','arbre_id','recoupe_id','client_id','sous_lot_id',
-  'chantier_xylolink','chantier','commune','dept','operateur','essence','qualite','sous_lot','client','grille','reduction','commentaire','date','saisi_le','saisi_heure','origine','ref','note','statut','cle','role','data'];
+  'chantier_xylolink','chantier','commune','dept','operateur','essence','qualite','sous_lot','client','grille','reduction','commentaire','date','saisi_le','saisi_heure','origine','ref','facture_xylolink','note','statut','cle','role','data'];
 function texte_(sh, row, nb, headers) {
   headers.forEach((h, i) => { if (COLONNES_TEXTE.indexOf(String(h)) >= 0) sh.getRange(row, i + 1, nb, 1).setNumberFormat('@'); });
 }
@@ -132,6 +132,8 @@ function saveClient_(ss, role, body) {
   const conflicts = clientConflicts_(ss, c.client_id, lignes.map(l => String(l.billon_key)));
   const hard = conflicts.filter(x => x.type === 'recoupe' || x.statut === 'valide');
   if (hard.length && statut !== 'brouillon') return ({ ok:false, error:'billons indisponibles : ' + hard.map(x => x.num + (x.client ? ' (vendu · ' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts });
+  const deja = sheetRows_(ss, 'LOT_CLIENT').some(r => String(r.client_id) === String(c.client_id) && String(r.statut) === 'valide'); // ventes validées avant la v3.5 : pas de blocage au renvoi
+  if (statut === 'valide' && !deja && !String(c.facture_xylolink || '').trim()) return ({ ok:false, error:'n° de facture Xylolink obligatoire pour valider la vente' });
   if (statut === 'valide' && conflicts.length) return ({ ok:false, error:'billons déjà proposés ailleurs : ' + conflicts.map(x => x.num + ' (' + x.client + ')').join(', '), conflicts: conflicts });
   const row = Object.assign({}, c, { statut: statut, updated_at: new Date().toISOString(), validated_at: statut === 'valide' ? (c.validated_at || new Date().toISOString()) : (c.validated_at || '') });
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
@@ -214,7 +216,7 @@ function setLotGps_(ss, lotId, gps) {
   }
   return { ok:true, lot_id: id, gps: g };
 }
-function setStatut_(ss, clientId, statut, par) {
+function setStatut_(ss, clientId, statut, par, facture) {
   const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return ({ ok:false, error:'aucun lot client' }); delete ROWS_CACHE_['LOT_CLIENT'];
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
   const ci = h.indexOf('client_id'), si = h.indexOf('statut'), vi = h.indexOf('validated_at');
@@ -222,8 +224,10 @@ function setStatut_(ss, clientId, statut, par) {
     if (statut === 'valide') { const keys = sheetRows_(ss, 'LOT_CLIENT_LIGNE').filter(r => String(r.client_id) === String(clientId)).map(r => String(r.billon_key));
       const conflicts = clientConflicts_(ss, clientId, keys); if (conflicts.length) return ({ ok:false, error:'conflits : ' + conflicts.map(x => x.num + (x.client ? ' (' + x.client + ')' : ' (recoupé)')).join(', '), conflicts: conflicts }); }
     sh.getRange(i+1, si+1).setValue(statut); if (vi >= 0 && statut === 'valide') sh.getRange(i+1, vi+1).setValue(new Date().toISOString());
+    if (statut === 'valide') { facture = String(facture || '').trim(); let fi = h.indexOf('facture_xylolink'); if (!facture && (fi < 0 || !String(v[i][fi]).trim())) return ({ ok:false, error:'n° de facture Xylolink obligatoire pour valider la vente' });
+      if (facture) { if (fi < 0) { fi = h.length; h.push('facture_xylolink'); sh.getRange(1, fi+1).setValue('facture_xylolink'); } sh.getRange(i+1, fi+1).setNumberFormat('@').setValue(facture); } }
     if (par) { let pi = h.indexOf('statut_par'); if (pi < 0) { pi = h.length; sh.getRange(1, pi+1).setValue('statut_par'); } sh.getRange(i+1, pi+1).setValue(par); }
-    return ({ ok:true, client_id: clientId, statut: statut });
+    return ({ ok:true, client_id: clientId, statut: statut, facture_xylolink: facture || '' });
   }
   return ({ ok:false, error:'lot client introuvable' });
 }
