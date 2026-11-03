@@ -1076,7 +1076,9 @@ async function pingRef(){const url=S.params.syncUrl;if(!url||!navigator.onLine)r
 /* Codes d'essence / qualité du lot absents du référentiel commun du Sheet : proposés au bureau à la sauvegarde */
 function propositions(l){const p=S.params;if(!Array.isArray(p.essencesSheet))return null;
   const usedE=uniqL([...(l.essSel||[]),...(l.grumes||[]).map(g=>g.ess),...(l.arbres||[]).map(a=>a.ess)]),usedQ=uniqL([...(l.qualSel||[]),...(l.grumes||[]).flatMap(g=>g.billons.map(b=>b.q)),...(l.arbres||[]).flatMap(a=>(a.tr||[]).map(t=>t.q))]);
-  const ess=usedE.filter(x=>!p.essencesSheet.includes(x)),qual=usedQ.filter(x=>!(p.qualitesSheet||[]).includes(x));return ess.length||qual.length?{ess,qual}:null;}
+  const ess=usedE.filter(x=>!p.essencesSheet.includes(x)),qual=usedQ.filter(x=>!(p.qualitesSheet||[]).includes(x));
+  const known=new Set((p.clients||[]).map(x=>x.trim().toUpperCase()));const cli=[...new Set((l.sousLots||[]).flatMap(sl=>[sl.client,sl.nom]).map(x=>String(x||'').trim()).filter(x=>x&&!known.has(x.toUpperCase())))];
+  return ess.length||qual.length||cli.length?{ess,qual,cli}:null;}
 /* Plusieurs lots en un seul appel (action batch, script ≥ 2.3) ; retourne le nombre de lots sauvegardés */
 async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onLine||!lots.length){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}
   if(lots.length===1)return (await syncLot(lots[0],true))?1:0;

@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.6 (liste commune de clients : onglet CLIENTS, propositions des téléphones) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -178,6 +178,11 @@ function proposer_(ss, auth, body) {
   [['essence', P.ess || []], ['qualite', P.qual || []]].forEach(([type, codes]) => codes.forEach(c => { const code = String(c || '').trim().toUpperCase(); if (!code) return;
     if (ref[type].indexOf(code) >= 0) return; if (have[type + '|' + code]) return;
     rows.push([type, code, auth.operateur || lot.operateur || '', (lot.chantier_xylolink ? lot.chantier_xylolink + ' · ' : '') + (lot.chantier || ''), new Date().toISOString(), 'propose', '']); have[type + '|' + code] = true; }));
+  // Noms de sous-lots / clients des lots de cubage absents de l'onglet CLIENTS (casse conservée)
+  const clis = params_(ss, 'terrain').clients.map(x => x.toUpperCase());
+  (P.cli || []).forEach(n => { const nom = String(n || '').trim(); if (!nom) return; const k = 'client|' + nom.toUpperCase();
+    if (clis.indexOf(nom.toUpperCase()) >= 0 || have[k]) return;
+    rows.push(['client', nom, auth.operateur || lot.operateur || '', (lot.chantier_xylolink ? lot.chantier_xylolink + ' · ' : '') + (lot.chantier || ''), new Date().toISOString(), 'propose', '']); have[k] = true; });
   if (rows.length) { texte_(sh, sh.getLastRow() + 1, rows.length, H); sh.getRange(sh.getLastRow() + 1, 1, rows.length, H.length).setValues(rows); }
 }
 /* Nom de client inconnu de l'onglet CLIENTS : proposé au bureau (PROPOSITIONS, type client), comme un code d'essence */
