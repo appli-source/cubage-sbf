@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.6 (liste commune de clients : onglet CLIENTS, propositions des téléphones) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -137,7 +137,20 @@ function saveClient_(ss, role, body) {
   if (statut === 'valide' && conflicts.length) return ({ ok:false, error:'billons déjà proposés ailleurs : ' + conflicts.map(x => x.num + ' (' + x.client + ')').join(', '), conflicts: conflicts });
   const row = Object.assign({}, c, { statut: statut, updated_at: new Date().toISOString(), validated_at: statut === 'valide' ? (c.validated_at || new Date().toISOString()) : (c.validated_at || '') });
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
+  try { proposerClient_(ss, role, c); } catch (e) {}
   return ({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
+}
+function setPropositionClient_(ss, body) {
+  const nom = String(body.code || '').trim(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse'; if (!nom) return { ok:false, error:'nom vide' };
+  const norm = s => String(s).trim().toUpperCase();
+  if (statut === 'valide') { const sh = ss.getSheetByName('CLIENTS') || ss.insertSheet('CLIENTS');
+    if (sh.getLastRow() < 1) { sh.getRange(1,1,1,1).setValue('client'); sh.setFrozenRows(1); }
+    const exists = sh.getLastRow() > 1 && sh.getRange(2,1,sh.getLastRow()-1,1).getValues().some(r => norm(r[0]) === norm(nom));
+    if (!exists) sh.getRange(sh.getLastRow() + 1, 1).setNumberFormat('@').setValue(nom); }
+  const sh = ss.getSheetByName('PROPOSITIONS'); if (sh && sh.getLastRow() > 1) { delete ROWS_CACHE_['PROPOSITIONS'];
+    const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String); const ti = h.indexOf('type'), ci = h.indexOf('code'), si = h.indexOf('statut'), di = h.indexOf('traite_le');
+    for (let i = 1; i < v.length; i++) if (String(v[i][ti]) === 'client' && norm(v[i][ci]) === norm(nom)) { sh.getRange(i+1, si+1).setValue(statut); if (di >= 0) sh.getRange(i+1, di+1).setValue(new Date().toISOString()); } }
+  return { ok:true, type: 'client', code: nom, statut: statut };
 }
 function saveGrille_(ss, grille, code) {
   // Onglet GRILLES (colonnes positionnelles : code, nom, type, essence, qualité, Ø min, Ø max, prix) : remplace les lignes du code
@@ -167,7 +180,20 @@ function proposer_(ss, auth, body) {
     rows.push([type, code, auth.operateur || lot.operateur || '', (lot.chantier_xylolink ? lot.chantier_xylolink + ' · ' : '') + (lot.chantier || ''), new Date().toISOString(), 'propose', '']); have[type + '|' + code] = true; }));
   if (rows.length) { texte_(sh, sh.getLastRow() + 1, rows.length, H); sh.getRange(sh.getLastRow() + 1, 1, rows.length, H.length).setValues(rows); }
 }
+/* Nom de client inconnu de l'onglet CLIENTS : proposé au bureau (PROPOSITIONS, type client), comme un code d'essence */
+function proposerClient_(ss, role, c) {
+  const nom = String(c.client || '').trim(); if (!nom) return;
+  const norm = s => String(s).trim().toUpperCase();
+  if (params_(ss, role).clients.some(x => norm(x) === norm(nom))) return;
+  const sh = ss.getSheetByName('PROPOSITIONS') || ss.insertSheet('PROPOSITIONS'); delete ROWS_CACHE_['PROPOSITIONS'];
+  const H = ['type','code','operateur','lot','date','statut','traite_le'];
+  if (sh.getLastRow() < 1) { sh.getRange(1,1,1,H.length).setValues([H]); sh.setFrozenRows(1); }
+  if (sheetRows_(ss, 'PROPOSITIONS').some(r => String(r.type) === 'client' && norm(r.code) === norm(nom))) return; delete ROWS_CACHE_['PROPOSITIONS'];
+  const row = [['client', nom, c.operateur || '', 'lot client ' + (c.ref || c.date || ''), new Date().toISOString(), 'propose', '']];
+  texte_(sh, sh.getLastRow() + 1, 1, H); sh.getRange(sh.getLastRow() + 1, 1, 1, H.length).setValues(row);
+}
 function setProposition_(ss, body) {
+  if (String(body.type) === 'client') return setPropositionClient_(ss, body);
   const type = String(body.type) === 'qualite' ? 'qualite' : 'essence', code = String(body.code || '').trim().toUpperCase(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse';
   if (!code) return { ok:false, error:'code vide' };
   if (statut === 'valide') { // ajout au référentiel : onglet ESSENCES / QUALITES, colonne A = code, colonne « vocal » = mots
@@ -236,7 +262,7 @@ function setStatut_(ss, clientId, statut, par, facture) {
 function params_(ss, role) {
   const rows = (name, nbCol) => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2) return []; return sh.getRange(2,1,sh.getLastRow()-1,nbCol).getValues(); };
   const codes = name => rows(name,1).map(r => String(r[0]).trim().toUpperCase()).filter(String);
-  const res = { ok:true, role: role, essences: codes('ESSENCES'), qualites: codes('QUALITES'), classes: {}, grilles: [], dmm: {}, clientStatuts: {} };
+  const res = { ok:true, role: role, essences: codes('ESSENCES'), qualites: codes('QUALITES'), clients: rows('CLIENTS',1).map(r => String(r[0]).trim()).filter(String), classes: {}, grilles: [], dmm: {}, clientStatuts: {} };
   rows('CLASSES',2).forEach(r => { const k = String(r[0]).trim(), v = Number(r[1]); if (!k || !v) return;
     if (k === 'pas' || k === 'min' || k === 'max') res.classes[k === 'pas' ? 'step' : k] = v; else { res.classes.parEssence = res.classes.parEssence || {}; res.classes.parEssence[k.toUpperCase()] = v; } });
   const map = {};
@@ -283,7 +309,7 @@ function stock_(ss) {
 /* Empreinte du référentiel commun (essences, qualités, classes, grilles, barème) : change dès qu'une cellule change */
 function refVersion_(ss) {
   let h = 0, n = 0;
-  ['ESSENCES','QUALITES','CLASSES','GRILLES','DMM'].forEach(name => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 1) return;
+  ['ESSENCES','QUALITES','CLIENTS','CLASSES','GRILLES','DMM'].forEach(name => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 1) return;
     const v = sh.getRange(1,1,sh.getLastRow(),Math.max(1,sh.getLastColumn())).getValues();
     v.forEach(r => r.forEach(c => { const s = String(c); n += s.length; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; })); });
   return h.toString(36) + '-' + n;
