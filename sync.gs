@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -41,6 +41,7 @@ function doPost(e) {
 function handle_(ss, auth, body) {
   const role = auth.role;
   if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); if (body.propositions) proposer_(ss, auth, body); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'refSave') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return refSave_(ss, body); }
   if (body.action === 'setProposition') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setProposition_(ss, body); }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
   if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps); }
@@ -66,6 +67,7 @@ function doGet(e) {
   if (!auth) return out_({ ok:false, error:'clé refusée' });
   const role = auth.role;
   if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur, refVersion: refVersion_(ss) }));
+  if (p.action === 'refList') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(refList_(ss)); }
   if (p.action === 'ping') return out_({ ok:true, refVersion: refVersion_(ss) });
   if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur)));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
@@ -139,6 +141,33 @@ function saveClient_(ss, role, body) {
   replaceRows_(ss, TABLES_CLIENT, 'client_id', c.client_id, { LOT_CLIENT: [row], LOT_CLIENT_LIGNE: lignes.map(l => Object.assign({ client_id: c.client_id, client: c.client }, l)) });
   try { proposerClient_(ss, role, c); } catch (e) {}
   return ({ ok:true, client_id: c.client_id, statut: statut, conflicts: conflicts });
+}
+/* ---------- Référentiel commun : gestion depuis le Bureau (onglets ESSENCES, QUALITES, CLIENTS) ---------- */
+const REF_TABS = { essence: 'ESSENCES', qualite: 'QUALITES', client: 'CLIENTS' };
+function refTab_(ss, type) { const name = REF_TABS[type]; if (!name) return null; const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sh.getLastRow() < 1) { sh.getRange(1,1,1,type === 'client' ? 1 : 2).setValues([type === 'client' ? ['client'] : ['code','mots_vocaux']]); sh.setFrozenRows(1); }
+  return sh; }
+function refRows_(sh, type) { if (sh.getLastRow() < 2) return []; const nc = Math.max(1, sh.getLastColumn()); const v = sh.getRange(1,1,sh.getLastRow(),nc).getValues(); const h = v[0].map(String);
+  let mc = h.findIndex(x => /voca/i.test(x)); if (mc < 1) mc = h.findIndex(x => /libell|^nom/i.test(x));
+  return v.slice(1).map((r, i) => ({ row: i + 2, code: String(r[0] || '').trim(), mots: mc > 0 ? String(r[mc] || '').trim() : '' })).filter(x => x.code); }
+function refList_(ss) { const out = { ok:true }; Object.keys(REF_TABS).forEach(t => { out[t] = refRows_(refTab_(ss, t), t); }); return out; }
+function refSave_(ss, body) {
+  const type = String(body.type || ''); const sh = refTab_(ss, type); if (!sh) return { ok:false, error:'type inconnu' };
+  const norm = s => type === 'client' ? String(s || '').trim() : String(s || '').trim().toUpperCase();
+  const code = norm(body.code), op = String(body.op || 'add'); if (!code) return { ok:false, error:'code vide' };
+  const rows = refRows_(sh, type); const same = (a, b) => a.toUpperCase() === b.toUpperCase();
+  const cur = rows.find(r => same(r.code, code));
+  const h = sh.getLastColumn() ? sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String) : [];
+  let mc = h.findIndex(x => /voca/i.test(x)); if (mc < 1) mc = h.findIndex(x => /libell|^nom/i.test(x));
+  if (mc < 1 && type !== 'client' && body.mots !== undefined) { mc = Math.max(h.length, 1); sh.getRange(1, mc + 1).setValue('mots_vocaux'); }
+  if (op === 'delete') { if (!cur) return { ok:false, error:'introuvable' }; sh.deleteRow(cur.row); return { ok:true, type: type, code: code, op: op }; }
+  if (op === 'update') { if (!cur) return { ok:false, error:'introuvable' }; const nc = norm(body.newCode || code);
+    if (!same(nc, code) && rows.some(r => same(r.code, nc))) return { ok:false, error:nc + ' existe déjà' };
+    sh.getRange(cur.row, 1).setNumberFormat('@').setValue(nc); if (mc > 0 && body.mots !== undefined) sh.getRange(cur.row, mc + 1).setValue(String(body.mots || ''));
+    return { ok:true, type: type, code: nc, op: op }; }
+  if (cur) return { ok:false, error:code + ' existe déjà' };
+  const r = sh.getLastRow() + 1; sh.getRange(r, 1).setNumberFormat('@').setValue(code); if (mc > 0 && body.mots) sh.getRange(r, mc + 1).setValue(String(body.mots));
+  return { ok:true, type: type, code: code, op: 'add' };
 }
 function setPropositionClient_(ss, body) {
   const nom = String(body.code || '').trim(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse'; if (!nom) return { ok:false, error:'nom vide' };
