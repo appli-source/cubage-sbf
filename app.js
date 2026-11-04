@@ -1212,6 +1212,11 @@ async function importLotFile(file){let j;try{j=JSON.parse(await file.text());}ca
   const set=statusBox();set('✓ Fichier importé',(n?n+' lot(s) ajouté(s)':'')+(n&&rep?' · ':'')+(rep?rep+' lot(s) remplacé(s)':'')+(!n&&!rep?'Aucun lot importé.':'')+'\nLe lot vous appartient maintenant : pensez à le sauvegarder sur le Sheet.',true);
   if(last&&lots.length===1&&last.type!=='client'){S.lot=last;S.mod=last.type;S.hist=['home','module','lots'];go('lot');}else render();}
 /* Récupération des lots depuis le Sheet (changement de téléphone) */
+/* Appareil sans aucun lot mais déjà configuré (changement de téléphone, navigateur du bureau) : proposer de récupérer les lots de l'opérateur */
+function proposeRestore(){S.params.restoreAsked=true;saveParams();document.querySelectorAll('.modal').forEach(x=>x.remove());const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="modal-box"><b>Aucun lot sur cet appareil</b><p style="margin:0">Opérateur « ${esc(S.params.operateur)} ». Les lots sauvegardés sur le Sheet SBF peuvent être récupérés ici : lots de cubage, estimations sur pied, lots clients et grilles de prix. Les autres opérateurs ne sont pas concernés.</p>
+  <button type="button" class="btn primary block" id="prOk">Récupérer mes lots depuis le Sheet</button><button type="button" class="btn block" id="prNo">Plus tard (Paramètres › Changement de téléphone)</button></div>`;
+  document.body.appendChild(m);m.querySelector('#prOk').onclick=()=>{m.remove();restoreUI(false);};m.querySelector('#prNo').onclick=()=>m.remove();}
 async function restoreUI(all){const set=statusBox();const url=S.params.syncUrl;if(!url){set('Synchronisation non configurée','Ouvrez d’abord le lien de configuration envoyé par le bureau.',true,true);return;}
   const me=(S.params.operateur||'').trim().toLowerCase();set('Lecture du Sheet SBF…',all?'Tous les lots sauvegardés':'Lots de l’opérateur « '+(S.params.operateur||'?')+' »',false);
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),120000);const res=await fetch(url+(url.includes('?')?'&':'?')+'action=restore&key='+encodeURIComponent(apiKey())+(all?'&all=1':me?'&operateur='+encodeURIComponent(S.params.operateur.trim()):''),{signal:ctl.signal});clearTimeout(to);
@@ -1278,7 +1283,7 @@ function render(){chipCb=null;if(S.screen!=='newLot'&&S.screen!=='lot')S.pending
   /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
   let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
   render();if(cfgOk)toast('Synchronisation configurée');
-  if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();});
+  if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();if(ok&&!S.lots.length&&S.params.operateur&&!S.params.restoreAsked)proposeRestore();});
   if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}
   /* Stockage persistant (appli installée) : le navigateur n'efface ni les lots ni la copie de l'appli quand le téléphone manque de place */
   try{if(navigator.storage&&navigator.storage.persist&&(matchMedia('(display-mode: standalone)').matches||navigator.standalone))navigator.storage.persist().catch(()=>{});}catch(e){}})();
