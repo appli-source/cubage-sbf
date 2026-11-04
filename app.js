@@ -404,7 +404,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
    ${(l.sousLots||[]).length?`<div class="sl-box"><span class="l">Sous-lot</span>${slChips(l,f.sl||null)}</div>`:''}
    <div class="tarif-row"><span class="l">Tarif Chaudé ${esc(f.ess)}</span><button type="button" data-t="-1" aria-label="Tarif moins">−</button><b id="tv">${f.tarif}</b><button type="button" data-t="1" aria-label="Tarif plus">+</button></div>
    ${mode==='pieds'?`<label class="f" style="max-width:160px"><span class="l">N° arbre</span><input class="big" id="num" type="number" inputmode="numeric" value="${esc(f.num)}"></label>`:''}
-   ${byClass?`<div><span class="muted">Classe de diamètre (cm)${mode==='diam'?' · un appui = une tige':''}</span><div class="grid-cl" id="cl">${classes.map(c=>{const k=cntCl[c]||0;return `<button type="button" data-c="${c}" class="${S.flash===c?'flash ':''}${(mode!=='diam'&&f.d===c)?'sel':''}">${c}${k?`<small>${k}</small>`:''}</button>`;}).join('')}</div></div>`
+   ${byClass?`<div><span class="muted">Classe de diamètre (cm)${mode==='diam'?' · un appui = une tige':''}</span><div class="grid-cl" id="cl">${classes.map(c=>{const k=cntCl[c]||0;return `<button type="button" data-c="${c}" class="${S.flash===c?'flash ':''}${(mode!=='diam'&&f.d===c)?'sel':''}">${c}${k?`<small>${k}</small>`:''}</button>`;}).join('')}</div>${nEss?`<div class="row" style="margin-top:6px"><span class="muted grow">${esc(f.ess)} : ${nEss} tige(s) pointée(s)</span><button type="button" class="btn" id="fixCl">Corriger un effectif</button></div>`:''}</div>`
    :`<label class="f" style="max-width:200px"><span class="l">Diamètre à 1,30 m (cm)</span><input class="big" id="d" type="number" inputmode="numeric" value="${f.d??''}" placeholder="cm"></label>`}
    ${mode==='classes'?`<label class="f" style="max-width:200px"><span class="l">Nombre de tiges${f.d?' en classe '+f.d:''}</span><input class="big" id="n" type="number" inputmode="numeric" value="${f.n||1}"></label>`:''}
    ${mode!=='diam'?`<label class="f" style="max-width:200px"><span class="l">Hauteur (m)${mode==='classes'?' · optionnel':''}</span><input class="big" id="h" type="number" inputmode="decimal" step="0.5" value="${f.h??''}" placeholder="m"></label>
@@ -423,6 +423,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   if($('#d'))$('#d').oninput=e=>{f.d=num(e.target.value);updA();};if($('#h'))$('#h').oninput=e=>{f.h=num(e.target.value);updA();};updA();
   const rebindTr=()=>bindTr('tr',()=>{f.tr=readTr('tr');updA();});rebindTr();
   if($('#undo'))$('#undo').onclick=()=>{l.arbres.pop();save();render();};
+  if($('#fixCl'))$('#fixCl').onclick=()=>fixEffectif(l,f.ess,f.d||null);
   const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
     if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
     if(ed){Object.assign(a,rec);save();S.form={};S.edit=null;back();return;}
@@ -875,6 +876,22 @@ V.sousLots=()=>{const l=S.lot;head('Sous-lots',l.chantier);l.sousLots=l.sousLots
   $('#main').querySelectorAll('[data-assign]').forEach(b=>b.onclick=()=>{S.hist.push('sousLots');go('slAssign',{slTarget:b.dataset.assign});});
   $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(!b.dataset.c){b.textContent='Suppr. ?';b.dataset.c='1';return;}const id=b.dataset.del;l.sousLots=l.sousLots.filter(s=>s.id!==id);if(l.slCur===id)l.slCur=null;l.grumes.forEach(g=>g.billons.forEach(x=>{if(x.sl===id)x.sl=null;}));l.arbres.forEach(a=>{if(a.sl===id)a.sl=null;});save();render();});foot('');};
 
+/* Correction de l'effectif d'une classe (inventaire par classes / un appui = une tige) : on fixe le nouveau total de la classe pour l'essence.
+   En moins : on retire sur les derniers pointages de la classe ; en plus : on ajoute un pointage sans hauteur (même tarif que le dernier). */
+function fixEffectif(l,ess,d0){const cnt={};for(const a of l.arbres){if(a.ess!==ess)continue;const c=cls(a.ess,a.d);cnt[c]=(cnt[c]||0)+(a.n||1);}
+  const classes=Object.keys(cnt).map(Number).sort((a,b)=>a-b);if(!classes.length){toast('Aucune tige pointée en '+ess);return;}
+  document.querySelectorAll('.modal').forEach(x=>x.remove());const m=document.createElement('div');m.className='modal';let c=classes.includes(d0)?d0:classes[0];
+  m.innerHTML=`<div class="modal-box"><b>Corriger un effectif · ${esc(ess)}</b><div class="grid-cl" id="fxCl">${classes.map(x=>`<button type="button" data-c="${x}" class="${x===c?'sel':''}">${x}<small>${cnt[x]}</small></button>`).join('')}</div>
+    <label class="f"><span class="l">Nouveau total en classe <span id="fxC">${c}</span> <span class="muted">(actuellement <span id="fxN">${cnt[c]}</span>)</span></span><div class="row"><button type="button" class="btn" id="fxM">−</button><input class="big grow" id="fxV" type="number" inputmode="numeric" min="0" value="${cnt[c]}" style="text-align:center"><button type="button" class="btn" id="fxP">+</button></div></label>
+    <div class="row"><button type="button" class="btn grow" id="fxX">Annuler</button><button type="button" class="btn primary grow" id="fxOk">Appliquer</button></div></div>`;
+  document.body.appendChild(m);const V=m.querySelector('#fxV');
+  m.querySelectorAll('#fxCl button').forEach(b=>b.onclick=()=>{c=Number(b.dataset.c);m.querySelectorAll('#fxCl button').forEach(x=>x.classList.toggle('sel',Number(x.dataset.c)===c));m.querySelector('#fxC').textContent=c;m.querySelector('#fxN').textContent=cnt[c];V.value=cnt[c];});
+  m.querySelector('#fxM').onclick=()=>{V.value=Math.max(0,(Number(V.value)||0)-1);};m.querySelector('#fxP').onclick=()=>{V.value=(Number(V.value)||0)+1;};
+  m.querySelector('#fxX').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove();};
+  m.querySelector('#fxOk').onclick=()=>{const want=Math.max(0,Math.round(Number(V.value)||0));let diff=want-cnt[c];if(!diff){m.remove();return;}
+    if(diff<0){for(let i=l.arbres.length-1;i>=0&&diff<0;i--){const a=l.arbres[i];if(a.ess!==ess||cls(a.ess,a.d)!==c)continue;const n=a.n||1;const take=Math.min(n,-diff);if(take>=n)l.arbres.splice(i,1);else a.n=n-take;diff+=take;}}
+    else{const last=[...l.arbres].reverse().find(a=>a.ess===ess&&cls(a.ess,a.d)===c);l.arbres.push({id:uid(),num:'',ess,d:c,h:null,n:diff,tr:[],tarif:last?last.tarif:tarifDef(l,ess),sl:last?last.sl||null:(l.slCur||null),saisi:new Date().toISOString()});}
+    save();m.remove();toast(ess+' classe '+c+' : '+want+' tige(s)');render();};}
 /* --- Affectation à un sous-lot --- */
 V.slAssign=()=>{const l=S.lot,id=S.slTarget,G=l.type==='grumes';const s0=l.sousLots.find(x=>x.id===id);if(!s0){back();return;}head('Affecter à '+s0.nom,l.chantier);
   const items=G?l.grumes.map(g=>{const u=[...new Set(g.billons.map(b=>b.sl||null))];return{id:g.id,num:g.num,lab:`${g.num} · ${g.ess}`,sub:g.billons.map(b=>b.q||'·').join('/')+' · '+f3(g.billons.reduce((x,b)=>x+volB(b),0))+' m³',sl:u.length===1?u[0]:'mixte'};})
