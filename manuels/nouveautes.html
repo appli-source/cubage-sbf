@@ -1,4 +1,4 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Ce qui change (v67 → v81)</title>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Cubage SBF — Ce qui change pour les techniciens (v81 → v117)</title>
 <link rel="stylesheet" href="style.css"><style>
 .head { display:flex; align-items:center; gap:14px; border-bottom:2.5px solid #cd8a63; padding-bottom:8px; margin-bottom:8px; }
 .head img { width:58mm; } .head .t { font-size:19pt; font-weight:bold; color:#37485a; } .head .s { color:#cd8a63; font-size:11pt; }
@@ -8,74 +8,79 @@ table { page-break-inside: auto !important; } tr { page-break-inside: avoid; }
 table.key td { border-bottom:1px solid #e3e6e9; font-size:10.5pt; padding:6px; }
 table.key td.k { width:26px; } table.key td.k { font-weight:bold; color:#fff; background:#d9480f; text-align:center; border-radius:4px; }
 </style></head><body>
-<div class="head"><img src="logo.png"><div><div class="t">Cubage SBF · Ce qui change</div>
-<div class="s">Version 67 (guide du 29 octobre) → version 81 · 1er novembre 2026</div></div></div>
+<div class="head"><img src="logo.png"><div><div class="t">Cubage SBF · Ce qui change pour les techniciens</div>
+<div class="s">Version 81 (guide du 1er novembre) → version 117 · 9 novembre 2026</div></div></div>
 
-<h2 class="top">À retenir en 30 secondes</h2>
-<table class="key"><tr><td class="k">1</td><td><b>Mode vocal du cubage : dites « billon suivant » après chaque billon.</b> Le billon dicté s'affiche « en cours » et n'est enregistré qu'à ce moment-là (ou avec « grume suivante »). Sans cela, il n'est pas enregistré.</td></tr>
-<tr><td class="k">2</td><td><b>Corriger, réduire, commenter à la voix</b> sans toucher l'écran : « note diamètre quarante-huit », « note réduction longueur cinquante », « note commentaire gélivure », « précédent » pour rouvrir le dernier billon.</td></tr>
-<tr><td class="k">3</td><td><b>Nouvelle essence ou qualité ?</b> Bouton <b>+</b> dès la création du lot. Le code est proposé au bureau, qui l'ajoute pour tout le monde.</td></tr></table>
-<p class="small">La mise à jour est automatique : ouvrez l'application avec du réseau, le bas de l'accueil doit afficher <b>Version 81</b>. Rien à réinstaller, vos lots sont conservés.</p>
+<h2 class="top">À retenir</h2>
+<table class="key"><tr><td class="k">1</td><td><b>Lots de cubage : on saisit le propriétaire, plus le chantier</b> (v117). Le champ Chantier a disparu ; le propriétaire sert de nom au lot. La liste des lots affiche le propriétaire et les essences, et la recherche les trouve.</td></tr>
+<tr><td class="k">2</td><td><b>Saisie : le n° de grume est dans le bandeau vert</b> et les billons déjà saisis se replient en une ligne (v116). Pour corriger l'un d'eux, touchez <b>✎</b>.</td></tr>
+<tr><td class="k">3</td><td><b>Commentaire à la voix : dites « gelé » pour gélivure</b> (« roulé » pour roulure, « échauffé » pour échauffure). Les anciens mots ne sont jamais reconnus. Vérifiez une fois votre téléphone : Paramètres › Mode vocal › <b>Vérifier que les mots vocaux sont connus du moteur</b>.</td></tr>
+<tr><td class="k">4</td><td><b>Nouveaux outils</b> : reste à cuber (grume cubée en plusieurs fois), recoupe d'un billon depuis le listing (✂), liste commune de clients (<b>Liste ▾</b>), correction d'un effectif sur pied.</td></tr></table>
+<p class="small">La mise à jour est automatique : ouvrez l'application avec du réseau, le bas de l'accueil doit afficher <b>Version 117</b>. Rien à réinstaller, vos lots sont conservés. Le guide du technicien terrain version 117 décrit tout en détail (numéros de section entre parenthèses).</p>
 
-<h1>1. Mode vocal du cubage : nouveau fonctionnement</h1>
-<table><tr><th style="width:20%"></th><th style="width:40%">Avant (version 67)</th><th>Maintenant (version 81)</th></tr>
-<tr><td><b>Enregistrement</b></td><td>Chaque billon dicté était enregistré aussitôt.</td><td>Le billon dicté est <b>en cours</b>, visible à l'écran ; il est enregistré par <b>« billon suivant »</b> (ou « suivant »).</td></tr>
-<tr><td><b>Changer de grume</b></td><td>« note suivante »</td><td><b>« grume suivante »</b> (ou « suivante », « arbre suivant »), <b>sans « note »</b> ; enregistre aussi le billon en cours.</td></tr>
-<tr><td><b>Corriger</b></td><td>« note annule » puis redicter tout le billon.</td><td>« note diamètre … » ou « note longueur … » corrige un seul champ ; <b>« précédent »</b> rouvre le dernier billon enregistré.</td></tr>
-<tr><td><b>Annuler</b></td><td>« note annule » retirait le dernier billon ou rouvrait la grume.</td><td>« note annule » efface le billon <b>en cours</b> (ou, s'il est vide, le dernier enregistré) ; <b>« note annule grume »</b> vide la grume (ou rouvre la précédente).</td></tr>
-<tr><td><b>Réduction</b></td><td>Au clavier seulement.</td><td>« note réduction longueur cinquante », « note réduction diamètre deux » ; « note annule réduction ».</td></tr>
-<tr><td><b>Commentaire</b></td><td>Au clavier seulement.</td><td>« note commentaire gélivure » (mot de la liste) ou « note commentaire » puis une phrase libre ; « note annule commentaire ».</td></tr>
-<tr><td><b>Quitter</b></td><td>Bouton Terminer.</td><td>« terminé » (refusé si un billon est en cours).</td></tr></table>
-<table class="fig"><tr><td class="shot"><img src="img/t42_vocal_billon_en_cours_p1.jpg" style="width:52mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>1</span></td><td>Le bloc vocal affiche le billon en cours et rappelle de dire « billon suivant ».</td></tr><tr><td class="num"><span>2</span></td><td>Le billon se remplit à l'écran : qualité, longueur, diamètre, réduction, commentaire.</td></tr></table></td></tr></table>
-<h3>Exemple d'une grume de deux billons</h3>
-<table class="ex"><tr><th style="width:48%">Vous dites</th><th>Ce qui se passe</th></tr>
-<tr><td>« note chêne, cé a, dix par cinquante »</td><td>Billon en cours : CH, CA, 10 m, Ø 50 (rien d'enregistré)</td></tr>
-<tr><td>« billon suivant »</td><td>Billon 140.1 enregistré, relu à voix haute ; le billon 140.2 s'ouvre</td></tr>
-<tr><td>« note cé bé, huit vingt par quarante-deux »</td><td>Billon en cours : CB, 8,20 m, Ø 42</td></tr>
-<tr><td>« note réduction longueur cinquante » · « note commentaire gélivure »</td><td>Réduction 50 cm et commentaire ajoutés au billon en cours</td></tr>
-<tr><td>« note diamètre quarante »</td><td>Diamètre corrigé : Ø 40</td></tr>
-<tr><td>« grume suivante »</td><td>Billon 140.2 enregistré, grume 140 close, grume 141 ouverte</td></tr></table>
-<p class="small">Exemple rejoué tel quel dans l'application version 81. Les mots de commentaire reconnus par défaut : gélivure, pourriture, roulure, nœuds, courbure, fente, fourche, cœur, aubier, échauffure, bois de réserve (liste modifiable dans Paramètres › Mode vocal).</p>
+<h1>1. Versions 116 et 117 : lots et saisie</h1>
+<table class="fig"><tr><td class="shot"><img src="img/t19_liste_lots.jpg" style="width:52mm"></td><td class="shot"><img src="img/t07_saisie_grume.jpg" style="width:52mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>a</span></td><td><b>Liste des lots</b> (v117) : n° Xylolink et <b>propriétaire</b>, essences présentes en couleur ; recherche par propriétaire ou essence (« HET »). Création d'un lot : le champ <b>Propriétaire *</b> remplace « Chantier » (3.1, 3.2).</td></tr><tr><td class="num"><span>b</span></td><td><b>Saisie</b> (v116) : « Grume n° 707 » dans le bandeau avec le volume du lot et le n° Xylolink ; les billons précédents sont repliés (qualité, dimensions, volume) et ne se modifient plus par erreur : <b>✎</b> les rouvre, ✕ les supprime (3.4).</td></tr></table></td></tr></table>
+<table><tr><th style="width:22%"></th><th style="width:39%">Avant</th><th>Maintenant</th></tr>
+<tr><td><b>Fiche du lot</b></td><td>Chantier + Propriétaire (pour le bordereau)</td><td><b>Propriétaire</b> seul ; il sert de nom au lot partout (liste, bordereaux, Sheet)</td></tr>
+<tr><td><b>Liste des lots</b></td><td>N° Xylolink · chantier</td><td>N° Xylolink · <b>propriétaire</b>, plus les <b>essences</b></td></tr>
+<tr><td><b>Bandeau de saisie</b></td><td>« Saisie grumes »</td><td>« <b>Grume n° …</b> » + volume du lot + n° Xylolink</td></tr>
+<tr><td><b>Billons précédents</b></td><td>Tous ouverts, modifiables directement</td><td>Repliés en une ligne ; <b>✎</b> pour modifier</td></tr></table>
+<div class="tip"><b>Anciens lots sans propriétaire</b> : le champ Propriétaire de la fiche affiche le nom du chantier. Remplacez-le par le nom du propriétaire (il figurera sur le bordereau propriétaire).</div>
 
-<h1>2. Mode vocal sur pied</h1>
-<ul><li><b>Pointage par classes</b> : « note tarif onze » change le tarif Chaudé de l'essence en cours ; « terminé » quitte l'écran. Le reste ne change pas (chaque phrase compte une tige).</li>
-<li><b>Pied à pied numéroté : le mode vocal est nouveau.</b> Même principe que le cubage : l'arbre se remplit puis « suivant » l'enregistre.</li></ul>
-<table class="ex"><tr><th style="width:48%">Vous dites</th><th>Ce qui se passe</th></tr>
-<tr><td>« note chêne quarante-cinq par seize »</td><td>Arbre en cours : CH, Ø 45, hauteur 16 m</td></tr>
-<tr><td>« note tronçon six cé a » · « note tronçon quatre » puis « note cé bé »</td><td>Tronçons 6 m CA puis 4 m CB (du bas vers le haut) ; le reste compte en BI</td></tr>
-<tr><td>« note tarif dix » · « note hauteur dix-huit virgule cinq »</td><td>Tarif Chaudé 10 ; hauteur corrigée à 18,5 m</td></tr>
-<tr><td>« suivant » · « précédent »</td><td>Enregistre l'arbre · rouvre le dernier arbre enregistré</td></tr>
-<tr><td>« note annule tronçon » · « note annule arbre »</td><td>Retire le dernier tronçon · supprime le dernier arbre enregistré</td></tr></table>
+<h1>2. Cubage : nouveaux outils</h1>
+<h3>Grume cubée en plusieurs fois : le reste à cuber (3.4)</h3>
+<ul><li>Dans la saisie, <span class="btn">Grume cubée en plusieurs fois ? Longueur totale…</span> : indiquez la longueur totale ; les billons saisis en sont déduits.</li>
+<li>Le reste est signalé en tête du lot et dans le listing (« reste 4,00 m › ») ; un appui rouvre la grume avec un billon déjà rempli à la bonne longueur.</li>
+<li>Reste jamais cubé : <span class="btn">Abandonner le reste (chute)</span>. À la voix : « note longueur totale dix-huit », « note chute deux ».</li></ul>
+<h3>Listing : recherche, filtres et recoupe (3.8)</h3>
+<table class="fig"><tr><td class="shot"><img src="img/t47_recoupe.jpg" style="width:52mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>✂</span></td><td>Dans le listing, <b>✂</b> recoupe un billon : tronçon 1 avec le n° d'origine, tronçons suivants avec le n° de la <b>nouvelle plaquette</b>, diamètre remesuré. Le billon d'origine reste tracé (« 1013 (de 120.1) ») et la recoupe peut être annulée. Recoupe partielle : le reste est suivi ou passé en chute.</td></tr><tr><td class="num"><span>🔎</span></td><td>Le listing a une barre de <b>recherche</b> (n° de grume, billon, plaquette, tronçon) et des filtres par <b>essence</b> et par <b>qualité</b>.</td></tr></table></td></tr></table>
+<h3>Petits changements</h3>
+<ul><li>Un billon ajouté puis laissé vide n'empêche plus d'enregistrer la grume.</li>
+<li>Bouton <span class="btn">+ N°</span> sur un billon : nouveau n° de plaquette pour un billon recoupé, avec traçabilité (« ex 701.3 »).</li>
+<li>Lot d'essai : <span class="btn">Passer en lot réel</span> dans la fiche (n° Xylolink obligatoire).</li></ul>
 
-<h1>3. Ajouter une essence ou une qualité sur le terrain</h1>
-<table class="fig"><tr><td class="shot"><img src="img/t36_nouvelle_essence.jpg" style="width:48mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>+</span></td><td>Le bouton <b>+</b> existe maintenant dès la <b>création du lot</b>, dans la fiche « Essences et qualités » du lot et dans la <b>recoupe</b> d'un lot client (il existait déjà sur l'écran de saisie).</td></tr><tr><td class="num"><span>✓</span></td><td>À la sauvegarde du lot, le code est <b>proposé au bureau</b>. Une fois validé, tous les téléphones le reçoivent avec « Mettre à jour depuis le Sheet » ; en attendant il reste utilisable sur votre téléphone.</td></tr></table></td></tr></table>
+<h1>3. Ventes : clients et prix (3.6, chapitre 4)</h1>
+<ul><li><b>Liste commune de clients</b> tenue par le bureau : bouton <span class="btn">Liste ▾</span> dans les sous-lots et les lots clients, un appui remplit le nom. Un client absent peut toujours être tapé : il est proposé au bureau.</li>
+<li>Lot client : chaque billon affiche son prix au m³, son prix total et son origine ; le récapitulatif a une partie <b>par grume</b> avec sous-totaux et filtres (sur téléphone, faites glisser le tableau pour voir les prix).</li>
+<li>Le bureau valide maintenant les ventes avec le <b>n° de facture Xylolink</b> : rien à faire de votre côté.</li></ul>
 
-<h1>4. Import d'inventaire de bûcheron (version 67)</h1>
-<ul><li>Colonne <b>Note</b> (ou Commentaire, Observation, Remarque) reprise dans le commentaire du billon.</li>
-<li>Les CSV enregistrés par Excel en français (« 8,20 », accents) sont lus correctement ; auparavant « 8,20 » donnait 820 m.</li>
-<li>Modèle à jour : <code>modele-import-inventaire.xlsx</code> (avec colonne note).</li></ul>
+<h1>4. Estimation sur pied (5.2)</h1>
+<table class="fig"><tr><td class="shot"><img src="img/t37_corriger_effectif.jpg" style="width:48mm"></td><td class="legcell"><table class="leg"><tr><td class="num"><span>±</span></td><td><span class="btn">Corriger un effectif</span> : choisissez la classe, tapez le nouveau total (ici 12 au lieu de 14), <span class="btn">Appliquer</span>. Plus besoin d'annuler les tiges une à une.</td></tr></table></td></tr></table>
+<ul><li>Mode par classes avec effectifs : le champ « Nombre de tiges » est sous la grille, l'écran revient à la grille après chaque ajout ; en modification d'un pointage groupé, le nombre reste modifiable.</li>
+<li><span class="btn">+ Qualité</span> fait défiler jusqu'au nouveau tronçon.</li></ul>
 
-<h1>5. Côté bureau</h1>
-<ul><li><b>Installer le script du Sheet version 3.3</b> (Apps Script › Gérer les déploiements › Nouvelle version) : sans lui, les codes proposés par les techniciens ne remontent pas.</li>
-<li>Nouvelle tuile <b>Essences et qualités proposées</b> : valider (avec le mot à dire pour le mode vocal) ou refuser.</li>
-<li>Les numéros de grumes et de billons ne sont plus transformés en dates par le Sheet (script 3.1) ; les anciennes lignes concernées sont remises en forme à l'affichage dans l'espace Bureau.</li>
-<li>Mode vocal : la colonne « mots_vocaux » des onglets ESSENCES / QUALITES est désormais bien prise en compte ; à défaut, la colonne « libellé » sert de mot vocal.</li></ul>
+<h1>5. Mode vocal (3.5)</h1>
+<table><tr><th style="width:42%">Vous dites</th><th>Résultat</th></tr>
+<tr><td>« note commentaire gelé »</td><td>Commentaire « gélivure »</td></tr>
+<tr><td>« note commentaire roulé » · « échauffé » · « pourri » · « fendu » · « noueux »</td><td>roulure · échauffure · pourriture · fente · nœuds</td></tr>
+<tr><td>« note commentaire fente » · « fourche » · « aubier » · « creux » · « mitraille »…</td><td>Le mot tel quel (liste complète dans Paramètres)</td></tr>
+<tr><td>« note longueur totale dix-huit » (ou « note origine dix-huit »)</td><td>Grume cubée en plusieurs fois : 18 m, reste suivi</td></tr>
+<tr><td>« note chute deux »</td><td>2 m de la grume abandonnés en chute</td></tr></table>
+<p class="small">Le champ des mots de commentaire accepte la forme « mot dit = texte enregistré » (ex. « gelé = gélivure »). L'aide affichée en haut du bloc vocal cite encore « note commentaire gélivure » : fiez-vous à cette note.</p>
 
-<h1>6. Point d'attention connu</h1>
-<div class="warn">En dictée <b>pied à pied numéroté</b>, quand on change d'essence à la voix (« note hêtre trente par quatorze »), l'arbre garde le tarif Chaudé de l'essence précédente. Vérifiez le tarif affiché et dites « note tarif … » si besoin.</div>
+<h1>6. Divers</h1>
+<ul><li><b>Téléphone neuf ou réinstallé</b> : s'il n'a aucun lot, l'application propose d'elle-même de récupérer vos lots sauvegardés sur le Sheet.</li>
+<li>L'accueil signale quand le bureau a modifié le référentiel (essences, qualités, clients, grilles) : faites <span class="btn">⟳ Mettre à jour depuis le Sheet</span>.</li></ul>
 
-<h1>7. Détail des versions</h1>
-<table class="ver"><tr><th style="width:9%">Version</th><th>Changement</th></tr>
-<tr><td>68</td><td>Bureau : numéros de billons transformés en dates par le Sheet remis en forme (script 3.1 : identifiants écrits en texte).</td></tr>
-<tr><td>69</td><td>Vocal cubage : enregistrement par « billon suivant » / « grume suivante » ; correction « longueur … » / « diamètre … ».</td></tr>
-<tr><td>70-71</td><td>« billon suivant », « grume suivante », « suivant », « suivante », « arbre suivant » acceptés sans « note ».</td></tr>
-<tr><td>72</td><td>« précédent » rouvre le dernier billon enregistré.</td></tr>
-<tr><td>73</td><td>« annule » ne touche que le billon ; « annule grume » vide la grume en cours.</td></tr>
-<tr><td>74-75</td><td>Réductions et commentaires à la voix ; « annule commentaire », « annule réduction ».</td></tr>
-<tr><td>76</td><td>Sur pied : « tarif huit » change le tarif Chaudé.</td></tr>
-<tr><td>77-78</td><td>Mode vocal en pied à pied numéroté (diamètre, hauteur, tarif, tronçons, numéro, suivant / précédent / annule).</td></tr>
-<tr><td>79</td><td>« terminé » quitte l'écran de saisie.</td></tr>
-<tr><td>80</td><td>Ajout d'une essence ou d'une qualité depuis la création de lot, la fiche essences/qualités et la recoupe.</td></tr>
-<tr><td>81</td><td>Codes créés sur le terrain proposés au bureau et validés depuis l'espace Bureau (script 3.2, puis 3.3).</td></tr></table>
-<p class="small">Le guide du technicien terrain version 81 intègre l'ensemble de ces changements (sections 3.2, 3.5, 5.2, 5.3, 6.3 et 7).</p>
+<h1>7. Points d'attention</h1>
+<div class="warn"><b>Ancienne liste de commentaires</b> : un téléphone mis en service avant la version 82 a pu garder l'ancienne liste (« gélivure, pourriture, roulure… »), où gélivure, roulure et échauffure ne sont jamais reconnus. Paramètres › Mode vocal › <b>Vérifier</b> ; si ces mots sont signalés, remplacez-les par « gelé = gélivure, roulé = roulure, échauffé = échauffure ».</div>
+<div class="warn"><b>Toujours d'actualité</b> : en dictée <b>pied à pied numéroté</b>, quand on change d'essence à la voix, l'arbre garde le tarif Chaudé de l'essence précédente. Vérifiez le tarif affiché et dites « note tarif … » si besoin.</div>
+
+<h1>8. Détail des versions</h1>
+<table class="ver"><tr><th style="width:11%">Version</th><th>Changement (terrain)</th></tr>
+<tr><td>82</td><td>Mots de commentaire « mot dit = texte » ; vérificateur des mots vocaux dans Paramètres.</td></tr>
+<tr><td>85</td><td>Signal sur « Mettre à jour depuis le Sheet » quand le référentiel a changé.</td></tr>
+<tr><td>86</td><td>Un billon ajouté mais vide n'empêche plus de valider la grume.</td></tr>
+<tr><td>87-90</td><td>Longueur d'origine de la grume et reste à cuber (fiche, listing, vocal) ; « reste x m › » ; abandon en chute ; n° de plaquette tracé.</td></tr>
+<tr><td>91-95</td><td>Recoupe d'un billon depuis le listing (✂), recoupe partielle, tronçons modifiables, recoupe annulable.</td></tr>
+<tr><td>96</td><td>Passer un lot d'essai en lot réel.</td></tr>
+<tr><td>97-100</td><td>Listing : recherche, barre fixe, filtres essence et qualité.</td></tr>
+<tr><td>101-102</td><td>Sur pied : effectif sous la grille ; « + Qualité » défile jusqu'au tronçon.</td></tr>
+<tr><td>103-104</td><td>Lot client : récapitulatif par grume avec prix, fiche en haut de page.</td></tr>
+<tr><td>105-111</td><td>Liste commune de clients, bouton « Liste ▾ », clients proposés au bureau.</td></tr>
+<tr><td>112-113</td><td>Sur pied : « Corriger un effectif » ; nombre de tiges toujours affiché en modification.</td></tr>
+<tr><td>115</td><td>Récupération des lots proposée sur un téléphone sans lot.</td></tr>
+<tr><td><b>116</b></td><td><b>Saisie : n° de grume dans le bandeau ; billons précédents repliés (✎ pour modifier).</b></td></tr>
+<tr><td><b>117</b></td><td><b>Propriétaire à la place du chantier ; liste des lots avec propriétaire et essences.</b></td></tr></table>
+<p class="small">Versions 83-84, 110 et 114 : améliorations de l'espace Bureau (filtres du stock, référentiel commun), sans effet sur le travail au téléphone.</p>
 </body></html>
