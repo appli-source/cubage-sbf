@@ -288,13 +288,18 @@ function traiterGrumes(els){const faits=[];const h=()=>V.hook;const D=V.draft||(
       if(attenteNum&&e.k==='num'){attenteNum=false;const ok=h()&&h().onNumero&&h().onNumero(e.v);faits.push(ok?'grume n° '+e.v:'numéro refusé');if(ok){bipEss();dire('grume '+nombre(e.v));}else bipErr();continue;}
       seq.push(e);continue;}
     if(e.k==='fld'){flush();fld=e.v;continue;}
-    if(e.k==='com'){flush();D.note=(D.note&&!D.note.split(' ').includes(e.v)?D.note+' ':'')+(D.note&&D.note.split(' ').includes(e.v)?'':e.v);montrer();faits.push('commentaire : '+D.note);bipEss();continue;}
+    if(e.k==='com'){flush();
+      // Un mot de commentaire n'est pris que s'il est précédé de « commentaire » dans la même phrase : sans cela, un mot
+      // entendu par erreur (« courbé » pour « cé bé ») finirait dans le commentaire au lieu de la qualité
+      const apresComm=els.slice(0,i).some(x=>x.k==='cmd'&&x.v==='comm');
+      if(!apresComm){faits.push('« '+e.v+' » ignoré : dites « commentaire '+e.v+' » pour l’enregistrer en commentaire');bipErr();continue;}
+      D.note=(D.note&&!D.note.split(' ').includes(e.v)?D.note+' ':'')+(D.note&&D.note.split(' ').includes(e.v)?'':e.v);montrer();faits.push('commentaire : '+D.note);bipEss();continue;}
     flush();
     if(e.k==='ess'){V.cur=e.v;if(h()&&h().onEssence)h().onEssence(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk'){bipEss();dire(motsDe(e.v,h()&&h().mots)[0]||e.v);}montrer();continue;}
     if(e.k==='q'){V.curQ=e.v;if(h()&&h().onQualite)h().onQualite(e.v);faits.push(e.v);const suiv=els[i+1];if(!suiv||suiv.k==='unk')bipEss();montrer();continue;}
     if(e.k==='cmd'){
       if(e.v==='numero'){attenteNum=true;continue;}
-      if(e.v==='comm'){const suiv=els[i+1];if(suiv&&suiv.k==='com')continue; // « commentaire gélivure » : le mot suit
+      if(e.v==='comm'){if(els.slice(i+1).some(x=>x.k==='com'))continue; // « commentaire gélivure » : les mots suivent // « commentaire gélivure » : le mot suit
         if(libreStart())faits.push('dictez le commentaire…');else{faits.push('commentaire libre indisponible');bipErr();}continue;}
       if(e.v==='billon'){enregistrer();continue;}
       if(e.v==='precedent'){ // rouvre le dernier billon enregistré pour le corriger (« note diamètre … », puis « suivant »)
