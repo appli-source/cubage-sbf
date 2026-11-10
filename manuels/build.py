@@ -6,7 +6,8 @@ from pypdf import PdfReader, PdfWriter
 D = os.path.dirname(os.path.abspath(__file__))
 DOCS = [('technicien', 'Cubage-SBF-Guide-technicien-terrain.pdf', 'Cubage SBF · Guide du technicien terrain'),
         ('bureau', 'Cubage-SBF-Guide-administratif-bureau.pdf', 'Cubage SBF · Guide administratif bureau'),
-        ('nouveautes', 'Cubage-SBF-Ce-qui-change-v81-v117.pdf', 'Cubage SBF · Ce qui change pour les techniciens')]
+        ('nouveautes', 'Cubage-SBF-Ce-qui-change-v81-v117.pdf', 'Cubage SBF · Ce qui change pour les techniciens'),
+        ('vocal', 'Cubage-SBF-Commandes-vocales.pdf', 'Cubage SBF · Commandes vocales')]
 FOOT = '''<div style="width:100%;font:7.5pt Arial,sans-serif;color:#788088;margin:0 16mm;display:flex;justify-content:space-between;border-top:.4pt solid #d6dbe0;padding-top:4px">
 <span>{label}</span><span>Page <span class="pageNumber"></span> / <span class="totalPages"></span></span></div>'''
 with sync_playwright() as pw:
