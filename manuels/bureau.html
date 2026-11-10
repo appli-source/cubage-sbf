@@ -137,7 +137,7 @@
 <tr><td><code>CLIENTS</code></td><td>Liste commune des clients (nom), proposée aux téléphones (bouton « Liste ▾ »).</td></tr>
 <tr><td><code>CLES</code></td><td>cle, operateur, role, actif, cree_le, note (géré depuis Bureau › Clés).</td></tr>
 <tr><td><code>LOT</code>, <code>SOUS_LOT</code></td><td>Une ligne par lot (type, n° Xylolink, chantier, propriétaire, commune, GPS, date, opérateur, grilles, volume) ; sous-lots.</td></tr>
-<tr><td><code>GRUME</code> / <code>BILLON</code></td><td>Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>
+<tr><td><code>GRUME</code> / <code>BILLON</code></td><td>GRUME : une ligne par grume avec <code>longueur_cubee_m</code> (toujours), et pour une grume cubée en plusieurs fois <code>longueur_origine_m</code>, <code>reste_a_cuber_m</code>, <code>chute_m</code> (longueur d'origine et reste vides si la longueur totale n'a pas été donnée). BILLON : Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>
 <tr><td><code>ARBRE</code> / <code>TRONCON</code></td><td>Estimation sur pied : tiges et tronçons de qualité.</td></tr>
 <tr><td><code>RECOUPE</code></td><td>Billons recoupés dans un lot client.</td></tr>
 <tr><td><code>LOT_JSON</code></td><td>Copie intégrale de chaque lot (sert à « Récupérer mes lots » et « Lots des techniciens »). <b>Ne pas modifier.</b></td></tr>

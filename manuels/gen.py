@@ -65,7 +65,7 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
 <p>Le détail, avec ce qui change dans vos gestes, est dans le document <b>« Cubage SBF · Ce qui change »</b>. En bref :</p>
 <ul>
 <li><b>Lots de cubage</b> : le <b>propriétaire</b> remplace le champ Chantier ; la liste des lots affiche le propriétaire et les essences (3.1, 3.2).</li>
-<li><b>Saisie</b> : le n° de grume est dans le bandeau ; les billons déjà saisis se replient en une ligne (✎ pour les rouvrir) ; grume cubée en plusieurs fois avec suivi du <b>reste à cuber</b> (3.4).</li>
+<li><b>Saisie</b> : le n° de grume est dans le bandeau ; les billons déjà saisis se replient en une ligne (✎ pour les rouvrir) ; <b>longueur totale facultative</b>, seulement pour une grume qu'on ne cube pas entièrement le jour même (suivi du <b>reste à cuber</b>, 3.4).</li>
 <li><b>Listing</b> : recherche par numéro, filtres essence et qualité, <b>recoupe d'un billon</b> (✂) avec traçabilité (3.8).</li>
 <li><b>Ventes</b> : liste commune de <b>clients</b> ({B('Liste ▾')}), récapitulatif par grume avec prix (3.6, chapitre 4).</li>
 <li><b>Sur pied</b> : {B('Corriger un effectif')} ; saisie des effectifs sous la grille (5.2).</li>
@@ -152,17 +152,29 @@ sauvegarder sur le Sheet, recevoir le référentiel, afficher le fond de carte e
  (2, '<b>Billon déjà saisi</b> : replié en une ligne (qualité, dimensions, volume) pour éviter une modification par erreur.'),
  (3, '<b>✎</b> rouvre ce billon pour le corriger ; ✕ le supprime.'),
  (4, '<b>Billon en cours</b> : qualité, longueur (m), diamètre (cm). {0} réfaction, {1} commentaire, {2} nouveau n° de plaquette pour un billon recoupé (le n° d\'origine reste tracé : « ex 701.3 »).'.format(B('+ Réduction'),B('+ Note'),B('+ N°'))),
- (5, f'{B("Grume cubée en plusieurs fois ?")} : longueur totale de la grume et suivi du reste à cuber (voir ci-dessous).'),
+ (5, f'{B("Grume cubée en plusieurs fois ?")} : longueur totale <b>facultative</b>, à ne renseigner que si la grume n\'est pas cubée entièrement le jour même (voir ci-dessous).'),
  (6, f'{B("+ Billon")} : ajoute un billon à la même grume ; le précédent se replie.'),
  (7, f'{B("Grume suivante ›")} : <b>enregistre</b> la grume et passe au numéro suivant. Un billon ajouté mais resté vide n\'empêche plus d\'enregistrer.')], side=False, w=62, maxparts=1)}
 <p>Les autres éléments ne changent pas : essence de la grume (le <b>+</b> ajoute un code absent), sous-lot s'il y en a, {B('🎤 Mode vocal')} (3.5), {B('Terminer')} pour quitter.
 Réduction : en <b>cm</b> sur la longueur et/ou le diamètre (« 100 » sur un 8 m × 52 → cubé 7,00 m × Ø52) ; le listing et les bordereaux gardent la vraie dimension et affichent la réduction.</p>
-<h3>Grume cubée en plusieurs fois (reste à cuber)</h3>
-<p>Quand une grume ne peut pas être cubée en une fois (grume trop longue, une partie encore en forêt), indiquez sa <b>longueur totale</b> : l'application suit ce qui reste à cuber.</p>
+<h3>Grume cubée en plusieurs fois : la longueur totale (facultative)</h3>
+<div class="tip"><b>Ce n'est pas une information obligatoire.</b> Dans le cas courant (grume cubée entière en une fois), on ne la renseigne <b>jamais</b> : c'est pour cela qu'elle n'est qu'un lien discret ({B('Grume cubée en plusieurs fois ? Longueur totale…')}) et non un champ du formulaire.</div>
+<p><b>Elle ne sert que dans un cas précis : une grume qu'on ne cube pas entièrement le jour même.</b>
+Exemple : une grume de 12 m dont on cube aujourd'hui un billon de 5 m pour un client ; les 7 m restants seront cubés plus tard. En indiquant 12 m en longueur totale, l'application :</p>
+<ul><li>affiche <b>« Reste à cuber : 7,00 m »</b> dans le listing et une <b>alerte sur l'écran du lot</b>, pour ne pas oublier ce bois ;</li>
+<li><b>préremplit le billon suivant à 7 m</b> quand on y revient (« reste 7,00 m › » dans le listing) ;</li>
+<li>permet de déclarer le reste en <b>chute</b> s'il est abandonné ;</li>
+<li>envoie au Sheet (onglet GRUME) la <b>longueur d'origine</b>, la <b>longueur cubée</b> et le <b>reste</b> (et la chute) : on garde la traçabilité de la grume initiale.</li></ul>
+<table><tr><th style="width:48%">Situation</th><th>Longueur totale ?</th></tr>
+<tr><td>Grume cubée entière en une fois (cas courant)</td><td><b>Non</b>, on n'y touche pas</td></tr>
+<tr><td>Une partie de la grume est cubée aujourd'hui, le reste plus tard</td><td><b>Oui</b>, pour suivre le reste à cuber</td></tr>
+<tr><td>Billon recoupé plus tard au chargement ou à la scierie</td><td><b>Non</b> : utiliser le ✂ du listing (3.8), qui a sa propre gestion du reste</td></tr></table>
 {fig(['t44_longueur_totale','t46_cuber_reste'], [
- ('a', f'{B("Grume cubée en plusieurs fois ? Longueur totale…")} puis la <b>longueur totale</b> (18 m). Les billons saisis en sont déduits ; il reste ici 4 m, signalé sur le lot et dans le listing.'),
+ ('a', f'Dans la saisie, {B("Grume cubée en plusieurs fois ? Longueur totale…")} puis la <b>longueur totale</b> (ici 18 m). Les billons saisis en sont déduits ; il reste 4 m, signalé sur le lot et dans le listing.'),
  ('b', 'Plus tard : dans le {0}, touchez <b>« reste 4,00 m › »</b> sous le n° de la grume. Elle se rouvre avec un billon déjà rempli à la longueur restante : choisissez la qualité, mesurez le diamètre, enregistrez. « Grume entièrement cubée » confirme.'.format(B('Listing'))),
  ('c', f'Si le reste ne sera jamais cubé : {B("Abandonner le reste (chute)")} dans le bloc longueur totale ; {B("Annuler l’abandon")} le rétablit.')], w=52, maxparts=1)}
+<p>À la voix : « note longueur totale douze » (ou « note origine douze ») ; « note chute deux » abandonne 2 m.</p>
+
 <h3>Longueur fixe</h3>
 <p>Pour un lot de billons tous de même longueur (bois de chauffage, billons 2 m, 4 m…), choisissez dans la fiche du lot <b>Longueur des billons › Fixe</b>
 (repère {NUM(12)} de l'écran du lot). La dernière longueur enregistrée est reprise à chaque billon et le curseur va directement au diamètre.
@@ -196,7 +208,7 @@ Exception : les commandes d'enregistrement et de navigation se disent <b>seules<
 <tr><td>« note réduction longueur cinquante » · « note réduction diamètre deux »</td><td>Réduction de 50 cm sur la longueur / 2 cm sur le diamètre</td></tr>
 <tr><td>« note commentaire gelé »</td><td>Commentaire « gélivure » : on dit un mot de la liste, l'application écrit le texte associé (voir ci-dessous)</td></tr>
 <tr><td>« note commentaire » … puis la phrase</td><td>Commentaire libre : dictez la phrase dans les 12 secondes</td></tr>
-<tr><td>« note longueur totale dix-huit » (ou « note origine dix-huit »)</td><td>Grume cubée en plusieurs fois : longueur totale 18 m, le reste à cuber est suivi <span class="pill new">nouveau</span></td></tr>
+<tr><td>« note longueur totale dix-huit » (ou « note origine dix-huit »)</td><td>Seulement pour une grume cubée en plusieurs fois : longueur totale 18 m, le reste à cuber est suivi <span class="pill new">nouveau</span></td></tr>
 <tr><td>« note chute deux »</td><td>Abandonne 2 m de la grume en chute <span class="pill new">nouveau</span></td></tr>
 <tr><td colspan="2" class="grp">Enregistrer et naviguer (sans « note »)</td></tr>
 <tr><td>« billon suivant » ou « suivant »</td><td><b>Enregistre</b> le billon en cours et ouvre le billon suivant de la même grume</td></tr>
@@ -612,7 +624,7 @@ U.append(f'''
 <tr><td><code>CLIENTS</code></td><td>Liste commune des clients (nom), proposée aux téléphones (bouton « Liste ▾ »).</td></tr>
 <tr><td><code>CLES</code></td><td>cle, operateur, role, actif, cree_le, note (géré depuis Bureau › Clés).</td></tr>
 <tr><td><code>LOT</code>, <code>SOUS_LOT</code></td><td>Une ligne par lot (type, n° Xylolink, chantier, propriétaire, commune, GPS, date, opérateur, grilles, volume) ; sous-lots.</td></tr>
-<tr><td><code>GRUME</code> / <code>BILLON</code></td><td>Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>
+<tr><td><code>GRUME</code> / <code>BILLON</code></td><td>GRUME : une ligne par grume avec <code>longueur_cubee_m</code> (toujours), et pour une grume cubée en plusieurs fois <code>longueur_origine_m</code>, <code>reste_a_cuber_m</code>, <code>chute_m</code> (longueur d'origine et reste vides si la longueur totale n'a pas été donnée). BILLON : Une ligne par billon : n°, essence, qualité, longueur, diamètre, réductions, dimensions cubées, volume, sous-lot, client, prix propriétaire et client, <b>commentaire</b>, date et heure de saisie.</td></tr>
 <tr><td><code>ARBRE</code> / <code>TRONCON</code></td><td>Estimation sur pied : tiges et tronçons de qualité.</td></tr>
 <tr><td><code>RECOUPE</code></td><td>Billons recoupés dans un lot client.</td></tr>
 <tr><td><code>LOT_JSON</code></td><td>Copie intégrale de chaque lot (sert à « Récupérer mes lots » et « Lots des techniciens »). <b>Ne pas modifier.</b></td></tr>
