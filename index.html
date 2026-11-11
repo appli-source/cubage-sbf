@@ -145,6 +145,21 @@ tr.grp td{font-weight:700;background:var(--bg)}
 .tile .tile-n{font-size:13px;font-weight:600;margin-top:4px}
 .tile.light{background:var(--card);color:var(--fg);border-color:var(--line)}
 .tile:active{filter:brightness(.92)}
+/* Interface bureau (écran d'ordinateur) : plus large, tuiles en grille, champs plus compacts, tableau de saisie pleine largeur */
+.tg td{padding:3px 5px;vertical-align:middle}.tg input,.tg select{min-height:34px;padding:3px 6px;font-size:14px;border-radius:6px}.tg tr.lk td{background:var(--bg)}.tg input:disabled{opacity:.6}
+@media (min-width:900px){
+  main,.foot .in{max-width:1180px}
+  main.wide{max-width:1500px}
+  input,select,textarea{min-height:42px}
+  .btn{min-height:44px}.btn.big{min-height:50px;font-size:16px}
+  .chip{min-height:42px;font-size:15px}
+  header.top{min-height:56px}header.top h1{font-size:18px}
+  main>.stack:has(>.tile){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:stretch}
+  main>.stack:has(>.tile)>.tile{height:100%}
+  main>.list,#bll,#cl-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:8px}
+  .item:hover,.tile.light:hover{border-color:var(--accent)}
+  .toast{bottom:100px}
+}
 input[type=search]{width:100%}
 tr.cut td{color:var(--muted);text-decoration:line-through}
 tr.cut td:last-child,tr.cut td .pill{text-decoration:none}
@@ -188,8 +203,8 @@ details.voc-help[open]>summary{margin-bottom:4px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="calc.js?v=118"></script>
-<script src="voice.js?v=118"></script>
-<script src="docs.js?v=118"></script>
-<script src="app.js?v=118"></script>
+<script src="calc.js?v=119"></script>
+<script src="voice.js?v=119"></script>
+<script src="docs.js?v=119"></script>
+<script src="app.js?v=119"></script>
 </html>

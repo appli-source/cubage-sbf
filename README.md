@@ -17,6 +17,23 @@ dans Paramètres > URL du script. Onglets de référentiel : ESSENCES, QUALITES,
 Script version 3.0 : action setLotGps (point GPS d'un lot placé depuis le bureau) ; les colonnes
 proprietaire, grille_client (LOT), prix_vente_m3, montant_vente (BILLON) s'ajoutent d'elles-mêmes.
 
+## Interface bureau (v119, script 3.9)
+
+Sur un ordinateur (écran de 900 px et plus), l'application s'élargit : tuiles en grille, listes sur deux colonnes, champs plus compacts.
+Avec une clé bureau, **Bureau › Lots des techniciens** charge tous les lots du Sheet ; un lot s'ouvre en consultation, puis
+**« Modifier depuis le bureau »** le rend modifiable sur ce poste (fiche du lot, sous-lots, grilles, saisie grume par grume) et ouvre le
+**Tableau de saisie** : une ligne par billon (n° grume, essence, qualité, L en m, Ø en cm, réductions, sous-lot, commentaire, m³),
+modification directe, Entrée = ligne suivante, « + Nouvelle grume », « + billon », suppression ; billons vendus ou recoupés verrouillés.
+« Enregistrer sur le Sheet » envoie la correction ; l'opérateur du lot reste celui du technicien. Le tableau existe aussi sur les lots
+du poste lui-même dès que l'écran est large.
+
+Révisions : chaque lot porte un numéro de révision (colonnes rev, modifie_par, modifie_le, edit_bureau de l'onglet LOT). Un envoi parti
+d'une révision dépassée est refusé avec la version du Sheet ; l'application fusionne alors les deux versions élément par élément
+(grumes, tiges, recoupes, sous-lots, champs du lot) : ce qui n'a changé que d'un côté est repris, et si le même élément a changé des deux
+côtés la version du bureau l'emporte. À l'ouverture avec du réseau, le téléphone du technicien reprend les corrections du bureau
+(et fusionne s'il a lui-même des saisies non sauvegardées). Une application antérieure à la v119 ne peut plus écraser un lot corrigé
+au bureau : le Sheet lui demande de se mettre à jour. La correction depuis le bureau est refusée tant que le script n'est pas en 3.9.
+
 ## Prix et bordereaux (docs.js)
 
 Un lot de cubage porte deux grilles : la grille **propriétaire** (achat) et la grille **client** (vente) ;

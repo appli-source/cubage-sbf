@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.9 (interface bureau : les lots des techniciens se corrigent depuis le bureau ; numéro de révision par lot, les modifications du bureau et des téléphones ne s'écrasent plus) — 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -40,11 +40,11 @@ function doPost(e) {
 
 function handle_(ss, auth, body) {
   const role = auth.role;
-  if (body.action === 'saveLot') { replaceRows_(ss, TABLES, 'lot_id', body.lot_id, stamp_(body.rows, auth.operateur)); if (body.propositions) proposer_(ss, auth, body); return { ok:true, lot_id: body.lot_id, at: new Date().toISOString() }; }
+  if (body.action === 'saveLot') return saveLot_(ss, auth, body);
   if (body.action === 'refSave') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return refSave_(ss, body); }
   if (body.action === 'setProposition') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setProposition_(ss, body); }
   if (body.action === 'saveClient') { if (auth.operateur && body.client) body.client.operateur = auth.operateur; return saveClient_(ss, role, body); }
-  if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps); }
+  if (body.action === 'setLotGps') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setLotGps_(ss, body.lot_id, body.gps, auth); }
   if (body.action === 'setClientStatut') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setStatut_(ss, body.client_id, body.statut, auth.operateur, body.facture_xylolink); }
   if (body.action === 'purgeLots') { // vide tous les onglets de lots (référentiel et clés conservés) — réservé au bureau, confirmation 'VIDER'
     if (auth.cle !== CLE_BUREAU) return { ok:false, error:'réservé à la clé maître du bureau (constante CLE_BUREAU du script)' }; if (body.confirm !== 'VIDER') return { ok:false, error:'confirmation manquante' };
@@ -69,7 +69,8 @@ function doGet(e) {
   if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur, refVersion: refVersion_(ss) }));
   if (p.action === 'refList') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(refList_(ss)); }
   if (p.action === 'ping') return out_({ ok:true, refVersion: refVersion_(ss) });
-  if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur)));
+  if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur), p.lots));
+  if (p.action === 'revs') return out_(revs_(ss, p.all ? '' : (auth.operateur || p.operateur)));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
   if (p.action === 'propositions') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, propositions: sheetRows_(ss, 'PROPOSITIONS') }); }
   if (p.action === 'keys') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, keys: sheetRows_(ss, 'CLES') }); }
@@ -115,6 +116,39 @@ function replaceRows_(ss, tables, keyCol, keyVal, rowsByTable) {
     sh.getRange(first + 2, 1, body.length - first, Math.max(lastCol, headers.length)).clearContent();
     if (tail.length) { texte_(sh, first + 2, tail.length, headers); sh.getRange(first + 2, 1, tail.length, headers.length).setValues(tail); }
   });
+}
+
+/* ---------- lots : révisions (bureau et téléphones peuvent modifier le même lot) ----------
+   Colonnes ajoutées d'elles-mêmes à l'onglet LOT : rev (compteur), modifie_par, modifie_le, edit_bureau (oui = corrigé au bureau,
+   pas encore repris par le téléphone du technicien). Un envoi qui part d'une révision dépassée est refusé (conflict) avec la version
+   du Sheet : l'application fusionne alors les deux versions grume par grume puis renvoie. */
+function lotJson_(ss, id) {
+  const parts = sheetRows_(ss, 'LOT_JSON').filter(r => String(r.lot_id) === String(id)).sort((a, b) => Number(a.part) - Number(b.part));
+  if (!parts.length || parts.length !== Number(parts[0].total || parts.length)) return '';
+  return parts.map(p => String(p.data || '')).join('');
+}
+function saveLot_(ss, auth, body) {
+  const id = String(body.lot_id || ''); if (!id) return { ok:false, error:'lot_id manquant' };
+  const cur = sheetRows_(ss, 'LOT').filter(r => String(r.lot_id) === id)[0] || null;
+  const rev = cur ? (Number(cur.rev) || 0) : 0; const bureauEdit = cur && String(cur.edit_bureau || '') === 'oui';
+  if (body.base_rev === undefined || body.base_rev === null) {
+    // application d'avant la version 119 : elle écraserait les corrections du bureau
+    if (bureauEdit && auth.role !== 'bureau') return { ok:false, error:'Lot corrigé au bureau : mettez à jour l’application (la fermer puis la rouvrir avec du réseau) et sauvegardez à nouveau.' };
+  } else if (cur && Number(body.base_rev) !== rev) {
+    return { ok:false, conflict:true, lot_id:id, rev:rev, modifie_par:String(cur.modifie_par || ''), modifie_le:String(cur.modifie_le || ''), json:lotJson_(ss, id) };
+  }
+  // le bureau enregistre le lot d'un technicien : l'opérateur du lot est conservé
+  const rows = auth.role === 'bureau' ? body.rows : stamp_(body.rows, auth.operateur);
+  const now = new Date().toISOString(); const nrev = rev + 1;
+  (rows.LOT || []).forEach(r => { r.rev = nrev; r.modifie_par = auth.operateur || (auth.role === 'bureau' ? 'bureau' : ''); r.modifie_le = now;
+    r.edit_bureau = auth.role === 'bureau' && body.bureau ? 'oui' : (auth.role === 'bureau' && bureauEdit ? 'oui' : ''); });
+  replaceRows_(ss, TABLES, 'lot_id', id, rows); if (body.propositions) proposer_(ss, auth, body);
+  return { ok:true, lot_id:id, rev:nrev, at:now };
+}
+function revs_(ss, operateur) {
+  const op = String(operateur || '').trim().toLowerCase();
+  return { ok:true, lots: sheetRows_(ss, 'LOT').filter(r => !op || String(r.operateur || '').trim().toLowerCase() === op)
+    .map(r => ({ lot_id:String(r.lot_id), rev:Number(r.rev) || 0, modifie_par:String(r.modifie_par || ''), modifie_le:String(r.modifie_le || ''), edit_bureau:String(r.edit_bureau || '') })) };
 }
 
 /* ---------- lots clients ---------- */
@@ -257,16 +291,18 @@ function setKey_(ss, body) {
   if (idx >= 0) sh.getRange(idx + 2, 1, 1, headers.length).setValues([vals]); else sh.getRange(sh.getLastRow() + 1, 1, 1, headers.length).setValues([vals]);
   return { ok:true, key_row: row };
 }
-function setLotGps_(ss, lotId, gps) {
+function setLotGps_(ss, lotId, gps, auth) {
   // Point GPS placé (ou corrigé) depuis le bureau : colonnes gps_* de l'onglet LOT et copie JSON du lot (LOT_JSON)
   const id = String(lotId || ''); if (!id) return { ok:false, error:'lot_id manquant' };
   const sh = ss.getSheetByName('LOT'); if (!sh || sh.getLastRow() < 2) return { ok:false, error:'onglet LOT vide' };
   const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
   const col = h.indexOf('lot_id'); const idx = v.findIndex((r, i) => i > 0 && String(r[col]) === id); if (idx < 0) return { ok:false, error:'lot inconnu sur le Sheet' };
   const g = gps && gps.lat != null ? { lat: Number(gps.lat), lon: Number(gps.lon), acc: gps.acc == null ? '' : Number(gps.acc) } : null;
-  ['gps_lat','gps_lon','gps_precision_m'].forEach(k => { if (h.indexOf(k) < 0) { h.push(k); sh.getRange(1, h.length).setValue(k); } });
+  ['gps_lat','gps_lon','gps_precision_m','rev','modifie_par','modifie_le','edit_bureau'].forEach(k => { if (h.indexOf(k) < 0) { h.push(k); sh.getRange(1, h.length).setValue(k); } });
   const set = (k, val) => sh.getRange(idx + 1, h.indexOf(k) + 1).setValue(val);
+  const nrev = (Number(v[idx][h.indexOf('rev')]) || 0) + 1;
   set('gps_lat', g ? g.lat : ''); set('gps_lon', g ? g.lon : ''); set('gps_precision_m', g ? g.acc : '');
+  set('rev', nrev); set('modifie_par', (auth && auth.operateur) || 'bureau'); set('modifie_le', new Date().toISOString()); set('edit_bureau', 'oui');
   delete ROWS_CACHE_['LOT'];
   const parts = sheetRows_(ss, 'LOT_JSON').filter(r => String(r.lot_id) === id).sort((a, b) => Number(a.part) - Number(b.part));
   if (parts.length && parts.length === Number(parts[0].total || parts.length)) {
@@ -274,7 +310,7 @@ function setLotGps_(ss, lotId, gps) {
       const txt = JSON.stringify(j); const rows = []; for (let i = 0, p = 1; i < txt.length; i += 40000, p++) rows.push({ lot_id: id, part: p, total: Math.ceil(txt.length / 40000), data: txt.slice(i, i + 40000) });
       replaceRows_(ss, ['LOT_JSON'], 'lot_id', id, { LOT_JSON: rows }); } } catch (e) {}
   }
-  return { ok:true, lot_id: id, gps: g };
+  return { ok:true, lot_id: id, gps: g, rev: nrev };
 }
 function setStatut_(ss, clientId, statut, par, facture) {
   const sh = ss.getSheetByName('LOT_CLIENT'); if (!sh) return ({ ok:false, error:'aucun lot client' }); delete ROWS_CACHE_['LOT_CLIENT'];
@@ -319,15 +355,16 @@ function motsVocaux_(ss, name) {
   v.slice(1).forEach(r => { const code = String(r[0]).trim().toUpperCase(); const w = String(r[col] || '').trim(); if (code && w) out[code] = w; });
   return out;
 }
-function restore_(ss, operateur) {
-  // Lots complets (onglet LOT_JSON) et lots clients (colonne json de LOT_CLIENT), pour un opérateur ou tous
-  const op = String(operateur || '').trim().toLowerCase();
+function restore_(ss, operateur, ids) {
+  // Lots complets (onglet LOT_JSON) et lots clients (colonne json de LOT_CLIENT), pour un opérateur ou tous ; ids = liste de lot_id (séparés par des virgules)
+  const op = String(operateur || '').trim().toLowerCase(); const only = ids ? String(ids).split(',').filter(String) : null;
   const info = {}; sheetRows_(ss, 'LOT').forEach(r => info[String(r.lot_id)] = r);
   const parts = {}; sheetRows_(ss, 'LOT_JSON').forEach(r => { const id = String(r.lot_id); (parts[id] = parts[id] || []).push(r); });
   const lots = [];
-  Object.keys(parts).forEach(id => { const i = info[id] || {}; if (op && String(i.operateur || '').trim().toLowerCase() !== op) return;
+  Object.keys(parts).forEach(id => { const i = info[id] || {}; if (only && only.indexOf(id) < 0) return; if (op && String(i.operateur || '').trim().toLowerCase() !== op) return;
     const ps = parts[id].sort((a, b) => Number(a.part) - Number(b.part)); if (ps.length !== Number(ps[0].total || ps.length)) return;
-    lots.push({ lot_id: id, operateur: i.operateur || '', chantier: i.chantier || '', date: i.date || '', type: i.type || '', updated: i.updated || '', json: ps.map(p => String(p.data || '')).join('') }); });
+    lots.push({ lot_id: id, operateur: i.operateur || '', chantier: i.chantier || '', date: i.date || '', type: i.type || '', updated: i.updated || '', rev: Number(i.rev) || 0, modifie_par: String(i.modifie_par || ''), modifie_le: String(i.modifie_le || ''), edit_bureau: String(i.edit_bureau || ''), json: ps.map(p => String(p.data || '')).join('') }); });
+  if (only) return { ok:true, lots: lots, clients: [] };
   const clients = sheetRows_(ss, 'LOT_CLIENT').filter(r => r.json && (!op || String(r.operateur || '').trim().toLowerCase() === op))
     .map(r => ({ client_id: String(r.client_id), operateur: r.operateur || '', client: r.client || '', statut: r.statut || '', updated_at: r.updated_at || '', json: String(r.json) }));
   return { ok:true, lots: lots, clients: clients };
