@@ -1,10 +1,10 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.9 (interface bureau : les lots des techniciens se corrigent depuis le bureau ; numéro de révision par lot, les modifications du bureau et des téléphones ne s'écrasent plus) — 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.10 (rôle « technicien » : poste bureau d'un technicien, limité à ses propres lots ; les clés terrain et technicien ne lisent plus que les lots de leur opérateur) — 3.9 (interface bureau : les lots des techniciens se corrigent depuis le bureau ; numéro de révision par lot, les modifications du bureau et des téléphones ne s'écrasent plus) — 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
  *
- * Clés : onglet CLES du Sheet (colonnes : cle, operateur, role [terrain|bureau], actif [oui|non], cree_le, note),
+ * Clés : onglet CLES du Sheet (colonnes : cle, operateur, role [terrain|technicien|bureau], actif [oui|non], cree_le, note),
  * géré depuis l'espace Bureau de l'application. Les deux constantes ci-dessous restent des clés « maîtres » de secours.
  */
 const CLE = 'A_REMPLACER';
@@ -19,7 +19,8 @@ function auth_(ss, key) {
   key = String(key || ''); if (!key) return null;
   const rows = sheetRows_(ss, 'CLES');
   for (const r of rows) if (String(r.cle) === key) { if (String(r.actif || 'oui').toLowerCase().indexOf('non') === 0) return null;
-    return { role: String(r.role || 'terrain').toLowerCase() === 'bureau' ? 'bureau' : 'terrain', operateur: String(r.operateur || '').trim(), cle: key }; }
+    const ro = String(r.role || 'terrain').toLowerCase();
+    return { role: ro === 'bureau' ? 'bureau' : ro.indexOf('techn') === 0 ? 'technicien' : 'terrain', operateur: String(r.operateur || '').trim(), cle: key }; }
   if (key === CLE_BUREAU) return { role: 'bureau', operateur: '', cle: key };
   if (key === CLE) return { role: 'terrain', operateur: '', cle: key };
   return null;
@@ -69,8 +70,10 @@ function doGet(e) {
   if (p.action === 'params') return out_(Object.assign(params_(ss, role), { operateur: auth.operateur, refVersion: refVersion_(ss) }));
   if (p.action === 'refList') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(refList_(ss)); }
   if (p.action === 'ping') return out_({ ok:true, refVersion: refVersion_(ss) });
-  if (p.action === 'restore') return out_(restore_(ss, p.all ? '' : (auth.operateur || p.operateur), p.lots));
-  if (p.action === 'revs') return out_(revs_(ss, p.all ? '' : (auth.operateur || p.operateur)));
+  // une clé nominative (terrain ou technicien) ne lit que les lots de son opérateur ; seul le bureau lit tous les lots
+  const opLu = auth.operateur ? (role === 'bureau' && p.all ? '' : auth.operateur) : (p.all ? '' : p.operateur);
+  if (p.action === 'restore') return out_(restore_(ss, opLu, p.lots));
+  if (p.action === 'revs') return out_(revs_(ss, opLu));
   if (p.action === 'stock') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_(stock_(ss)); }
   if (p.action === 'propositions') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, propositions: sheetRows_(ss, 'PROPOSITIONS') }); }
   if (p.action === 'keys') { if (role !== 'bureau') return out_({ ok:false, error:'réservé au bureau' }); return out_({ ok:true, keys: sheetRows_(ss, 'CLES') }); }
@@ -141,14 +144,14 @@ function saveLot_(ss, auth, body) {
   const rows = auth.role === 'bureau' ? body.rows : stamp_(body.rows, auth.operateur);
   const now = new Date().toISOString(); const nrev = rev + 1;
   (rows.LOT || []).forEach(r => { r.rev = nrev; r.modifie_par = auth.operateur || (auth.role === 'bureau' ? 'bureau' : ''); r.modifie_le = now;
-    r.edit_bureau = auth.role === 'bureau' && body.bureau ? 'oui' : (auth.role === 'bureau' && bureauEdit ? 'oui' : ''); });
+    r.edit_bureau = (auth.role === 'bureau' && (body.bureau || bureauEdit)) || auth.role === 'technicien' ? 'oui' : ''; r.poste = auth.role; });
   replaceRows_(ss, TABLES, 'lot_id', id, rows); if (body.propositions) proposer_(ss, auth, body);
   return { ok:true, lot_id:id, rev:nrev, at:now };
 }
 function revs_(ss, operateur) {
   const op = String(operateur || '').trim().toLowerCase();
   return { ok:true, lots: sheetRows_(ss, 'LOT').filter(r => !op || String(r.operateur || '').trim().toLowerCase() === op)
-    .map(r => ({ lot_id:String(r.lot_id), rev:Number(r.rev) || 0, modifie_par:String(r.modifie_par || ''), modifie_le:String(r.modifie_le || ''), edit_bureau:String(r.edit_bureau || '') })) };
+    .map(r => ({ lot_id:String(r.lot_id), rev:Number(r.rev) || 0, modifie_par:String(r.modifie_par || ''), modifie_le:String(r.modifie_le || ''), edit_bureau:String(r.edit_bureau || ''), poste:String(r.poste || '') })) };
 }
 
 /* ---------- lots clients ---------- */

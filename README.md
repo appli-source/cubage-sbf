@@ -37,6 +37,17 @@ côtés la version du bureau l'emporte. À l'ouverture avec du réseau, le tél�
 (et fusionne s'il a lui-même des saisies non sauvegardées). Une application antérieure à la v119 ne peut plus écraser un lot corrigé
 au bureau : le Sheet lui demande de se mettre à jour. La correction depuis le bureau est refusée tant que le script n'est pas en 3.9.
 
+## Trois rôles de clé (v121, script 3.10)
+
+- **Terrain** : téléphone du technicien, ses lots uniquement.
+- **Technicien bureau** : PC du technicien, ses lots uniquement (le Sheet ne lui renvoie que les lots de son opérateur). Les lots de son
+  téléphone y arrivent seuls à l'ouverture (et bouton « Actualiser mes lots ») ; il les corrige avec les tableaux de saisie et
+  « Sauvegarder sur le Sheet » ; son téléphone reprend les corrections et les lots créés sur le PC. Pas d'espace Bureau : ni lots
+  multi-techniciens, ni validation des ventes, ni référentiel, grilles communes ou clés.
+- **Bureau administratif** : espace Bureau complet (tous les lots, ventes, référentiel, clés).
+
+Une clé nominative terrain ou technicien ne peut plus lire les lots des autres opérateurs (restore et revs filtrés côté script).
+
 ## Prix et bordereaux (docs.js)
 
 Un lot de cubage porte deux grilles : la grille **propriétaire** (achat) et la grille **client** (vente) ;

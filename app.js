@@ -142,6 +142,7 @@ function bindAddRef(l,onAdded){document.querySelectorAll('[data-addref]').forEac
   m.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>add(b.dataset.pick));m.querySelector('#okRef').onclick=()=>add(m.querySelector('#newRef').value);});}
 const isBureau=()=>!!(S.params&&S.params.syncKeyBureau);
 const wide=()=>window.innerWidth>=900;
+const isTech=()=>!isBureau()&&S.params&&S.params.role==='technicien';
 const apiKey=()=>S.params.syncKeyBureau||S.params.syncKey||'';
 const NONE='__none';
 const slMatch=(x,sl)=>!sl||(sl===NONE?!x:x===sl);
@@ -201,13 +202,13 @@ function readTr(id){return [...document.querySelectorAll(`#${id} .tr-row`)].map(
 const V={};
 const MODS={grumes:{t:'Cubage bord de route',s:'Grumes et billons'},pied:{t:'Estimation sur pied',s:'Inventaire et barème Chaudé'}};
 const syncLab=l=>l.sync==='done'?'sauvegardé le '+new Date(l.synced).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):l.sync==='pending'?'à sauvegarder':'non sauvegardé';
-V.home=()=>{head('Cubage SBF',S.params.operateur?'Opérateur : '+S.params.operateur:'');
+V.home=()=>{head('Cubage SBF',(isTech()?'Poste bureau technicien · ':'')+(S.params.operateur?'Opérateur : '+S.params.operateur:''));
   const card=m=>{const ls=S.lots.filter(l=>l.type===m&&!l.archive&&!l.remote),todo=ls.filter(l=>l.sync!=='done'&&!l.test).length;return `<button class="tile" data-mod="${m}"><b>${MODS[m].t}</b><small>${MODS[m].s}</small><span class="tile-n">${ls.length} lot${ls.length>1?'s':''}${todo?` · <span class="pill warn">${todo} à sauvegarder</span>`:''}</span></button>`;};
-  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button>
+  $('#main').innerHTML=`<div class="stack">${card('grumes')}${card('pied')}${isBureau()?'<button class="tile light" data-go="bureau"><b>Bureau</b><small>Stock de tous les téléphones, validation des ventes</small></button>':''}${isTech()?'<button class="tile light" id="hMine"><b>Actualiser mes lots</b><small>Reprend du Sheet les lots et corrections faits sur mon téléphone · mes lots uniquement</small></button>':''}<button class="btn big block" data-go="params">⚙ Paramètres</button>
   <div class="row" style="gap:8px"><button class="btn big" id="hSync" style="flex:1">☁ Sauvegarder les lots${(()=>{const n=lotsToSync().length;return n?` <span class="pill warn">${n}</span>`:'';})()}</button><button class="btn big${S.params.refStale?' primary':''}" id="hRef" style="flex:1">⟳ Mettre à jour depuis le Sheet${S.params.refStale?' <span class="pill warn">nouveautés</span>':''}</button></div>
   <small class="muted" style="text-align:center">Sauvegarder = envoyer vos lots sur le Sheet SBF · Mettre à jour = recevoir essences, qualités, grilles de prix et statuts des ventes</small>
   <small class="muted" style="text-align:center">Version ${(()=>{const m=/app\.js\?v=(\d+)/.exec([...document.scripts].map(x=>x.src).join(' '));return m?m[1]:'?';})()}</small></div>`;
-  $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});$('#hSync').onclick=syncAllUI;$('#hRef').onclick=loadRefUI;foot('');};
+  $('#main').querySelectorAll('[data-mod]').forEach(b=>b.onclick=()=>{S.mod=b.dataset.mod;S.hist=['home'];go('module');});if($('#hMine'))$('#hMine').onclick=()=>pullEdits(true);$('#hSync').onclick=syncAllUI;$('#hRef').onclick=loadRefUI;foot('');};
 V.module=()=>{const m=S.mod||'grumes';head(MODS[m].t);const ls=S.lots.filter(l=>l.type===m);const ng=S.grilles.filter(g=>g.type===m).length;
   $('#main').innerHTML=`<div class="stack"><button class="tile" data-go="newLot"><b>+ Ajouter un lot</b><small>${m==='grumes'?'Cubage de grumes bord de route':'Inventaire de bois sur pied'}</small></button>
   <button class="tile light" data-go="lots"><b>Liste des lots</b><small>${ls.length} lot${ls.length>1?'s':''} · recherche par chantier, commune, date</small></button>
@@ -336,7 +337,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
     if(l.sync!=='done'){S.lots=S.lots.filter(x=>x!==l);await DB.del('lots',l.id);S.lot=null;S.hist=['home','bureau'];go('bLots');loadRemoteLots();return;}l.readonly=true;l.bEdit=false;DB.put('lots',l);render();};
   if($('#takeBack'))$('#takeBack').onclick=e=>{if(!e.target.dataset.c){e.target.textContent='Confirmer : ce téléphone redevient responsable du lot';e.target.dataset.c='1';return;}l.readonly=false;l.archive=false;delete l.sentAt;l.sync='pending';DB.put('lots',l);toast('Vous avez repris la main');render();};
   if(l.readonly)$('#main').querySelectorAll('input,select').forEach(i=>i.disabled=true);
-  $('#delLot').onclick=e=>{if(e.target.dataset.c){S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
+  $('#delLot').onclick=e=>{if(e.target.dataset.c){if(!l.remote&&!l.test){S.params.lotsRetires=[...(S.params.lotsRetires||[]),l.id].slice(-500);saveParams();}S.lots=S.lots.filter(x=>x!==l);DB.del('lots',l.id);S.lot=null;go('home');}else{e.target.textContent='Confirmer la suppression définitive';e.target.dataset.c='1';}};
   foot('');};
 
 /* --- Tableau de saisie (grand écran, bureau) : toutes les grumes et billons du lot dans un tableau modifiable ---
@@ -880,8 +881,8 @@ V.bRef=()=>{const t=S.bRefT||(S.bRefT='essence');const LAB={essence:'Essences',q
   $('#rTabs').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.bRefT=b.dataset.t;S.bRefQ='';render();});
   $('#rAdd').onclick=()=>{const c=$('#rNew').value.trim();if(!c){toast(isC?'Indiquez le nom':'Indiquez le code');return;}const m=isC?undefined:$('#rNewM').value.trim();call({op:'add',code:c,mots:m},c+' ajouté',j=>{if(!S.bRef)S.bRef={essence:[],qualite:[],client:[]};S.bRef[t]=[...(S.bRef[t]||[]),{code:j.code||c,mots:m||''}];$('#rNew').value='';if($('#rNewM'))$('#rNewM').value='';});};foot('');};
 V.bKeys=()=>{head('Clés d’accès','Une clé = un technicien ou un poste bureau');const ks=S.keys;
-  $('#main').innerHTML=`<div class="stack"><div class="card stack"><h2>Nouvelle clé</h2><div class="row"><label class="f grow"><span class="l">Opérateur (prénom / initiales)</span><input id="kOp" autocapitalize="characters"></label><label class="f" style="flex:0 0 140px"><span class="l">Rôle</span><select id="kRole"><option value="terrain">Terrain</option><option value="bureau">Bureau</option></select></label></div><button class="btn primary big block" id="kNew">Créer la clé et le lien</button></div>
-  <div id="kList">${ks?(ks.length?ks.map(k=>`<div class="card stack" data-k="${esc(k.cle)}"><div class="row"><div class="grow"><b>${esc(k.operateur||'(sans opérateur)')}</b> <span class="pill${String(k.actif||'oui').toLowerCase().startsWith('non')?' warn':''}">${String(k.actif||'oui').toLowerCase().startsWith('non')?'désactivée':'active'}</span> <span class="muted">· ${esc(k.role||'terrain')}${k.cree_le?' · créée le '+new Date(k.cree_le).toLocaleDateString('fr-FR'):''}</span>${k.note?`<br><span class="muted">${esc(k.note)}</span>`:''}</div></div>
+  $('#main').innerHTML=`<div class="stack"><div class="card stack"><h2>Nouvelle clé</h2><div class="row"><label class="f grow"><span class="l">Opérateur (prénom / initiales)</span><input id="kOp" autocapitalize="characters"></label><label class="f" style="flex:0 0 260px"><span class="l">Rôle</span><select id="kRole"><option value="terrain">Terrain (téléphone)</option><option value="technicien">Technicien bureau (PC, ses lots)</option><option value="bureau">Bureau administratif</option></select></label></div><button class="btn primary big block" id="kNew">Créer la clé et le lien</button></div>
+  <div id="kList">${ks?(ks.length?ks.map(k=>`<div class="card stack" data-k="${esc(k.cle)}"><div class="row"><div class="grow"><b>${esc(k.operateur||'(sans opérateur)')}</b> <span class="pill${String(k.actif||'oui').toLowerCase().startsWith('non')?' warn':''}">${String(k.actif||'oui').toLowerCase().startsWith('non')?'désactivée':'active'}</span> <span class="muted">· ${esc(({terrain:'terrain',technicien:'technicien bureau',bureau:'bureau administratif'})[k.role||'terrain']||k.role)}${k.cree_le?' · créée le '+new Date(k.cree_le).toLocaleDateString('fr-FR'):''}</span>${k.note?`<br><span class="muted">${esc(k.note)}</span>`:''}</div></div>
     <div class="row"><button class="btn grow" data-link="${esc(k.cle)}">Lien de configuration</button>${String(k.actif||'oui').toLowerCase().startsWith('non')?`<button class="btn grow" data-act="${esc(k.cle)}" data-v="1">Réactiver</button>`:`<button class="btn grow" data-rep="${esc(k.cle)}">Remplacer (tél. perdu)</button><button class="btn danger grow" data-act="${esc(k.cle)}" data-v="0">Désactiver</button>`}</div></div>`).join(''):'<p class="muted">Aucune clé dans l’onglet CLES. Les clés maîtres du script continuent de fonctionner.</p>'):'<p class="muted">Chargement…</p>'}</div></div>`;
   const reload=async()=>{try{S.keys=(await keysApi()).keys||[];render();}catch(e){toast(e.message);}};if(!ks)reload();
   const showLink=(k)=>{const role=(S.keys.find(x=>x.cle===k)||{}).role||'terrain';const link=cfgLink(k,role);const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>Lien de configuration · ${esc((S.keys.find(x=>x.cle===k)||{}).operateur||'')}</b><p class="muted" style="margin:0">À ouvrir une fois sur le téléphone (Safari ou Chrome), puis « Ajouter à l’écran d’accueil ». Sur iPhone : copier le lien et le coller dans Paramètres › « Coller le lien de configuration ».</p><textarea rows="4" style="width:100%;font-size:12px" readonly>${esc(link)}</textarea><div class="row"><button type="button" class="btn grow" id="kCopy">Copier</button>${navigator.share?'<button type="button" class="btn grow" id="kShare">Partager</button>':''}<button type="button" class="btn primary grow" id="kOk">Fermer</button></div></div>`;document.body.appendChild(m);
@@ -1129,7 +1130,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <div class="card stack"><h2>Synchronisation Google Sheet</h2><label class="f"><span class="l">URL du script Apps Script</span><input id="url" value="${esc(p.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></label><label class="f"><span class="l">Clé d’accès</span><input id="key" value="${esc(p.syncKey||'')}"></label><label class="f"><span class="l">Clé bureau (valide les ventes)</span><input id="keyb" value="${esc(p.syncKeyBureau||'')}" placeholder="vide sur les téléphones de terrain"></label><label class="f"><span class="l">Coller le lien de configuration</span><div class="row"><input id="cfgLink" placeholder="https://…#cfg=…" style="flex:1"><button type="button" class="btn primary" id="cfgOk">Valider</button></div></label><p class="muted" style="margin:0">Collez ici le lien reçu du bureau (indispensable sur iPhone). Le référentiel se recharge ensuite à chaque ouverture avec du réseau.</p>
   <div class="row"><button class="btn grow" id="loadRef">Charger le référentiel du Sheet</button><button class="btn grow" id="syncAll">Sauvegarder tous les lots</button></div>${p.refLoaded?`<span class="muted">Référentiel chargé : ${esc(p.refLoaded)}</span>`:''}</div>
   <div class="card stack"><h2>Changement de téléphone</h2><span class="muted">Sur le nouveau téléphone : ouvrir le lien de configuration, renseigner l’opérateur, puis récupérer les lots sauvegardés sur le Sheet. Les lots déjà présents ne sont pas modifiés.</span>
-  <div class="row"><button class="btn grow primary" id="restoreMe">Récupérer mes lots depuis le Sheet</button><button class="btn grow" id="restoreAll">Tous les opérateurs</button></div></div>
+  <div class="row"><button class="btn grow primary" id="restoreMe">Récupérer mes lots depuis le Sheet</button>${isBureau()?'<button class="btn grow" id="restoreAll">Tous les opérateurs</button>':''}</div></div>
   ${isBureau()?`<details class="card"><summary><b>Maintenance du Sheet (bureau, clé maître uniquement)</b></summary><div class="stack" style="margin-top:10px"><span class="muted">Vide tous les lots, billons et lots clients du Sheet pour tous les téléphones. Essences, qualités, grilles et clés conservées. Refusé avec une clé bureau nominative : seule la clé maître du script peut le faire.</span><button class="btn danger block" id="bPurge">Vider les lots du Sheet…</button></div></details>`:''}
   <div class="card stack"><h2>Remise à zéro de ce téléphone</h2><span class="muted">Supprime tous les lots (cubage, estimation, lots clients) de ce téléphone. Les paramètres, la configuration et les grilles sont conservés. Le Sheet n’est pas touché.</span><button class="btn danger block" id="wipeLots">Supprimer tous les lots de ce téléphone (${S.lots.length})</button></div>
   <div class="card stack"><h2>Données locales</h2><span class="muted">Copie de secours complète (fichier) : à partager sur Drive, AirDrop ou par mail, puis importer sur l’autre appareil.</span><div class="row"><button class="btn grow" id="exportAll">Exporter tout (JSON)</button><label class="btn grow" for="imp">Importer un fichier JSON</label><input id="imp" type="file" accept=".json,application/json" hidden></div></div>
@@ -1154,7 +1155,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
       if(p.vocalMot)test('mot de départ',p.vocalMot);
       const u=[...new Set(bad)];set(u.length?u.length+' mot(s) inconnu(s) du moteur':'✓ Tous les mots sont connus du moteur',u.length?u.join('\n')+'\nCes mots ne seront jamais reconnus : remplacez-les (Sheet colonne libellé / mots_vocaux, ou champs ci-dessus).':'Essences, qualités, commentaires et mot de départ : tout est prononçable.',true,u.length>0);}
     catch(e){set('Vérification impossible',e.message,true,true);}};
-  $('#restoreMe').onclick=()=>{upd();restoreUI(false);};$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
+  $('#restoreMe').onclick=()=>{upd();restoreUI(false);};if($('#restoreAll'))$('#restoreAll').onclick=()=>{upd();restoreUI(true);};
   $('#exportAll').onclick=()=>shareFile(new Blob([JSON.stringify({params:p,grilles:S.grilles,lots:S.lots},null,1)],{type:'application/json'}),'cubage-sbf-'+today()+'.json');
   $('#imp').onchange=e=>{const f=e.target.files[0];if(f)importLotFile(f);};foot('');};
 
@@ -1275,17 +1276,25 @@ async function syncLot(l,quiet){const url=S.params.syncUrl;if(l.readonly){if(!qu
     if(set)set('Échec de la sauvegarde',msg+' Le lot reste enregistré sur le téléphone.',true,true);else toast('Échec : '+(l.chantier||'lot'));return false;}}
 /* Corrections faites au bureau sur les lots de ce téléphone : à l'ouverture (réseau), le téléphone reprend la version du Sheet ;
    s'il a lui-même des modifications non sauvegardées, les deux versions sont fusionnées puis renvoyées. */
-async function pullEdits(){const url=S.params.syncUrl;if(!url||!navigator.onLine)return;const mine=S.lots.filter(l=>!l.remote&&!l.readonly&&!l.test&&(l.type==='grumes'||l.type==='pied'));if(!mine.length)return;
-  try{const q=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(apiKey())+'&all=1';const j=await (await fetch(q+'&action=revs')).json();if(!j||!j.ok||!Array.isArray(j.lots))return;
-    const rv=new Map(j.lots.map(x=>[String(x.lot_id),x]));const stale=mine.filter(l=>{const r=rv.get(l.id);return r&&r.rev>(l.rev||0);});if(!stale.length)return;
-    const k=await (await fetch(q+'&action=restore&lots='+encodeURIComponent(stale.map(l=>l.id).join(',')))).json();if(!k||!k.ok)return;
-    const names=[],push=[];for(const r of k.lots||[]){const l=stale.find(x=>x.id===String(r.lot_id));if(!l||!r.json)continue;let o;try{o=JSON.parse(r.json);}catch(e){continue;}const srv=o.lot||o;if(!srv||!srv.id)continue;
+/* Poste bureau d'un technicien (clé « technicien ») : il reçoit aussi les lots de son opérateur qu'il n'a pas encore ;
+   un téléphone reçoit les lots créés sur le poste bureau de son technicien. Le Sheet ne renvoie que les lots de l'opérateur de la clé. */
+async function pullEdits(manual){const url=S.params.syncUrl;if(!url||!navigator.onLine){if(manual)toast('Réseau nécessaire');return;}const mine=S.lots.filter(l=>!l.remote&&!l.readonly&&!l.test&&(l.type==='grumes'||l.type==='pied'));
+  const set=manual?statusBox():null;if(set)set('Lecture du Sheet SBF…','Mes lots',false);
+  try{const q=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(apiKey());const j=await (await fetch(q+'&action=revs')).json();if(!j||!j.ok||!Array.isArray(j.lots)){if(set)set('Échec','Script du Sheet à mettre à jour (version 3.10)',true,true);return;}
+    const rv=new Map(j.lots.map(x=>[String(x.lot_id),x]));const stale=mine.filter(l=>{const r=rv.get(l.id);return r&&r.rev>(l.rev||0);});
+    const have=new Set(S.lots.map(l=>l.id));const gone=new Set(S.params.lotsRetires||[]);const add=S.params.opLocked?j.lots.filter(x=>!have.has(String(x.lot_id))&&!gone.has(String(x.lot_id))&&(isTech()||x.poste==='technicien')).map(x=>String(x.lot_id)):[];
+    if(!stale.length&&!add.length){if(set)set('✓ Mes lots sont à jour','Aucune modification sur le Sheet depuis la dernière lecture.',true);return;}
+    const k=await (await fetch(q+'&action=restore&lots='+encodeURIComponent([...stale.map(l=>l.id),...add].join(',')))).json();if(!k||!k.ok)return;
+    const names=[],push=[];let nNew=0;for(const r of k.lots||[]){let o;try{o=JSON.parse(r.json);}catch(e){continue;}const srv=o.lot||o;if(!srv||!srv.id)continue;
       for(const g of o.grilles||[])if(!S.grilles.find(x=>x.id===g.id)){S.grilles.push(g);await saveGrille(g);}
+      if(add.includes(String(r.lot_id))){const nl=adoptLot({},srv);nl.sync='done';nl.synced=r.updated||new Date().toISOString();nl.rev=Number(r.rev)||0;nl.base=snap(srv);S.lots.push(nl);await DB.put('lots',nl);nNew++;continue;}
+      const l=stale.find(x=>x.id===String(r.lot_id));if(!l||!r.json)continue;
       if(l.sync==='done')adoptLot(l,srv);else{const m=merge3(l,srv,l.base,true);adoptLot(l,m.lot);push.push(l);}
       l.rev=Number(r.rev)||0;l.base=snap(srv);if(l.sync==='done')l.synced=new Date().toISOString();await DB.put('lots',l);names.push((l.xylo?l.xylo+' ':'')+(l.chantier||'lot')+(r.modifie_par?' ('+r.modifie_par+')':''));}
     if(push.length)await syncLots(push);
-    if(names.length){toast(names.length+' lot(s) mis à jour avec les corrections du bureau : '+names.slice(0,3).join(', ')+(names.length>3?'…':''));if(['home','lots','lot','listing','recap','module'].includes(S.screen))render();}}
-  catch(e){}}
+    const msg=(nNew?nNew+' nouveau(x) lot(s) reçu(s)':'')+(nNew&&names.length?' · ':'')+(names.length?names.length+' lot(s) mis à jour : '+names.slice(0,3).join(', ')+(names.length>3?'…':''):'');
+    if(set)set('✓ Mes lots sont à jour',msg||'Rien de nouveau.',true);else if(msg)toast(msg);if(['home','lots','lot','listing','recap','module'].includes(S.screen))render();}
+  catch(e){if(set)set('Échec',e.message,true,true);}}
 /* Version du référentiel commun renvoyée par le Sheet : si elle diffère de celle chargée, « Mettre à jour » est signalé */
 function noteRef(j){if(!j||!j.refVersion)return;const p=S.params;if(p.refVersion&&p.refVersion!==j.refVersion&&!p.refStale){p.refStale=true;saveParams();toast('Le référentiel du Sheet a changé : faites « Mettre à jour depuis le Sheet »');}else if(!p.refVersion){p.refVersion=j.refVersion;saveParams();}}
 async function pingRef(){const url=S.params.syncUrl;if(!url||!navigator.onLine)return;try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),8000);const res=await fetch(url+(url.includes('?')?'&':'?')+'action=ping&key='+encodeURIComponent(apiKey()),{signal:ctl.signal});clearTimeout(to);const j=await res.json();if(j&&j.ok){const was=S.params.refStale;noteRef(j);if(S.params.refStale!==was&&S.screen==='home')render();}}catch(e){}}
@@ -1436,7 +1445,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   if(j.dmm&&Object.keys(j.dmm).length){Object.assign(Calc.DMM,j.dmm);p.dmm=j.dmm;}
   if(j.essencesVocal&&typeof j.essencesVocal==='object')p.essencesVocal=j.essencesVocal;
   if(j.qualitesVocal&&typeof j.qualitesVocal==='object')p.qualitesVocal=j.qualitesVocal;
-  if(j.operateur){p.operateur=j.operateur;p.opLocked=true;}else p.opLocked=false;
+  if(j.operateur){p.operateur=j.operateur;p.opLocked=true;}else p.opLocked=false;if(j.role)p.role=j.role;
   if(j.refVersion)p.refVersion=j.refVersion;p.refStale=false;
   let chg=[];if(j.clientStatuts){for(const c of S.lots){if(c.type!=='client')continue;const st=j.clientStatuts[c.id];if(st&&st!==c.statut&&c.sync==='done'){chg.push((c.client||'lot client')+' → '+(STL[st]||st));c.statut=st;await DB.put('lots',c);}}}
   S.refInfo={ess:(j.essences||[]).length,qual:(j.qualites||[]).length,grilles:(j.grilles||[]).length,dmm:!!(j.dmm&&Object.keys(j.dmm).length),chg};
@@ -1452,7 +1461,7 @@ function render(){chipCb=null;$('#main').classList.remove('wide');if(S.screen!==
   /* Lien de configuration : …/cubage-sbf/#cfg=… (adresse du script + clé), à ouvrir une fois par téléphone */
   let cfgOk=false;try{const c=parseCfg(location.hash);if(/#cfg=/.test(location.hash||'')){if(c){S.params.syncUrl=c.u;S.params.syncKey=c.k||'';if(c.b!==undefined)S.params.syncKeyBureau=c.b||'';await saveParams();cfgOk=true;}history.replaceState(null,'',location.pathname);}}catch(e){toast('Lien de configuration illisible');}
   render();if(cfgOk)toast('Synchronisation configurée');
-  if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();if(ok&&!S.lots.length&&S.params.operateur&&!S.params.restoreAsked)proposeRestore();pullEdits();});
+  if(S.params.syncUrl&&navigator.onLine)loadRef(!cfgOk).then(ok=>{if(ok&&(S.screen==='home'||S.screen==='params'))render();if(ok&&!S.lots.length&&S.params.operateur&&!S.params.restoreAsked&&!isTech())proposeRestore();pullEdits();});
   if('serviceWorker'in navigator&&location.protocol==='https:'&&!/claude\.(ai|site)/.test(location.host)){navigator.serviceWorker.register('sw.js').catch(()=>{});}
   /* Stockage persistant (appli installée) : le navigateur n'efface ni les lots ni la copie de l'appli quand le téléphone manque de place */
   try{if(navigator.storage&&navigator.storage.persist&&(matchMedia('(display-mode: standalone)').matches||navigator.standalone))navigator.storage.persist().catch(()=>{});}catch(e){}})();
