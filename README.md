@@ -24,6 +24,9 @@ Avec une clé bureau, **Bureau › Lots des techniciens** charge tous les lots d
 **« Modifier depuis le bureau »** le rend modifiable sur ce poste (fiche du lot, sous-lots, grilles, saisie grume par grume) et ouvre le
 **Tableau de saisie** : une ligne par billon (n° grume, essence, qualité, L en m, Ø en cm, réductions, sous-lot, commentaire, m³),
 modification directe, Entrée = ligne suivante, « + Nouvelle grume », « + billon », suppression ; billons vendus ou recoupés verrouillés.
+Lots sur pied (v120) : **Tableau de saisie sur pied** avec deux tableaux — les tiges (n° si pied à pied, essence, Ø à 1,30 m, classe,
+effectif, tarif Chaudé, hauteur, tronçons « 4 CA + 6 CB », sous-lot, m³) et les hauteurs par classe (hauteur et tronçons par défaut
+des tiges sans hauteur propre). Une ligne sans diamètre bloque l'enregistrement sur le Sheet.
 « Enregistrer sur le Sheet » envoie la correction ; l'opérateur du lot reste celui du technicien. Le tableau existe aussi sur les lots
 du poste lui-même dès que l'écran est large.
 
