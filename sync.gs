@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.10 (rôle « technicien » : poste bureau d'un technicien, limité à ses propres lots ; les clés terrain et technicien ne lisent plus que les lots de leur opérateur) — 3.9 (interface bureau : les lots des techniciens se corrigent depuis le bureau ; numéro de révision par lot, les modifications du bureau et des téléphones ne s'écrasent plus) — 3.8 (gestion du référentiel commun depuis le Bureau : essences, qualités, clients) — 3.7 (liste commune de clients : onglet CLIENTS, propositions depuis les lots clients et les sous-lots) — 3.5 (version du référentiel renvoyée à chaque échange : les téléphones savent qu'une mise à jour est disponible).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.11 (grilles de prix proposées par les techniciens, validées au bureau).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -52,6 +52,7 @@ function handle_(ss, auth, body) {
     let n = 0; TABLES.concat(TABLES_CLIENT).forEach(name => { const sh = ss.getSheetByName(name); if (!sh) return; delete ROWS_CACHE_[name]; const last = sh.getLastRow(); if (last > 1) { sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).clearContent(); n += last - 1; } });
     return { ok:true, lignes_supprimees: n, at: new Date().toISOString() };
   }
+  if (body.action === 'proposeGrille') return proposerGrille_(ss, auth, body.grille);
   if (body.action === 'saveGrille' || body.action === 'deleteGrille') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return saveGrille_(ss, body.action === 'deleteGrille' ? null : body.grille, body.code); }
   if (body.action === 'setKey') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setKey_(ss, body); }
   if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
@@ -263,8 +264,47 @@ function proposerClient_(ss, role, c) {
   const row = [['client', nom, c.operateur || '', 'lot client ' + (c.ref || c.date || ''), new Date().toISOString(), 'propose', '']];
   texte_(sh, sh.getLastRow() + 1, 1, H); sh.getRange(sh.getLastRow() + 1, 1, 1, H.length).setValues(row);
 }
+/* Grille de prix créée sur un téléphone et proposée au bureau : ligne PROPOSITIONS (type « grille », code = nom, data = JSON) */
+function proposerGrille_(ss, auth, grille) {
+  const gr = grille || {}; const nom = String(gr.nom || '').trim(); if (!nom) return { ok:false, error:'grille sans nom' };
+  const lignes = (gr.lignes || []).filter(l => l && l.prix != null && l.prix !== ''); if (!lignes.length) return { ok:false, error:'grille sans prix' };
+  const sh = ss.getSheetByName('PROPOSITIONS') || ss.insertSheet('PROPOSITIONS'); delete ROWS_CACHE_['PROPOSITIONS'];
+  if (sh.getLastRow() < 1) { const H = ['type','code','operateur','lot','date','statut','traite_le','data']; sh.getRange(1,1,1,H.length).setValues([H]); sh.setFrozenRows(1); }
+  let headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
+  if (headers.indexOf('data') < 0) { headers.push('data'); sh.getRange(1, headers.length).setValue('data'); }
+  const row = { type:'grille', code: nom, operateur: auth.operateur || '', lot: (gr.type === 'pied' ? 'sur pied' : 'grumes') + ' · ' + lignes.length + ' ligne(s)', date: new Date().toISOString(), statut:'propose', traite_le:'',
+    data: JSON.stringify({ nom: nom, type: gr.type === 'pied' ? 'pied' : 'grumes', lignes: lignes.map(l => ({ ess: l.ess || '', q: l.q || '', dmin: l.dmin == null ? null : l.dmin, dmax: l.dmax == null ? null : l.dmax, prix: Number(l.prix) })) }) };
+  const vals = headers.map(h => row[h] === undefined ? '' : row[h]);
+  // une proposition en attente du même nom est remplacée (le technicien a corrigé sa grille)
+  let target = 0; if (sh.getLastRow() > 1) { const v = sh.getRange(2,1,sh.getLastRow()-1,headers.length).getValues(); const ti = headers.indexOf('type'), ci = headers.indexOf('code'), si = headers.indexOf('statut');
+    for (let i = 0; i < v.length; i++) if (String(v[i][ti]) === 'grille' && String(v[i][ci]) === nom && String(v[i][si] || 'propose') === 'propose') { target = i + 2; break; } }
+  if (!target) target = sh.getLastRow() + 1;
+  texte_(sh, target, 1, headers); sh.getRange(target, 1, 1, headers.length).setValues([vals]);
+  return { ok:true, nom: nom, lignes: lignes.length };
+}
+function setPropositionGrille_(ss, body) {
+  const nom = String(body.code || '').trim(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse';
+  const sh = ss.getSheetByName('PROPOSITIONS'); if (!sh || sh.getLastRow() < 2) return { ok:false, error:'proposition introuvable' };
+  delete ROWS_CACHE_['PROPOSITIONS'];
+  const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
+  const ti = h.indexOf('type'), ci = h.indexOf('code'), si = h.indexOf('statut'), di = h.indexOf('traite_le'), xi = h.indexOf('data');
+  let idx = -1; for (let i = 1; i < v.length; i++) if (String(v[i][ti]) === 'grille' && String(v[i][ci]) === nom && String(v[i][si] || 'propose') === 'propose') { idx = i; break; }
+  if (idx < 0) return { ok:false, error:'proposition introuvable' };
+  let code = '';
+  if (statut === 'valide') {
+    let gr; try { gr = JSON.parse(String(v[idx][xi])); } catch (e) { return { ok:false, error:'grille illisible' }; }
+    if (body.nom) gr.nom = String(body.nom).trim();
+    const base = String(gr.nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'GRILLE';
+    const used = {}; const gs = ss.getSheetByName('GRILLES'); if (gs && gs.getLastRow() > 1) gs.getRange(2,1,gs.getLastRow()-1,1).getValues().forEach(r => used[String(r[0]).trim()] = true);
+    code = base; let n = 2; while (used[code]) code = base + '-' + (n++);
+    const r = saveGrille_(ss, gr, code); if (!r.ok) return r;
+  }
+  sh.getRange(idx + 1, si + 1).setValue(statut); if (di >= 0) sh.getRange(idx + 1, di + 1).setValue(new Date().toISOString());
+  return { ok:true, type:'grille', code: nom, grille: code, statut: statut };
+}
 function setProposition_(ss, body) {
   if (String(body.type) === 'client') return setPropositionClient_(ss, body);
+  if (String(body.type) === 'grille') return setPropositionGrille_(ss, body);
   const type = String(body.type) === 'qualite' ? 'qualite' : 'essence', code = String(body.code || '').trim().toUpperCase(), statut = String(body.statut) === 'valide' ? 'valide' : 'refuse';
   if (!code) return { ok:false, error:'code vide' };
   if (statut === 'valide') { // ajout au référentiel : onglet ESSENCES / QUALITES, colonne A = code, colonne « vocal » = mots
