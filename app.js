@@ -93,8 +93,11 @@ function arbreCalc(lot,a){const k=a.ess+'|'+cls(a.ess,a.d);const ch=(lot.classH|
   const T=tarifOf(lot,a);const v=Calc.volChaude(a.d,h,T,n);const tronc=Calc.volTroncons(a.d,h,T,n,tr).map(t=>({h:t.h,q:t.q||resteQ(),v:t.v}));return{h,tr,v,tronc};}
 function lotTotals(lot){if(lot.type==='grumes'){let v=0,nb=0;for(const g of lot.grumes)for(const b of g.billons){v+=volB(b);nb++;}return{v,n:lot.grumes.length,nb};}
   let v=0,n=0,sans=0;for(const a of lot.arbres){const c=arbreCalc(lot,a);n+=a.n||1;if(c.v==null)sans+=a.n||1;else v+=c.v;}return{v,n,sans};}
-function nextNum(lot){if(lot.type==='grumes'){const m=lot.grumes.reduce((x,g)=>Math.max(x,Number(g.num)||0),0);return m?m+1:(lot.numDepart||1);}
-  return lot.arbres.reduce((x,a)=>Math.max(x,Number(a.num)||0),0)+1;}
+/* N° proposé : le n° de la dernière grume (ou du dernier arbre) saisie + 1 — pas le plus grand du lot —, en sautant
+   les n° déjà utilisés pour ne jamais proposer un doublon. */
+function nextNum(lot){const list=lot.type==='grumes'?lot.grumes:lot.arbres;const used=new Set(list.map(x=>String(x.num||'')));
+  let last=0;for(let i=list.length-1;i>=0;i--){const n=Number(list[i].num)||0;if(n){last=n;break;}}
+  let n=last?last+1:(lot.type==='grumes'?(lot.numDepart||1):1);while(used.has(String(n)))n++;return n;}
 
 /* ---------- Récapitulatifs ---------- */
 function recap(lot,sl,role){role=role||'prop';const rows={},cl={},g=grilleFor(lot,(sl&&sl!==NONE)?sl:null,role);const add=(k,o,f)=>{const r=rows[k]||(rows[k]={ess:o.ess,q:o.q,c:o.c,n:0,v:0,sd:0,sl:0,mm:0,vp:0});f(r);};
