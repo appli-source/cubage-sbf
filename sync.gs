@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.11 (grilles de prix proposées par les techniciens, validées au bureau).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.12 (les lectures renvoient l'erreur réelle au lieu d'échouer en « Failed to fetch » ; onglets à colonnes manquantes tolérés).
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -63,6 +63,10 @@ function handle_(ss, auth, body) {
 }
 
 function doGet(e) {
+  // Toute erreur est renvoyée en JSON : sinon Google répond par une page HTML que l'application ne peut pas lire (« Failed to fetch »)
+  try { return doGet_(e || {}); } catch (err) { return out_({ ok:false, error: 'Erreur du script : ' + String(err && err.message || err) }); }
+}
+function doGet_(e) {
   const p = e.parameter || {};
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const auth = auth_(ss, p.key);
@@ -373,7 +377,8 @@ function setStatut_(ss, clientId, statut, par, facture) {
 
 /* ---------- lectures ---------- */
 function params_(ss, role) {
-  const rows = (name, nbCol) => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2) return []; return sh.getRange(2,1,sh.getLastRow()-1,nbCol).getValues(); };
+  const rows = (name, nbCol) => { const sh = ss.getSheetByName(name); if (!sh || sh.getLastRow() < 2) return []; const nc = Math.min(nbCol, sh.getMaxColumns()); // onglet plus étroit que prévu : colonnes manquantes lues comme vides
+    return sh.getRange(2,1,sh.getLastRow()-1,nc).getValues().map(r => { while (r.length < nbCol) r.push(''); return r; }); };
   const codes = name => rows(name,1).map(r => String(r[0]).trim().toUpperCase()).filter(String);
   const res = { ok:true, role: role, essences: codes('ESSENCES'), qualites: codes('QUALITES'), clients: rows('CLIENTS',1).map(r => String(r[0]).trim()).filter(String), classes: {}, grilles: [], dmm: {}, clientStatuts: {} };
   rows('CLASSES',2).forEach(r => { const k = String(r[0]).trim(), v = Number(r[1]); if (!k || !v) return;

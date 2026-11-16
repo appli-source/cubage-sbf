@@ -1464,7 +1464,7 @@ async function loadRef(silent){const url=S.params.syncUrl;if(!url){if(!silent)to
   let chg=[];if(j.clientStatuts){for(const c of S.lots){if(c.type!=='client')continue;const st=j.clientStatuts[c.id];if(st&&st!==c.statut&&c.sync==='done'){chg.push((c.client||'lot client')+' → '+(STL[st]||st));c.statut=st;await DB.put('lots',c);}}}
   S.refInfo={ess:(j.essences||[]).length,qual:(j.qualites||[]).length,grilles:(j.grilles||[]).length,dmm:!!(j.dmm&&Object.keys(j.dmm).length),chg};
   p.refLoaded=new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});await saveParams();if(!silent)toast('Référentiel chargé');return true;}
-  catch(e){S.refErr=e.message;if(!silent)toast('Échec du chargement : '+e.message);return false;}}
+  catch(e){S.refErr=/failed to fetch|load failed|networkerror/i.test(e.message||'')?'Le Sheet n’a pas répondu (réseau instable ou serveur Google momentanément indisponible). Réessayez dans un instant ; vos lots restent enregistrés sur l’appareil.':e.message;if(!silent)toast('Échec du chargement : '+S.refErr);return false;}}
 
 /* ---------- Rendu ---------- */
 function render(){chipCb=null;$('#main').classList.remove('wide');if(S.screen!=='newLot'&&S.screen!=='lot')S.pendingInv=null;if(window.CubageVoice)window.CubageVoice.unbind();const v=V[S.screen]||V.home;v();if(window.CubageVoice)window.CubageVoice.apresRendu();
