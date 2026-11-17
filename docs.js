@@ -70,7 +70,7 @@ function pdfNew(titre,sousTitre){if(!window.jspdf){toast('Module PDF non chargé
 
 /* ---------- Données communes aux deux bordereaux ---------- */
 /* Lignes de billons d'un lot (filtre sous-lot sl ; '' = tout), avec le prix de la grille du rôle demandé */
-function billonLignes(lot,sl,role){const out=[];for(const g of lot.grumes||[])for(const b of g.billons){if(!slMatch(b.sl,sl))continue;const G=grilleFor(lot,b.sl,role),L=prixLine(G,g.ess,b.q||'',cubD(b)),v=volB(b);
+function billonLignes(lot,sl,role){const out=[];for(const g of lot.grumes||[])for(const b of g.billons){if(!slMatch(b.sl,sl))continue;const G=grilleFor(lot,b.sl,role),L0=prixLine(G,g.ess,b.q||'',cubD(b)),X=lot.isClient?A().prixCli(lot,g,b):null,L=X?(X.p!=null?{prix:X.p}:null):L0,v=volB(b);
   out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,v,red:[b.rl>0?'L -'+pdfFr2(b.rl/100)+' m':'',b.rd>0?'Ø -'+b.rd+' cm':''].filter(Boolean).join(' · '),obs:String(b.note||'').trim(),orig:g.orig||'',lotId:g.lotId||'',p:L?L.prix:null,m:L?L.prix*v:null});}return out;}
 /* Lot virtuel pour le bordereau d'un sous-lot client : seule la grille client (sous-lot sinon lot) doit s'appliquer */
 const lotCliVue=(l,sl)=>({...l,grilleId:null,grilleLocal:null});
@@ -80,8 +80,8 @@ function bordereauCorps(D,r,lignes,withPrices,opts){const G=lignes.length;const 
   D.section('Récapitulatif par essence et qualité');
   const qb=qualRecap(r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total':'Total '+x.ess),x.kind==='q'?(x.q||'·'):'',String(x.n),pdfFr1(x.dm),pdfFr2(x.lm),pdfFr3(x.v),...(pr?[x.pm!=null?pdfFr2(x.pm):'',x.m!=null?pdfFr2(x.m):'']:[])]);
   D.table(['Essence','Qualité','Billons','Ø moyen cm','L moyenne m','Volume m³',...(pr?['€/m³ HT moyen','Montant € HT']:[])],qb,[2,3,4,5,6,7],{grp:true});
-  if(pr&&r.byDiam){D.section('Prix par tranche de diamètre');
-    D.table(['Essence','Qualité','Tranche de diamètre','€/m³ HT','Billons','Volume m³','Montant € HT'],priceRecap(r).map(x=>x.kind==='p'?[x.ess,x.q||'·',x.lab,x.p!=null?pdfFr2(x.p):'sans prix',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']:[x.kind==='t'?'Total':'Total '+x.ess,'','','',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']),[3,4,5,6],{grp:true});}
+  if(pr&&r.byDiam){D.section(r.prices.some(x=>x.mod)?'Détail des prix appliqués':'Prix par tranche de diamètre');
+    D.table(['Essence','Qualité',r.prices.some(x=>x.mod)?'Tranche / prix particulier':'Tranche de diamètre','€/m³ HT','Billons','Volume m³','Montant € HT'],priceRecap(r).map(x=>x.kind==='p'?[x.ess,x.q||'·',x.lab,x.p!=null?pdfFr2(x.p):'sans prix',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']:[x.kind==='t'?'Total':'Total '+x.ess,'','','',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']),[3,4,5,6],{grp:true});}
   if(pr){const sans=lignes.filter(x=>x.p==null).length;if(sans)D.para(sans+' billon(s) sans prix dans la grille : non compté(s) dans les montants.',8.5,[180,60,40]);}
   const ob=lignes.some(x=>x.obs);/* colonne Observations (commentaire du billon) dès qu'un billon en porte un */
   const head0=['N°','Essence','Qualité','Longueur m','Ø cm','Volume m³','Réduction',...(pr?['€/m³ HT','€ HT']:[]),...(ob?['Observations']:[])];const row0=x=>[String(x.num),x.ess,x.q||'·',pdfFr2(x.l),String(x.d),pdfFr3(x.v),x.red||'',...(pr?[x.p!=null?pdfFr2(x.p):'',x.m!=null?pdfFr2(x.m):'']:[]),...(ob?[x.obs||'']:[])];
