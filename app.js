@@ -669,13 +669,14 @@ const cliTot=c=>{const v=clientVirtual(c);const r=recap(v,'');return{n:v.grumes.
 
 V.clients=()=>{head('Lots clients');const qy=S.cliSearch||'';
   $('#main').innerHTML=`<button class="tile" data-go="newClient" style="margin-bottom:12px"><b>+ Nouveau lot client</b><small>Billons des lots du téléphone, hors ligne</small></button>
-  <input id="csq" type="search" placeholder="Rechercher : client, référence, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="csl"></div>`;
+  ${isBureau()?'<button class="btn block" id="csLoad" style="margin-bottom:10px">Actualiser depuis le Sheet (lots clients du bureau et lots des techniciens)</button>':''}<input id="csq" type="search" placeholder="Rechercher : client, référence, date…" value="${esc(qy)}" style="margin-bottom:10px"><div class="list" id="csl"></div>`;
   const draw=()=>{const w=($('#csq').value||'').toLowerCase().split(/\s+/).filter(Boolean);
     const nArch=S.lots.filter(l=>l.type==='client'&&l.archive).length;
     const ls=S.lots.filter(l=>l.type==='client'&&(S.showArchC?l.archive:!l.archive)).filter(c=>{const h=[c.client,c.ref,c.date,c.date&&c.date.split('-').reverse().join('/'),c.note].join(' ').toLowerCase();return w.every(x=>h.includes(x));}).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
     $('#csl').innerHTML=(nArch||S.showArchC?`<button type="button" class="btn block" id="tgArchC" style="margin-bottom:8px">${S.showArchC?'‹ Retour aux lots clients en cours':'Voir les lots clients archivés ('+nArch+')'}</button>`:'')+(ls.length?ls.map(c=>{const t=cliTot(c);return `<button class="item" data-cli="${c.id}"><div class="t"><b>${esc(c.client||'Client ?')} <span class="pill${(c.statut||'brouillon')==='valide'?'':' warn'}">${STL[c.statut||'brouillon']}</span></b><small>${esc((c.date||'').split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${t.n} billon(s)${t.m!=null?' · '+f2(t.m)+' €':''}</small></div><div class="v">${f3(t.v)} m³</div></button>`;}).join(''):'<p class="muted">Aucun lot client.</p>');
     if($('#tgArchC'))$('#tgArchC').onclick=()=>{S.showArchC=!S.showArchC;draw();};
     $('#csl').querySelectorAll('[data-cli]').forEach(b=>b.onclick=()=>{S.cli=S.lots.find(x=>x.id===b.dataset.cli);S.hist.push('clients');go('client');});};
+  if($('#csLoad'))$('#csLoad').onclick=()=>loadRemoteLots();
   $('#csq').oninput=()=>{S.cliSearch=$('#csq').value;draw();};draw();foot('');};
 
 V.newClient=()=>{head('Nouveau lot client');
@@ -714,7 +715,7 @@ V.client=()=>{const c=S.cli;if(!c){back();return;}c.statut=c.statut||'brouillon'
   ${bu||c.facture?`<label class="f"><span class="l">N° facture Xylolink${bu&&c.statut!=='valide'?' <span class="muted">(obligatoire pour valider la vente)</span>':''}</span><input id="cfac" value="${esc(c.facture||'')}"${c.statut==='valide'||!bu?' disabled':''} style="${bu&&!c.facture&&c.statut!=='valide'?'border-color:var(--bad)':''}"></label>`:''}
   <div class="msg ${c.statut==='valide'?'good':c.statut==='annule'?'bad':'warn'}">${STL[c.statut]}${c.synced?' · envoyé le '+new Date(c.synced).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):' · non envoyé'}${c.sync==='pending'?' · à renvoyer':''}</div>
   ${c.statut==='brouillon'?`<button class="btn primary" id="cval">${bu?'Valider la vente':'Transmettre au bureau'}</button>`:c.statut==='propose'?`${bu?'<button class="btn primary" id="cval">Valider la vente</button>':''}<button class="btn" id="cback">Repasser en brouillon</button>`:c.statut==='valide'&&bu?'<button class="btn" id="cback">Annuler la validation (repasser en brouillon)</button>':c.statut==='annule'?'<p class="muted" style="margin:0">Ce lot a été annulé par le bureau. Repassez-le en brouillon pour le modifier et le retransmettre.</p><button class="btn primary" id="cback">Repasser en brouillon</button>':''}
-  ${lock&&c.statut!=='annule'?'<button class="btn" id="csync">Renvoyer au Sheet</button>':''}<button class="btn" id="carch">${c.archive?'Désarchiver':'Archiver'}</button><button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>
+  ${lock&&c.statut!=='annule'?'<button class="btn" id="csync">Renvoyer au Sheet</button>':bu&&!lock?'<button class="btn" id="csync">Enregistrer le brouillon sur le Sheet (partagé avec le bureau)</button>':''}<button class="btn" id="carch">${c.archive?'Désarchiver':'Archiver'}</button><button class="btn danger" id="cdel">Supprimer ce lot client</button></div></div>
   <h2>Billons du lot</h2>${(()=>{const F=S.cf=(S.cf&&S.cf.id===c.id)?S.cf:{id:c.id,ch:'',ess:'',q:'',mod:false};
     const chs=new Map();v.grumes.forEach(g=>{if(!chs.has(g.lotId))chs.set(g.lotId,g.orig||'?');});if(F.ch&&!chs.has(F.ch))F.ch='';
     const uniq=a=>[...new Set(a)].sort((x,y)=>String(x).localeCompare(String(y)));const esss=uniq(v.grumes.map(g=>g.ess)),qs=uniq(v.grumes.map(g=>g.billons[0].q||''));
@@ -879,7 +880,12 @@ async function loadRemoteLots(){const set=statusBox();set('Lecture du Sheet SBF�
       l.grumes=l.grumes||[];l.arbres=l.arbres||[];l.sousLots=l.sousLots||[];l.classH=l.classH||{};
       if(ex){adoptLot(ex,l);Object.assign(ex,{remote:true,bEdit:l.bEdit,readonly:l.readonly,sync:'done',synced:l.synced,archive:false,rev:l.rev,modPar:l.modPar,modLe:l.modLe,pulled:l.pulled,base:l.base});await DB.put('lots',ex);upd++;continue;}else{S.lots.push(l);n++;}await DB.put('lots',l);}
     for(const l of S.lots.filter(x=>x.remote&&!seen.has(x.id)&&x.sync!=='pending')){S.lots=S.lots.filter(x=>x!==l);await DB.del('lots',l.id);}
-    S.remoteAt=new Date().toISOString();set('✓ Lots des techniciens chargés',(n+upd)+' lot(s) ('+n+' nouveaux, '+upd+' actualisés)'+(ng?' · '+ng+' grille(s)':'')+'.'+(keep?' '+keep+' lot(s) corrigé(s) ici et pas encore enregistré(s) sur le Sheet : non actualisé(s), enregistrez-les d’abord.':'')+' Ouvrez un lot puis « Modifier depuis le bureau » pour le corriger.',true);render();}
+    /* Lots clients enregistrés sur le Sheet (tous opérateurs) : ajoutés, ou actualisés s'il n'y a pas de modification locale en attente d'envoi */
+    let nc=0,kc=0;for(const r of j.clients||[]){if(!r.json)continue;let c;try{c=JSON.parse(r.json);}catch(e){continue;}if(!c||!c.id)continue;const ex=S.lots.find(x=>x.id===c.id);
+      if(ex&&(ex.sync!=='done')){kc++;continue;}if(ex&&String(r.updated_at||'')<=String(ex.synced||'')&&(r.statut||ex.statut)===ex.statut)continue;
+      c.type='client';c.statut=r.statut||c.statut;c.sync='done';c.synced=r.updated_at||new Date().toISOString();if(c.statut!=='valide')delete c.prixFige;
+      if(ex){for(const k of Object.keys(ex))delete ex[k];Object.assign(ex,c);await DB.put('lots',ex);}else{S.lots.push(c);await DB.put('lots',c);}nc++;}
+    S.remoteAt=new Date().toISOString();set('✓ Lots des techniciens chargés',(n+upd)+' lot(s) ('+n+' nouveaux, '+upd+' actualisés)'+(ng?' · '+ng+' grille(s)':'')+(nc?' · '+nc+' lot(s) client':'')+'.'+(kc?' '+kc+' lot(s) client modifié(s) ici et pas encore enregistré(s) sur le Sheet : non actualisé(s).':'')+(keep?' '+keep+' lot(s) corrigé(s) ici et pas encore enregistré(s) sur le Sheet : non actualisé(s), enregistrez-les d’abord.':'')+' Ouvrez un lot puis « Modifier depuis le bureau » pour le corriger.',true);render();}
   catch(e){set('Échec',e.name==='AbortError'?'Le réseau ne répond pas.':e.message,true,true);}}
 V.bLots=()=>{head('Lots des techniciens','Copies en lecture seule depuis le Sheet');const qy=S.bLotQ||'';const ls0=S.lots.filter(l=>l.remote);
   $('#main').innerHTML=`<button class="tile" id="bLoad"><b>${ls0.length?'Actualiser les lots depuis le Sheet':'Charger les lots depuis le Sheet'}</b><small>${S.remoteAt?'Dernier chargement : '+new Date(S.remoteAt).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'Lecture du Sheet (réseau)'}</small></button>
@@ -941,7 +947,7 @@ V.bKeys=()=>{head('Clés d’accès','Une clé = un technicien ou un poste burea
   foot('');};
 V.bClients=()=>{const b=S.bureau;if(!b){back();return;}head('Ventes transmises par les téléphones','Tous les lots clients du Sheet');
   const cs=[...b.clients].sort((a,x)=>String(x.updated_at||'').localeCompare(String(a.updated_at||'')));
-  $('#main').innerHTML=`<div class="list">${cs.length?cs.map(c=>`<button class="item" data-bc="${esc(c.client_id)}"><div class="t"><b>${esc(c.client)} <span class="pill${c.statut==='valide'?'':' warn'}">${STL[c.statut]||c.statut}</span></b><small>${esc(String(c.date||'').slice(0,10).split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${c.nb_billons} billon(s) · ${esc(c.operateur||'')}</small></div><div class="v">${f3(Number(c.volume_m3)||0)} m³${c.montant!==''&&c.montant!=null?'<br>'+f2(Number(c.montant))+' €':''}</div></button>`).join(''):'<p class="muted">Aucun lot client envoyé.</p>'}</div>`;
+  $('#main').innerHTML=`<div class="list">${cs.length?cs.map(c=>`<button class="item" data-bc="${esc(c.client_id)}"><div class="t"><b>${esc(c.client)} <span class="pill${c.statut==='valide'?'':' warn'}">${STL[c.statut]||c.statut}</span>${isBureau()&&c.sync!=='done'?' <span class="pill warn">à enregistrer sur le Sheet</span>':''}</b><small>${esc(String(c.date||'').slice(0,10).split('-').reverse().join('/'))}${c.ref?' · '+esc(c.ref):''} · ${c.nb_billons} billon(s) · ${esc(c.operateur||'')}</small></div><div class="v">${f3(Number(c.volume_m3)||0)} m³${c.montant!==''&&c.montant!=null?'<br>'+f2(Number(c.montant))+' €':''}</div></button>`).join(''):'<p class="muted">Aucun lot client envoyé.</p>'}</div>`;
   $('#main').querySelectorAll('[data-bc]').forEach(x=>x.onclick=()=>{S.bCli=x.dataset.bc;S.hist.push('bClients');go('bClient');});foot('');};
 V.bClient=()=>{const b=S.bureau,c=b&&b.clients.find(x=>String(x.client_id)===S.bCli);if(!c){back();return;}head(c.client,STL[c.statut]||c.statut);
   const lines=b.lignes.filter(l=>String(l.client_id)===String(c.client_id));const by=new Map(b.items.map(it=>[it.key,it]));const its=lines.map(l=>{const k=String(l.billon_key);const it=by.get(k);if(it)return it;return{key:k,num:numSheet(l.num),ess:String(l.essence||''),q:String(l.qualite||''),lm:Number(l.longueur_m)||0,d:Number(l.diametre_cm)||0,v:Number(l.volume_m3)||0,orig:String(l.origine||''),missing:true};});const nMiss=its.filter(x=>x.missing).length;
@@ -1368,7 +1374,7 @@ async function syncLots(lots){const url=S.params.syncUrl;if(!url||!navigator.onL
     for(const l of again)if(await syncLot(l,true))n++;return n;}
   catch(e){for(const l of lots){l.sync='pending';DB.put('lots',l);}return 0;}}
 /* Boutons « Sauvegarder les lots » et « Mettre à jour depuis le Sheet » (accueil et Paramètres) */
-const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!l.readonly&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'));
+const lotsToSync=()=>S.lots.filter(l=>l.sync!=='done'&&!l.test&&!l.readonly&&!(l.type==='client'&&(l.statut||'brouillon')==='brouillon'&&!isBureau()));
 async function syncAllUI(){const set=statusBox();if(!S.params.syncUrl){set('Synchronisation non configurée','Ouvrez une fois le lien de configuration envoyé par le bureau (Paramètres).',true,true);return;}
   if(!navigator.onLine){set('Pas de réseau','Les lots restent enregistrés sur le téléphone. Relancez quand vous aurez du réseau.',true,true);return;}
   const todo=lotsToSync();if(!todo.length){set('✓ Tout est déjà sauvegardé','Aucun lot modifié depuis la dernière sauvegarde sur le Sheet SBF.',true);return;}
