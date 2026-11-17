@@ -39,6 +39,10 @@ function pdfNew(titre,sousTitre){if(!window.jspdf){toast('Module PDF non chargé
   D.need=h=>{if(D.y+h>272){doc.addPage();D.header();}};
   /* Titre de section */
   D.section=txt=>{D.need(14);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...SBF.slate);doc.text(pdfSp(txt),D.L,D.y+4);doc.setFont('helvetica','normal');doc.setTextColor(0);D.y+=7;};
+  /* Sous-titre (un lot dans le listing) : gardé avec le début de son tableau */
+  D.sub=(txt,gps)=>{D.need(26);doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(...SBF.copper);doc.text(pdfSp(txt),D.L,D.y+3.5);doc.setFont('helvetica','normal');
+    if(gps!==undefined){doc.setFontSize(8.5);if(gps){const t='Point GPS : '+Number(gps.lat).toFixed(5)+', '+Number(gps.lon).toFixed(5)+' (ouvrir la carte)';doc.setTextColor(30,90,160);doc.textWithLink(t,D.R-doc.getTextWidth(t),D.y+3.5,{url:gpsUrl(gps)});}else{const t='Point GPS non relevé';doc.setTextColor(...SBF.gris);doc.text(t,D.R-doc.getTextWidth(t),D.y+3.5);}}
+    doc.setTextColor(0);D.y+=5.5;};
   /* Paragraphe */
   D.para=(txt,size,color)=>{doc.setFontSize(size||9);doc.setTextColor(...(color||SBF.gris));const lines=doc.splitTextToSize(pdfSp(txt),D.W);D.need(lines.length*4.2+2);doc.text(lines,D.L,D.y+3.5);D.y+=lines.length*4.2+2;doc.setTextColor(0);};
   /* Cartouche : paires [libellé, valeur] sur deux colonnes ; une valeur {txt,url} devient un lien cliquable */
@@ -67,7 +71,7 @@ function pdfNew(titre,sousTitre){if(!window.jspdf){toast('Module PDF non chargé
 /* ---------- Données communes aux deux bordereaux ---------- */
 /* Lignes de billons d'un lot (filtre sous-lot sl ; '' = tout), avec le prix de la grille du rôle demandé */
 function billonLignes(lot,sl,role){const out=[];for(const g of lot.grumes||[])for(const b of g.billons){if(!slMatch(b.sl,sl))continue;const G=grilleFor(lot,b.sl,role),L=prixLine(G,g.ess,b.q||'',cubD(b)),v=volB(b);
-  out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,v,red:redTxt(b),orig:g.orig||'',p:L?L.prix:null,m:L?L.prix*v:null});}return out;}
+  out.push({num:b.label||(g.num+'.'+b.rang),ess:g.ess,q:b.q||'',l:lenM(b),d:b.d,v,red:[b.rl>0?'L -'+pdfFr2(b.rl/100)+' m':'',b.rd>0?'Ø -'+b.rd+' cm':''].filter(Boolean).join(' · '),obs:String(b.note||'').trim(),orig:g.orig||'',lotId:g.lotId||'',p:L?L.prix:null,m:L?L.prix*v:null});}return out;}
 /* Lot virtuel pour le bordereau d'un sous-lot client : seule la grille client (sous-lot sinon lot) doit s'appliquer */
 const lotCliVue=(l,sl)=>({...l,grilleId:null,grilleLocal:null});
 
@@ -79,10 +83,23 @@ function bordereauCorps(D,r,lignes,withPrices,opts){const G=lignes.length;const 
   if(pr&&r.byDiam){D.section('Prix par tranche de diamètre');
     D.table(['Essence','Qualité','Tranche de diamètre','€/m³ HT','Billons','Volume m³','Montant € HT'],priceRecap(r).map(x=>x.kind==='p'?[x.ess,x.q||'·',x.lab,x.p!=null?pdfFr2(x.p):'sans prix',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']:[x.kind==='t'?'Total':'Total '+x.ess,'','','',String(x.n),pdfFr3(x.v),x.m!=null?pdfFr2(x.m):'']),[3,4,5,6],{grp:true});}
   if(pr){const sans=lignes.filter(x=>x.p==null).length;if(sans)D.para(sans+' billon(s) sans prix dans la grille : non compté(s) dans les montants.',8.5,[180,60,40]);}
+  const ob=lignes.some(x=>x.obs);/* colonne Observations (commentaire du billon) dès qu'un billon en porte un */
+  const head0=['N°','Essence','Qualité','Longueur m','Ø cm','Volume m³','Réduction',...(pr?['€/m³ HT','€ HT']:[]),...(ob?['Observations']:[])];const row0=x=>[String(x.num),x.ess,x.q||'·',pdfFr2(x.l),String(x.d),pdfFr3(x.v),x.red||'',...(pr?[x.p!=null?pdfFr2(x.p):'',x.m!=null?pdfFr2(x.m):'']:[]),...(ob?[x.obs||'']:[])];
+  const fin=()=>{D.para('Volumes établis au cubage bord de route : diamètre médian et longueur réelle de chaque billon. Les réductions appliquées (longueur ou diamètre) sont indiquées en colonne et prises en compte dans le volume ; le listing garde les dimensions mesurées.'+(pr?' Prix et montants hors taxes, TVA en sus au taux en vigueur.':''),8);if(opts.note)D.para(opts.note,8.5,SBF.slate);};
+  /* Lot client multi-chantiers : récapitulatif par lot d'origine (n° de chantier + commune, jamais le propriétaire), puis un listing par lot */
+  if(opts.groups&&opts.groups.length>1){const gs=opts.groups.map(g=>{const ls=lignes.filter(x=>x.key===g.key);const v=ls.reduce((a,x)=>a+x.v,0),m=ls.reduce((a,x)=>a+(x.m||0),0),vp=ls.reduce((a,x)=>a+(x.m!=null?x.v:0),0);return{...g,ls,v,m,vp};}).filter(g=>g.ls.length);
+    D.section('Récapitulatif par lot d’origine');
+    for(const g of gs){D.sub('Chantier n° '+(g.xylo||'·')+(g.commune?'  ·  '+g.commune:''),g.gps||null);
+      const qg=qualRecap(g.r).map(x=>[x.kind==='q'?x.ess:(x.kind==='t'?'Total chantier '+(g.xylo||''):'Total '+x.ess),x.kind==='q'?(x.q||'·'):'',String(x.n),pdfFr1(x.dm),pdfFr2(x.lm),pdfFr3(x.v),...(pr?[x.pm!=null?pdfFr2(x.pm):'',x.m!=null?pdfFr2(x.m):'']:[])]);
+      D.table(['Essence','Qualité','Billons','Ø moyen cm','L moyenne m','Volume m³',...(pr?['€/m³ HT moyen','Montant € HT']:[])],qg,[2,3,4,5,6,7],{grp:true});}
+    D.section('Listing des billons'+(opts.listingSuffix||'')+' par lot d’origine');
+    for(const g of gs){D.sub('Chantier n° '+(g.xylo||'·')+(g.commune?'  ·  '+g.commune:'')+'  ·  '+g.ls.length+' billon'+(g.ls.length>1?'s':''));
+      const body=g.ls.map(row0);body.push(['Total','','','','',pdfFr3(g.v),'',...(pr?['',g.vp?pdfFr2(g.m):'']:[]),...(ob?['']:[])]);D.table(head0,body,[3,4,5,...(pr?[7,8]:[])],{fontSize:8,widths:ob?(pr?{0:14,1:21,2:15,3:22,4:12,5:19,6:21,7:16,8:19}:{0:18,1:26,2:17,3:22,4:14,5:22,6:26}):null});}
+    fin();return;}
   D.section('Listing des billons'+(opts.listingSuffix||''));
-  const head=['N°','Essence','Qualité','Longueur m','Ø cm','Volume m³','Réduction',...(pr?['€/m³ HT','€ HT']:[]),...(opts.origCol?['Chantier d’origine']:[])];
-  const body=lignes.map(x=>[String(x.num),x.ess,x.q||'·',pdfFr2(x.l),String(x.d),pdfFr3(x.v),x.red||'',...(pr?[x.p!=null?pdfFr2(x.p):'',x.m!=null?pdfFr2(x.m):'']:[]),...(opts.origCol?[x.orig]:[])]);
-  body.push(['Total','','','','',pdfFr3(r.tot.v),G+' billon'+(G>1?'s':''),...(pr?['',r.tot.m!=null?pdfFr2(r.tot.m):'']:[]),...(opts.origCol?['']:[])]);
+  const head=['N°','Essence','Qualité','Longueur m','Ø cm','Volume m³','Réduction',...(pr?['€/m³ HT','€ HT']:[]),...(ob?['Observations']:[]),...(opts.origCol?['Chantier d’origine']:[])];
+  const body=lignes.map(x=>[String(x.num),x.ess,x.q||'·',pdfFr2(x.l),String(x.d),pdfFr3(x.v),x.red||'',...(pr?[x.p!=null?pdfFr2(x.p):'',x.m!=null?pdfFr2(x.m):'']:[]),...(ob?[x.obs||'']:[]),...(opts.origCol?[x.orig]:[])]);
+  body.push(['Total','','','','',pdfFr3(r.tot.v),G+' billon'+(G>1?'s':''),...(pr?['',r.tot.m!=null?pdfFr2(r.tot.m):'']:[]),...(ob?['']:[]),...(opts.origCol?['']:[])]);
   D.table(head,body,[3,4,5,...(pr?[7,8]:[])],{fontSize:8});
   D.para('Volumes établis au cubage bord de route : diamètre médian et longueur réelle de chaque billon. Les réductions appliquées (longueur ou diamètre) sont indiquées en colonne et prises en compte dans le volume ; le listing garde les dimensions mesurées.'+(pr?' Prix et montants hors taxes, TVA en sus au taux en vigueur.':''),8);
   if(opts.note)D.para(opts.note,8.5,SBF.slate);}
@@ -98,17 +115,21 @@ function bordereauProprietaire(l,withPrices,quiet){const r=recap(l,'','prop'),li
 
 /* ---------- Bordereau de réception CLIENT ----------
    src = {lot,sl} : sous-lot d'un lot de cubage (grille client du sous-lot, sinon du lot) ; src = {client:c} : lot client du bureau */
-function bordereauClient(src,withPrices,quiet){let v,sl='',client,ref='',chantiers,gps=[],cubDate,op,nomFichier;
-  if(src.client){const c=src.client;v=clientVirtual(c);client=c.client||'';ref=c.ref||'';chantiers=origins(v).filter(Boolean);cubDate='';op=S0().params.operateur||'';
-    const ids=[...new Set((v.grumes||[]).map(g=>g.lotId).filter(Boolean))];gps=ids.map(id=>S0().lots.find(x=>x.id===id)).filter(x=>x&&x.gps).map(x=>({lab:x.chantier||x.xylo||'',g:x.gps}));nomFichier='bordereau_reception_'+safe(client||'client')+'_'+(c.date||today())+(withPrices?'_prix':'')+'.pdf';}
+function bordereauClient(src,withPrices,quiet){let v,sl='',client,ref='',chantiers,gps=[],cubDate,op,nomFichier,groups=null;
+  if(src.client){const c=src.client;v=clientVirtual(c);client=c.client||'';ref=c.ref||'';cubDate='';op=S0().params.operateur||'';
+    /* Origine = n° de chantier Xylolink + commune du lot de cubage (pas le nom du propriétaire) ; repli sur le n° en tête de l'origine mémorisée */
+    const gm=new Map();for(const g of v.grumes||[]){const k=g.lotId||g.orig||'';if(gm.has(k))continue;const l=S0().lots.find(x=>x.id===g.lotId);const o=String(g.orig||'');
+      gm.set(k,l?{key:k,xylo:l.xylo||'',commune:(l.commune||'')+(l.dept?' ('+l.dept+')':''),date:l.date||'',gps:l.gps||null}:{key:k,xylo:o.includes(' · ')?o.split(' · ')[0]:'',commune:'',date:'',gps:null});}
+    groups=[...gm.values()].sort((a,b)=>String(a.xylo).localeCompare(String(b.xylo),'fr',{numeric:true}));chantiers=groups.map(g=>[g.xylo,g.commune].filter(Boolean).join(' '));
+    gps=groups.filter(x=>x.gps).map(x=>({lab:x.xylo||'',g:x.gps}));nomFichier='bordereau_reception_'+safe(client||'client')+'_'+(c.date||today())+(withPrices?'_prix':'')+'.pdf';}
   else{const l=src.lot;sl=src.sl;const s=(l.sousLots||[]).find(x=>x.id===sl);v=lotCliVue(l,sl);client=s?(s.client||s.nom):'';ref=s&&s.client&&s.client!==s.nom?s.nom:'';chantiers=[(l.chantier||'')+(l.xylo?' · '+l.xylo:'')];cubDate=l.date;op=l.operateur||'';if(l.gps)gps=[{lab:l.chantier||'',g:l.gps}];
     nomFichier='bordereau_reception_'+safe(client||'client')+'_'+safe(l.chantier||'')+'_'+(l.date||today())+(withPrices?'_prix':'')+'.pdf';}
-  const r=recap(v,sl,'cli'),lignes=billonLignes(v,sl,'cli');const dateB=src.client?(src.client.date||today()):today();const num='BR-'+dateB.replace(/-/g,'')+'-'+String(src.client?src.client.id:(sl&&sl!==NONE?sl:src.lot.id)).slice(-4).toUpperCase();
+  const r=recap(v,sl,'cli'),lignes=billonLignes(v,sl,'cli');lignes.forEach(x=>{x.key=x.lotId||x.orig||'';});if(groups)groups.forEach(g=>{g.r=recap({...v,grumes:v.grumes.filter(x=>(x.lotId||x.orig||'')===g.key)},sl,'cli');});if(groups&&groups.length===1&&groups[0].date)cubDate=groups[0].date;const dateB=src.client?(src.client.date||today()):today();const num='BR-'+dateB.replace(/-/g,'')+'-'+String(src.client?src.client.id:(sl&&sl!==NONE?sl:src.lot.id)).slice(-4).toUpperCase();
   const D=pdfNew('BORDEREAU DE RÉCEPTION','N° '+num+'   ·   '+pdfDateFr(dateB));if(!D)return;
-  const rows=[['Client',client],[src.client?'Référence':'Sous-lot',ref],['Chantier(s)',chantiers.join(', ')],['Date du cubage',cubDate?pdfDateFr(cubDate):'voir listing'],['Suivi SBF',op],['Grille de prix',withPrices?(r.grille?r.grille.nom:'aucune'):'sans prix']];
-  gps.slice(0,2).forEach((x,i)=>rows.push([gps.length>1?'GPS '+x.lab.slice(0,14):'Point GPS',{txt:Number(x.g.lat).toFixed(5)+', '+Number(x.g.lon).toFixed(5)+' (ouvrir la carte)',url:gpsUrl(x.g)}]));
+  const multi=!!(groups&&groups.length>1);const rows=[['Client',client],[src.client?'Référence':'Sous-lot',ref],['Chantier(s)',groups&&groups.length>1?groups.length+' chantiers (détail par lot ci-dessous)':chantiers.join(', ')],...(multi?[]:[['Date du cubage',cubDate?pdfDateFr(cubDate):'']]),['Suivi SBF',op],['Grille de prix',withPrices?(r.grille?r.grille.nom:'aucune'):'sans prix']];
+  if(!(groups&&groups.length>1))gps.slice(0,2).forEach((x,i)=>rows.push([gps.length>1?'GPS '+x.lab.slice(0,14):'Point GPS',{txt:Number(x.g.lat).toFixed(5)+', '+Number(x.g.lon).toFixed(5)+' (ouvrir la carte)',url:gpsUrl(x.g)}]));
   D.cartouche(rows);
-  bordereauCorps(D,r,lignes,withPrices,{origCol:!!src.client&&chantiers.length>1,listingSuffix:' livrés',note:'Les billons ci-dessus sont mis à disposition du client aux dimensions et volumes indiqués. Toute réserve est à mentionner lors de la réception.'});
+  bordereauCorps(D,r,lignes,withPrices,{groups,listingSuffix:' livrés',note:'Les billons ci-dessus sont mis à disposition du client aux dimensions et volumes indiqués. Toute réserve est à mentionner lors de la réception.'});
   D.signatures('Pour Services Bois et Forêts : '+op,'Le client :');
   shareFile(D.finish('Bordereau de réception '+num),nomFichier,quiet);}
 

@@ -641,7 +641,7 @@ V.tarifs=()=>{const l=S.lot;head('Tarifs Chaudé',l.chantier);const base=S.tarif
    hors éléments recoupés et hors éléments déjà affectés à un lot client. */
 function stockItems(opt){const items=[];const rcs=[];const only=opt&&opt.lot;
   for(const l of S.lots){if(l.type!=='grumes')continue;if(only){if(l!==only)continue;}else if(l.test||l.archive)continue;const orig=(l.xylo?l.xylo+' · ':'')+(l.chantier||'');
-    for(const g of l.grumes)for(const b of g.billons)items.push({key:l.id+'|'+b.id,lotId:l.id,id:b.id,num:numB(g,b),base:b.plq?String(b.plq).split('.')[0]:String(g.num),ess:g.ess,q:b.q||'',lm:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,red:redTxt(b),v:volB(b),orig,lot:l});
+    for(const g of l.grumes)for(const b of g.billons)items.push({key:l.id+'|'+b.id,lotId:l.id,id:b.id,num:numB(g,b),base:b.plq?String(b.plq).split('.')[0]:String(g.num),ess:g.ess,q:b.q||'',lm:lenM(b),d:b.d,rl:b.rl||0,rd:b.rd||0,red:redTxt(b),note:b.note||'',v:volB(b),orig,lot:l});
     for(const rc of l.recoupes||[]){rcs.push(rc.parentKey);for(const p of rc.pieces)items.push({key:l.id+'|'+p.id,lotId:l.id,id:p.id,num:p.num,base:String(p.num).split('.')[0],ess:rc.ess,q:p.q||'',lm:p.lm,d:p.d,v:Calc.volBillon(p.d,p.lm),orig,lot:l,parent:rc.parentNum,sl:p.sl||null});}}
   const cut=new Set(rcs);const sold={};for(const c of S.lots)if(c.type==='client')for(const k of c.lignes||[])sold[k]=c;
   const bu=S.bureau?new Map(S.bureau.items.map(it=>[it.key,it])):null;
@@ -652,7 +652,7 @@ function searchItems(qy){const all=stockItems();const t=(qy||'').trim().replace(
   if(t.includes('.'))return all.filter(it=>it.num===t||String(it.num).startsWith(t+'.'));
   return all.filter(it=>it.base===t);}
 function clientVirtual(c){const by=new Map(stockItems().map(it=>[it.key,it]));const grumes=[];
-  for(const k of c.lignes||[]){const it=by.get(k);if(!it)continue;grumes.push({id:it.key,lotId:it.lotId,num:it.base,ess:it.ess,orig:it.orig,billons:[{id:it.key,rang:'',label:String(it.num),lm:it.lm,d:it.d,rl:it.rl||0,rd:it.rd||0,q:it.q}]});}
+  for(const k of c.lignes||[]){const it=by.get(k);if(!it)continue;grumes.push({id:it.key,lotId:it.lotId,num:it.base,ess:it.ess,orig:it.orig,billons:[{id:it.key,rang:'',label:String(it.num),lm:it.lm,d:it.d,rl:it.rl||0,rd:it.rd||0,q:it.q,note:it.note||''}]});}
   return{id:c.id,type:'grumes',isClient:true,chantier:'Lot client '+(c.client||''),date:c.date,operateur:[c.ref?'Réf. '+c.ref:'',c.facture?'Facture Xylolink '+c.facture:''].filter(Boolean).join(' · '),grilleId:c.grilleId,grilleLocal:c.grilleLocal||null,sousLots:[],grumes,arbres:[],xylo:''};}
 /* Grille de vente propre au lot client : créée à la demande (copie de la grille choisie ou vide), complétée d'une ligne par essence × qualité présente */
 function ensureClientGrille(c){const v=clientVirtual(c);if(!c.grilleLocal){const base=S.grilles.find(g=>g.id===c.grilleId);c.grilleLocal=base?JSON.parse(JSON.stringify({...base,id:'cli-'+c.id,nom:'Prix '+(c.client||'client'),src:''})):{id:'cli-'+c.id,nom:'Prix '+(c.client||'client'),type:'grumes',lignes:[]};}
