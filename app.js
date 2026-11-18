@@ -395,7 +395,7 @@ V.tabG=()=>{const l=S.lot;if(!l||l.type!=='grumes'){back();return;}head('Tableau
     if(e.target.matches('[data-addb]')){const lb=g.billons[g.billons.length-1];const nb={id:uid(),rang:Math.max(0,...g.billons.map(x=>x.rang||0))+1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb?lb.q:'',rl:0,rd:0,sl:lb?lb.sl||null:null};g.billons.push(nb);save();draw();focusB(nb.id,l.lgFixe?'d':'lm');}});
   const focusB=(id,f)=>setTimeout(()=>{const x=document.querySelector(`tr[data-b="${id}"] [data-f="${f}"]`);if(x){x.focus();x.scrollIntoView({block:'center'});}},0);
   $('#tgAdd').onclick=()=>{const nums=l.grumes.map(g=>parseInt(g.num,10)).filter(n=>isFinite(n));const n=String(nums.length?Math.max(...nums)+1:(l.numDepart||1));const lg=l.grumes[l.grumes.length-1],lb=lg&&lg.billons[lg.billons.length-1];
-    const g={id:uid(),num:n,ess:lg?lg.ess:(lotEss(l)[0]||''),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau',billons:[{id:uid(),rang:1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb?lb.q:'',rl:0,rd:0,sl:F.sl&&F.sl!==NONE?F.sl:(lb?lb.sl||null:null)}]};
+    const g={id:uid(),num:n,ess:lg?lg.ess:((l.essSel&&l.essSel[0])||''),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau',billons:[{id:uid(),rang:1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb?lb.q:'',rl:0,rd:0,sl:F.sl&&F.sl!==NONE?F.sl:(lb?lb.sl||null:null)}]};
     l.grumes.push(g);save();F.q='';$('#tgq').value='';draw();focusB(g.billons[0].id,l.lgFixe?'d':'lm');};
   $('#tgq').oninput=e=>{F.q=e.target.value;draw();};if($('#tgsl'))$('#tgsl').onchange=e=>{F.sl=e.target.value;draw();};draw();
   foot(l.remote?`<button class="btn big" id="tgBack">Retour au lot</button><button class="btn primary big" id="tgSync" style="flex:2">Enregistrer sur le Sheet SBF</button>`:`<button class="btn primary big" id="tgBack">Terminé</button>`);
@@ -452,7 +452,7 @@ V.tabP=()=>{const l=S.lot;if(!l||l.type!=='pied'){back();return;}head('Tableau d
     let tr=e.target.closest('tr');for(;;){tr=e.shiftKey?tr.previousElementSibling:tr.nextElementSibling;if(!tr)break;const x=tr.querySelector(`[data-f="${f}"]`);if(x){x.focus();x.select&&x.select();return;}}});enter($('#tpB'));enter($('#tpH'));
   $('#tpB').addEventListener('click',e=>{if(!e.target.matches('[data-del]'))return;const tr=e.target.closest('tr');const a=l.arbres.find(x=>x.id===tr.dataset.a);if(!a)return;
     if(!e.target.dataset.c){e.target.textContent='Supprimer ?';e.target.dataset.c='1';setTimeout(()=>{if(e.target.isConnected){e.target.textContent='✕';delete e.target.dataset.c;}},3000);return;}l.arbres=l.arbres.filter(x=>x!==a);save();draw();});
-  $('#tpAdd').onclick=()=>{const last=l.arbres[l.arbres.length-1];const e0=last?last.ess:(lotEss(l)[0]||'');const a={id:uid(),num:pp?String(l.arbres.reduce((m,x)=>Math.max(m,parseInt(x.num,10)||0),0)+1):'',ess:e0,d:0,h:null,n:1,tr:[],tarif:tarifDef(l,e0),sl:F.sl&&F.sl!==NONE?F.sl:(last?last.sl||null:null),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau'};
+  $('#tpAdd').onclick=()=>{const last=l.arbres[l.arbres.length-1];const e0=last?last.ess:((l.essSel&&l.essSel[0])||'');const a={id:uid(),num:pp?String(l.arbres.reduce((m,x)=>Math.max(m,parseInt(x.num,10)||0),0)+1):'',ess:e0,d:0,h:null,n:1,tr:[],tarif:tarifDef(l,e0),sl:F.sl&&F.sl!==NONE?F.sl:(last?last.sl||null:null),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau'};
     l.arbres.push(a);save();F.q='';$('#tpq').value='';draw();setTimeout(()=>{const x=document.querySelector(`tr[data-a="${a.id}"] [data-f="d"]`);if(x){x.focus();x.scrollIntoView({block:'center'});}},0);};
   $('#tpq').oninput=e=>{F.q=e.target.value;draw();};if($('#tpsl'))$('#tpsl').onchange=e=>{F.sl=e.target.value;draw();};draw();
   foot(l.remote?`<button class="btn big" id="tpBack">Retour au lot</button><button class="btn primary big" id="tpSync" style="flex:2">Enregistrer sur le Sheet SBF</button>`:`<button class="btn primary big" id="tpBack">Terminé</button>`);
@@ -461,7 +461,7 @@ V.tabP=()=>{const l=S.lot;if(!l||l.type!=='pied'){back();return;}head('Tableau d
 /* --- Saisie grumes --- */
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
-  if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:p.essences[0],sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(p.repriseQualite&&lastB)?lastB.q:''}]};}
+  if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:'',sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(p.repriseQualite&&lastB)?lastB.q:''}]};}
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Grume n° '+(f.num||'?'),`${f3(t.v)} m³ · ${t.n} grumes${l.xylo?' · '+l.xylo:''}`);
   if(ed&&f.sl===undefined){const u=[...new Set(f.billons.map(b=>b.sl||null))];f.sl=u.length===1?u[0]:'mixte';}
   const hasSL=(l.sousLots||[]).length>0;
@@ -510,6 +510,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#cancel').onclick=()=>{S.form={};S.edit=null;back();};
   $('#ok').onclick=()=>{try{// Les billons de fin laissés vides (ou sans diamètre) sont ignorés : on peut valider la grume et compléter plus tard (✎ dans le listing)
     while(f.billons.length>1&&!(f.billons[f.billons.length-1].d>0)){const e=f.billons.pop();if(lenM(e)>0&&!l.lgFixe)toast('Billon '+f.num+'.'+e.rang+' sans diamètre ignoré');}
+    if(!f.ess){toast('Choisissez l’essence');return;}
     const bad=f.billons.find(b=>!(lenM(b)>0)||!(b.d>0));if(bad){toast('Longueur et diamètre obligatoires');return;}
     {const r=resteG(f);if(r!=null&&r<-0.005&&!confirm('Les billons font '+f2((f.lt||0)-r)+' m au total, plus que la longueur totale indiquée ('+f2(f.lt)+' m). Valider quand même ?'))return;}
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
@@ -547,7 +548,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
 
 /* --- Saisie sur pied --- */
 V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id===ed):null;const mode=ed?(a.h?'pieds':'diam'):l.mode;
-  if(!S.form.a){const last=l.arbres[l.arbres.length-1];S.form.a=ed?JSON.parse(JSON.stringify(a)):{num:nextNum(l),ess:last?last.ess:p.essences[0],d:null,h:null,n:1,tr:[]};if(ed)S.form.a.tarif=tarifOf(l,a);else{S.form.a.tarif=tarifDef(l,S.form.a.ess);S.form.a.sl=l.slCur||null;}}
+  if(!S.form.a){const last=l.arbres[l.arbres.length-1];S.form.a=ed?JSON.parse(JSON.stringify(a)):{num:nextNum(l),ess:last?last.ess:'',d:null,h:null,n:1,tr:[]};if(ed)S.form.a.tarif=tarifOf(l,a);else{S.form.a.tarif=tarifDef(l,S.form.a.ess);S.form.a.sl=l.slCur||null;}}
   const f=S.form.a,t=lotTotals(l);head(ed?'Modifier tige':'Saisie sur pied',`${f3(t.v)} m³ · ${t.n} tiges`);
   const classes=[];for(let c=p.classMin;c<=p.classMax;c+=stepFor(f.ess))classes.push(c);
   const byClass=mode!=='pieds'&&(p.saisieDiam==='classe'||mode==='classes');
@@ -580,7 +581,7 @@ V.saisieP=()=>{const l=S.lot,p=S.params,ed=S.edit;let a=ed?l.arbres.find(x=>x.id
   const rebindTr=()=>bindTr('tr',()=>{f.tr=readTr('tr');updA();});rebindTr();
   if($('#undo'))$('#undo').onclick=()=>{l.arbres.pop();save();render();};
   if($('#fixCl'))$('#fixCl').onclick=()=>fixEffectif(l,f.ess,f.d||null);
-  const commit=()=>{if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
+  const commit=()=>{if(!f.ess){toast('Choisissez l’essence');return;}if(!(f.d>0)){toast('Diamètre manquant');return;}if(mode==='pieds'&&!(f.h>0)){toast('Hauteur obligatoire en pied à pied numéroté');return;}
     if($('#tr'))f.tr=readTr('tr');if(f.h>0&&sumTr(f.tr)>f.h+1e-9){toast('Tronçons : '+sumTr(f.tr)+' m > hauteur '+f.h+' m');return;}const rec={id:ed||uid(),num:mode==='pieds'?String(f.num):'',ess:f.ess,d:Math.floor(f.d),h:f.h>0?f.h:null,n:f.n||1,tr:f.tr||[],tarif:clampT(f.tarif),sl:f.sl||null};l.tarifEss=l.tarifEss||{};if(!ed)l.tarifEss[rec.ess]=rec.tarif;
     if(ed){Object.assign(a,rec);save();S.form={};S.edit=null;back();return;}
     rec.saisi=new Date().toISOString();l.arbres.push(rec);save();S.form={};toast((rec.n>1?rec.n+' × ':'')+rec.ess+' '+rec.d+(rec.h?' · '+rec.h+' m':'')+' · T'+rec.tarif);render();
