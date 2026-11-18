@@ -127,6 +127,8 @@ function listing(lot,sl){const out=[];const gC=lot.isClient?lotGrille(lot):null;
   else{for(const a of lot.arbres){if(!slMatch(a.sl,sl))continue;const x=arbreCalc(lot,a);
     out.push({num:(a.num||'')+(a.numOrig?' (ex '+a.numOrig+')':'')+(a.de?' ['+a.de+']':''),ess:a.ess,d:a.d,c:cls(a.ess,a.d),t:tarifOf(lot,a),n:a.n||1,h:x.h,tr:x.tronc.map(t=>t.h+'m '+(t.q||'·')).join(' / '),v:x.v,sl:slName(lot,a.sl)});}}return out;}
 const uniqL=a=>[...new Set(a.filter(Boolean))];
+/* Qualité fixe (option de la fiche du lot) : la dernière qualité est reprise d'un billon et d'une grume à l'autre ; sinon aucune présélection. Lot sans choix : réglage général des Paramètres. */
+const qFixe=l=>(l&&l.qFixe!==undefined)?!!l.qFixe:!!S.params.repriseQualite;
 const lotEss=(l,extra)=>uniqL([...((l&&l.essSel&&l.essSel.length)?l.essSel:S.params.essences),...(extra||[])]);
 const lotQual=(l,extra)=>uniqL([...((l&&l.qualSel&&l.qualSel.length)?l.qualSel:S.params.qualites),...(extra||[])]);
 const addBtn=(kind,i)=>`<button type="button" class="chip-add" data-addref="${kind}"${i!=null?` data-i="${i}"`:''} aria-label="Ajouter">+</button>`;
@@ -320,7 +322,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   <div class="row"><label class="f" style="flex:2"><span class="l">Commune</span><input id="commune" value="${esc(l.commune||'')}"></label><label class="f" style="flex:1"><span class="l">Dépt</span><input id="dept" inputmode="numeric" maxlength="3" value="${esc(l.dept||'')}"></label></div>
   ${gpsBlock(l.gps)}
   <div class="row"><label class="f"><span class="l">Opérateur</span><input id="op" value="${esc(l.operateur||'')}"></label>${l.type==='pied'?`<label class="f"><span class="l">Tarif par défaut</span><input id="tarif" type="number" inputmode="numeric" min="1" max="20" value="${l.tarif}"></label>`:''}</div>
-  ${l.type==='grumes'?`<label class="f"><span class="l">Longueur des billons</span><select id="lgFixe"><option value="0"${l.lgFixe?'':' selected'}>Saisie à chaque billon</option><option value="1"${l.lgFixe?' selected':''}>Fixe : reprend la dernière longueur enregistrée (billons de même longueur)</option></select></label>`:''}
+  ${l.type==='grumes'?`<label class="f"><span class="l">Longueur des billons</span><select id="lgFixe"><option value="0"${l.lgFixe?'':' selected'}>Saisie à chaque billon</option><option value="1"${l.lgFixe?' selected':''}>Fixe : reprend la dernière longueur enregistrée (billons de même longueur)</option></select></label><label class="f"><span class="l">Qualité</span><select id="qFixe"><option value="0"${qFixe(l)?'':' selected'}>Saisie à chaque billon (aucune présélection)</option><option value="1"${qFixe(l)?' selected':''}>Qualité fixe : reprend la dernière qualité saisie</option></select></label>`:''}
   ${l.type==='pied'?`<label class="f"><span class="l">Mode d’inventaire</span><select id="mode"><option value="diam"${l.mode==='diam'?' selected':''}>Diamètre seul</option><option value="classes"${l.mode==='classes'?' selected':''}>Classes avec effectifs</option><option value="pieds"${l.mode==='pieds'?' selected':''}>Pied à pied numéroté</option></select></label>`:''}
   <div class="row"><button class="btn grow" id="arch"${(!l.archive&&!l.test&&l.sync!=='done')?' disabled':''}>${l.archive?'Désarchiver (remettre en cours)':'Archiver ce lot'}</button><button class="btn danger grow" id="delLot">${l.remote?'Retirer la copie de ce poste':'Supprimer ce lot'}</button></div>
   ${(!l.archive&&!l.test&&l.sync!=='done')?'<span class="muted">Archivage possible une fois le lot sauvegardé sur le Sheet. Un lot archivé reste sur le téléphone (liste « lots archivés ») mais n’encombre plus la liste.</span>':''}</div></div>`;
@@ -328,6 +330,7 @@ V.lot=()=>{const l=S.lot,t=lotTotals(l);head((l.test?'ESSAI · ':'')+(l.chantier
   bindGps(()=>l.gps,g=>{if(l.readonly&&!l.remote){toast('Lot en lecture seule');return;}l.gps=g;if(l.remote&&l.readonly){l.updated=new Date().toISOString();DB.put('lots',l);pushLotGps(l);}else{save();toast('Point GPS enregistré');}render();});
   if($('#tarif'))$('#tarif').onchange=e=>{l.tarif=Math.min(20,Math.max(1,Number(e.target.value)||1));e.target.value=l.tarif;save();render();};
   if($('#mode'))$('#mode').onchange=e=>{l.mode=e.target.value;save();};
+  if($('#qFixe'))$('#qFixe').onchange=e=>{l.qFixe=e.target.value==='1';save();toast(l.qFixe?'Qualité fixe : la dernière qualité sera reprise':'Qualité à choisir à chaque billon');};
   if($('#lgFixe'))$('#lgFixe').onchange=e=>{l.lgFixe=e.target.value==='1';save();toast(l.lgFixe?'Longueur fixe : la dernière longueur sera reprise à chaque billon':'Longueur saisie à chaque billon');};
   if($('#impInv'))$('#impInv').onchange=e=>{const f=e.target.files[0];if(f)importInventory(f,l);e.target.value='';};
   if($('#bProp'))$('#bProp').onclick=()=>{if(!l.grumes.length){toast('Aucun billon dans ce lot');return;}CubageDocs.bordereauAsk('Bordereau de cubage propriétaire','Document destiné au propriétaire : récapitulatif par essence et qualité, listing des billons, prix HT de la grille propriétaire si demandé.',!!lotGrille(l),w=>CubageDocs.bordereauProprietaire(l,w));};
@@ -392,10 +395,10 @@ V.tabG=()=>{const l=S.lot;if(!l||l.type!=='grumes'){back();return;}head('Tableau
   $('#tgB').addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;const[g,b]=find(tr);if(!g)return;
     if(e.target.matches('[data-del]')){if(!e.target.dataset.c){e.target.textContent=g.billons.length>1?'Supprimer ?':'Supprimer la grume ?';e.target.dataset.c='1';setTimeout(()=>{if(e.target.isConnected){e.target.textContent='✕';delete e.target.dataset.c;}},3000);return;}
       g.billons=g.billons.filter(x=>x!==b);if(!g.billons.length)l.grumes=l.grumes.filter(x=>x!==g);save();draw();return;}
-    if(e.target.matches('[data-addb]')){const lb=g.billons[g.billons.length-1];const nb={id:uid(),rang:Math.max(0,...g.billons.map(x=>x.rang||0))+1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb?lb.q:'',rl:0,rd:0,sl:lb?lb.sl||null:null};g.billons.push(nb);save();draw();focusB(nb.id,l.lgFixe?'d':'lm');}});
+    if(e.target.matches('[data-addb]')){const lb=g.billons[g.billons.length-1];const nb={id:uid(),rang:Math.max(0,...g.billons.map(x=>x.rang||0))+1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb&&qFixe(l)?lb.q:'',rl:0,rd:0,sl:lb?lb.sl||null:null};g.billons.push(nb);save();draw();focusB(nb.id,l.lgFixe?'d':'lm');}});
   const focusB=(id,f)=>setTimeout(()=>{const x=document.querySelector(`tr[data-b="${id}"] [data-f="${f}"]`);if(x){x.focus();x.scrollIntoView({block:'center'});}},0);
   $('#tgAdd').onclick=()=>{const nums=l.grumes.map(g=>parseInt(g.num,10)).filter(n=>isFinite(n));const n=String(nums.length?Math.max(...nums)+1:(l.numDepart||1));const lg=l.grumes[l.grumes.length-1],lb=lg&&lg.billons[lg.billons.length-1];
-    const g={id:uid(),num:n,ess:lg?lg.ess:((l.essSel&&l.essSel[0])||''),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau',billons:[{id:uid(),rang:1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb?lb.q:'',rl:0,rd:0,sl:F.sl&&F.sl!==NONE?F.sl:(lb?lb.sl||null:null)}]};
+    const g={id:uid(),num:n,ess:lg?lg.ess:((l.essSel&&l.essSel[0])||''),saisi:new Date().toISOString(),src:l.remote?'bureau':'tableau',billons:[{id:uid(),rang:1,lm:l.lgFixe&&lb?lenM(lb):null,d:0,q:lb&&qFixe(l)?lb.q:'',rl:0,rd:0,sl:F.sl&&F.sl!==NONE?F.sl:(lb?lb.sl||null:null)}]};
     l.grumes.push(g);save();F.q='';$('#tgq').value='';draw();focusB(g.billons[0].id,l.lgFixe?'d':'lm');};
   $('#tgq').oninput=e=>{F.q=e.target.value;draw();};if($('#tgsl'))$('#tgsl').onchange=e=>{F.sl=e.target.value;draw();};draw();
   foot(l.remote?`<button class="btn big" id="tgBack">Retour au lot</button><button class="btn primary big" id="tgSync" style="flex:2">Enregistrer sur le Sheet SBF</button>`:`<button class="btn primary big" id="tgBack">Terminé</button>`);
@@ -461,7 +464,7 @@ V.tabP=()=>{const l=S.lot;if(!l||l.type!=='pied'){back();return;}head('Tableau d
 /* --- Saisie grumes --- */
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
-  if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:'',sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(p.repriseQualite&&lastB)?lastB.q:''}]};}
+  if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:'',sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(qFixe(l)&&lastB)?lastB.q:''}]};}
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Grume n° '+(f.num||'?'),`${f3(t.v)} m³ · ${t.n} grumes${l.xylo?' · '+l.xylo:''}`);
   if(ed&&f.sl===undefined){const u=[...new Set(f.billons.map(b=>b.sl||null))];f.sl=u.length===1?u[0]:'mixte';}
   const hasSL=(l.sousLots||[]).length>0;
@@ -503,7 +506,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
   foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button type="button" class="btn big" id="addB">+ Billon</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
-  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:(l.lgFixe&&lenM(lb)>0)?lenM(lb):null,d:null,q:lb.q});render();setTimeout(()=>{const x=[...document.querySelectorAll(l.lgFixe?'input[data-f=d]':'input[data-f=lm]')].pop();x&&x.focus();},0);};
+  $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:(l.lgFixe&&lenM(lb)>0)?lenM(lb):null,d:null,q:qFixe(l)?lb.q:''});render();setTimeout(()=>{const x=[...document.querySelectorAll(l.lgFixe?'input[data-f=d]':'input[data-f=lm]')].pop();x&&x.focus();},0);};
   // Entrée / « suivant » au clavier : longueur → diamètre → billon suivant ou grume suivante
   $('#main').querySelectorAll('input[data-f=lm],input[data-f=d]').forEach(i=>{i.setAttribute('enterkeyhint','next');i.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const k=i.dataset.f,n=Number(i.dataset.i);
     const nx=k==='lm'?document.querySelector(`input[data-f=d][data-i="${n}"]`):document.querySelector(`input[data-f=lm][data-i="${n+1}"]`);if(nx)nx.focus();else $('#ok').click();};});
@@ -529,7 +532,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
       onLt:v=>{if(!(v>0&&v<=60))return false;f.lt=v;render();voirElement('#lt');return true;},
       onChute:v=>{if(!(v>0&&v<=60))return false;f.chute=v;render();voirElement('#lt');return true;},
       onBillonSuivant:(ess,q,lm,d,x)=>{if(!(lm>0&&d>0))return null;if(ess&&ess!==f.ess)f.ess=ess;const b=f.billons[f.billons.length-1];x=x||{};Object.assign(b,{q:q||b.q,lm,d,rl:x.rl||0,rd:x.rd||0,note:x.note||''});if(b.rl>=lm*100||b.rd>=d){toast('Réduction supérieure à la dimension');return null;}
-        const nb={rang:f.billons.length+1,lm:l.lgFixe?lm:null,d:null,q:b.q};f.billons.push(nb);render();voirElement('.card[data-b="'+(nb.rang-1)+'"]');return{label:f.num+'.'+b.rang,L:l.lgFixe?lm:null};},
+        const nb={rang:f.billons.length+1,lm:l.lgFixe?lm:null,d:null,q:qFixe(l)?b.q:''};f.billons.push(nb);render();voirElement('.card[data-b="'+(nb.rang-1)+'"]');return{label:f.num+'.'+b.rang,L:l.lgFixe?lm:null};},
       /* « précédent » : rouvre le dernier billon enregistré (de cette grume, sinon de la grume précédente) comme billon en cours */
       onPrecedent:()=>{const F=S.form.g;let b=F.billons[F.billons.length-1];if(!b)return null;
         if(vide(b)){if(F.billons.length>1){F.billons.pop();b=F.billons[F.billons.length-1];}
@@ -1175,7 +1178,7 @@ V.params=()=>{const p=S.params;head('Paramètres');
   <div class="card stack"><h2>Référentiel</h2><label class="f"><span class="l">Essences (séparées par des virgules)</span><input id="ess" value="${esc(p.essences.join(', '))}"></label><label class="f"><span class="l">Qualités</span><input id="qua" value="${esc(p.qualites.join(', '))}"></label>
   <div class="row"><label class="f"><span class="l">Pas des classes (cm)</span><input id="step" type="number" inputmode="numeric" value="${p.step}"></label><label class="f"><span class="l">Classe min</span><input id="cmin" type="number" inputmode="numeric" value="${p.classMin}"></label><label class="f"><span class="l">Classe max</span><input id="cmax" type="number" inputmode="numeric" value="${p.classMax}"></label></div>
   <label class="f"><span class="l">Pas par essence (ex. CH:5, PIN:5)</span><input id="stepE" value="${esc(Object.entries(p.stepParEssence||{}).map(([k,v])=>k+':'+v).join(', '))}"></label></div>
-  <div class="card stack"><h2>Saisie</h2><label class="f"><span class="l">Qualité du 1er billon</span><select id="rep"><option value="1"${p.repriseQualite?' selected':''}>Reprend la dernière qualité saisie</option><option value="0"${p.repriseQualite?'':' selected'}>Vide</option></select></label>
+  <div class="card stack"><h2>Saisie</h2><label class="f"><span class="l">Qualité par défaut des nouveaux lots (modifiable dans la fiche du lot : « Qualité »)</span><select id="rep"><option value="1"${p.repriseQualite?' selected':''}>Reprend la dernière qualité saisie</option><option value="0"${p.repriseQualite?'':' selected'}>Vide</option></select></label>
   <label class="f"><span class="l">Diamètre sur pied (mode diamètre seul)</span><select id="sd"><option value="classe"${p.saisieDiam==='classe'?' selected':''}>Boutons de classes</option><option value="cm"${p.saisieDiam==='cm'?' selected':''}>Saisie au cm</option></select></label>
   <label class="f"><span class="l">Code qualité du reste de tige (au-dessus des tronçons)</span><input id="rq" value="${esc(p.resteQualite||'BI')}" placeholder="BI"></label>
   ${vocalDispo()?`<label class="f"><span class="l">Mode vocal · mots pour les essences (code : mots, séparés par ;)</span><textarea id="motsV" rows="2" style="width:100%" placeholder="CH: chêne, chêne rouge ; PIN: pin">${esc(p.motsVocaux||'')}</textarea></label>
