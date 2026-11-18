@@ -465,6 +465,8 @@ V.tabP=()=>{const l=S.lot;if(!l||l.type!=='pied'){back();return;}head('Tableau d
 V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   if(ed){g=l.grumes.find(x=>x.id===ed);}
   if(!S.form.g){const last=l.grumes[l.grumes.length-1];const lastB=last&&last.billons.length?last.billons[last.billons.length-1]:null;S.form.g=ed?JSON.parse(JSON.stringify(g)):{num:nextNum(l),ess:last?last.ess:'',sl:l.slCur||null,billons:[{rang:1,lm:(l.lgFixe&&lastB&&lenM(lastB)>0)?lenM(lastB):null,d:null,q:(qFixe(l)&&lastB)?lastB.q:''}]};}
+  /* En modification depuis le listing : grume suivante dans l'ordre affiché */
+  const nxG=(()=>{if(!ed||!S.editSeq)return null;const i=S.editSeq.indexOf(ed);if(i<0)return null;for(let k=i+1;k<S.editSeq.length;k++){const x=l.grumes.find(y=>y.id===S.editSeq[k]);if(x)return x;}return null;})();
   const f=S.form.g,t=lotTotals(l);head(ed?'Modifier grume '+g.num:'Grume n° '+(f.num||'?'),`${f3(t.v)} m³ · ${t.n} grumes${l.xylo?' · '+l.xylo:''}`);
   if(ed&&f.sl===undefined){const u=[...new Set(f.billons.map(b=>b.sl||null))];f.sl=u.length===1?u[0]:'mixte';}
   const hasSL=(l.sousLots||[]).length>0;
@@ -505,7 +507,9 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
   $('#main').querySelectorAll('input[data-f=lm]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.bill').querySelector('[data-f=d]').focus();}}));
   $('#main').querySelectorAll('input[data-f=d]').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#ok').click();}}));
   $('#main').querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{f.billons.splice(Number(b.dataset.delb),1);f.billons.forEach((x,i)=>x.rang=i+1);render();});
-  foot(`<button class="btn big" id="cancel">${ed?'Annuler':'Terminer'}</button><button type="button" class="btn big" id="addB">+ Billon</button><button class="btn primary big" id="ok" style="flex:2">${ed?'Enregistrer':'Grume suivante ›'}</button>`);
+  {const st=nxG?' style="flex:1;min-width:0;padding-inline:4px;font-size:.92em"':'';/* 4 boutons en modification avec grume suivante : resserrés pour tenir sur un téléphone */
+  foot(`<button class="btn big" id="cancel"${st}>${ed?'Annuler':'Terminer'}</button><button type="button" class="btn big" id="addB"${st}>+ Billon</button><button class="btn primary big" id="ok"${st||' style="flex:2"'}>${ed?(nxG?'Enreg.':'Enregistrer'):'Grume suivante ›'}</button>${nxG?`<button type="button" class="btn primary big" id="okNext" style="flex:1.5;min-width:0;padding-inline:4px;font-size:.92em" title="Enregistrer puis ouvrir la grume n° ${esc(String(nxG.num))}">Enreg. + n° ${esc(String(nxG.num))} ›</button>`:''}`);}
+  let goNext=false;if($('#okNext'))$('#okNext').onclick=()=>{goNext=true;$('#ok').click();goNext=false;};
   $('#addB').onclick=()=>{const lb=f.billons[f.billons.length-1];f.billons.push({rang:f.billons.length+1,lm:(l.lgFixe&&lenM(lb)>0)?lenM(lb):null,d:null,q:qFixe(l)?lb.q:''});render();setTimeout(()=>{const x=[...document.querySelectorAll(l.lgFixe?'input[data-f=d]':'input[data-f=lm]')].pop();x&&x.focus();},0);};
   // Entrée / « suivant » au clavier : longueur → diamètre → billon suivant ou grume suivante
   $('#main').querySelectorAll('input[data-f=lm],input[data-f=d]').forEach(i=>{i.setAttribute('enterkeyhint','next');i.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const k=i.dataset.f,n=Number(i.dataset.i);
@@ -519,7 +523,7 @@ V.saisieG=()=>{const l=S.lot,p=S.params;const ed=S.edit;let g;
     const numS=String(f.num).replace(/\D/g,'');if(!numS||numS.length>10){toast('N° de grume : 1 à 10 chiffres');return;}
     const dup=l.grumes.find(x=>String(x.num)===numS&&x.id!==ed);if(dup){toast('N° '+numS+' déjà utilisé');return;}
     f.billons.forEach(b=>{b.d=Math.floor(b.d);b.lm=Math.round(lenM(b)*100)/100;delete b.l;b.rl=b.rl>0?Math.round(b.rl):0;b.rd=b.rd>0?Math.round(b.rd):0;if(b.rl>=b.lm*100||b.rd>=b.d){toast('Réduction supérieure à la dimension du billon '+b.rang);throw new Error('red');}b.id=b.id||uid();if(f.sl!=='mixte'&&(!ed||f.slSet))b.sl=f.sl||null;});
-    if(ed){Object.assign(g,{num:numS,ess:f.ess,lt:f.lt>0?f.lt:null,chute:f.chute>0?f.chute:0,modifie:new Date().toISOString(),billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};S.edit=null;back();return;}
+    if(ed){Object.assign(g,{num:numS,ess:f.ess,lt:f.lt>0?f.lt:null,chute:f.chute>0?f.chute:0,modifie:new Date().toISOString(),billons:f.billons.map(({slSet,...b})=>b)});save();S.form={};if(goNext&&nxG){toast('Grume '+numS+' enregistrée · grume '+nxG.num);go('saisieG',{edit:nxG.id});window.scrollTo(0,0);return;}S.edit=null;back();return;}
     l.grumes.push({id:uid(),num:numS,ess:f.ess,lt:f.lt>0?f.lt:null,chute:f.chute>0?f.chute:0,saisi:new Date().toISOString(),billons:JSON.parse(JSON.stringify(f.billons))});save();S.form={};toast('Grume '+numS+' · '+f3(f.billons.reduce((x,b)=>x+volB(b),0))+' m³'+(f.sl?' · '+slName(l,f.sl):''));render();focusSaisie('input[data-f=lm]');}catch(e){if(e.message!=='red')throw e;}};
   if(!ed)focusSaisie(l.lgFixe?'input[data-f=d]':'input[data-f=lm]');
   /* Mode vocal : chaque billon dicté remplit la ligne vide ou en ajoute une (comme « + Billon »), « suivante » = bouton « Grume suivante » */
@@ -984,7 +988,7 @@ V.listing=()=>{const l=S.lot;const sl=S.slFilter||'';head('Listing',l.chantier);
    </table></div><p class="muted">${q||fe||fq?'Filtre '+[fe,fq,q?'« '+esc(q)+' »':''].filter(Boolean).join(' · ')+' · ':''}${rows.length} lignes · ${f3(rows.reduce((s,r)=>s+(r.v||0),0))} m³${q?' (lot entier)':''}</p>`;
   if($('#slf'))$('#slf').onchange=e=>{S.slFilter=e.target.value;render();};if($('#lse'))$('#lse').onchange=e=>{S.lsEss=e.target.value;render();};if($('#lsqu'))$('#lsqu').onchange=e=>{S.lsQual=e.target.value;render();};
   {const i=$('#lsq');let t;i.oninput=()=>{clearTimeout(t);t=setTimeout(()=>{S.lsQ=i.value;const pos=i.selectionStart;render();const j=$('#lsq');if(j){j.focus();try{j.setSelectionRange(pos,pos);}catch(e){}}},250);};}
-  const m=$('#main');m.querySelectorAll('[data-editg]').forEach(b=>b.onclick=()=>{S.hist.push('listing');S.form={};go('saisieG',{edit:b.dataset.editg});});
+  const m=$('#main');m.querySelectorAll('[data-editg]').forEach(b=>b.onclick=()=>{S.editSeq=[...new Set([...m.querySelectorAll('[data-editg]')].map(x=>x.dataset.editg))];/* ordre affiché (filtres compris) : sert à « Enregistrer + suivante » */S.hist.push('listing');S.form={};go('saisieG',{edit:b.dataset.editg});});
   m.querySelectorAll('[data-rcl]').forEach(b=>b.onclick=()=>{S.cli=null;S.rcKey=b.dataset.rcl;S.rcForm=null;S.rcMore=null;S.hist.push('listing');go('recoupe');});
   const recalc=rc=>{const it=stockItems({lot:l}).find(x=>x.key===rc.parentKey)||{};const Lt=rc.pieces.reduce((s,p)=>s+p.lm,0);if(it.lm)rc.reste=Math.max(0,Math.round((it.lm-Lt-(rc.chute||0))*100)/100);};
   m.querySelectorAll('[data-delp]').forEach(b=>b.onclick=()=>{if(!b.dataset.c){b.textContent='Suppr. ?';b.dataset.c='1';return;}const [rid,pid]=b.dataset.delp.split('|');const rc=(l.recoupes||[]).find(r=>r.id===rid);if(!rc)return;rc.pieces=rc.pieces.filter(p=>p.id!==pid);
