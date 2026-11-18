@@ -1,5 +1,5 @@
 /**
- * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.12 (les lectures renvoient l'erreur réelle au lieu d'échouer en « Failed to fetch » ; onglets à colonnes manquantes tolérés).
+ * Cubage SBF : script de synchronisation (Google Apps Script) — version 3.13 (partage d'un lot avec d'autres techniciens depuis le Bureau : colonne « partage » de l'onglet LOT)
  * À coller dans Extensions > Apps Script du Google Sheet « Cubage SBF - Référentiel et lots »,
  * puis Déployer > Gérer les déploiements > modifier > Version : Nouvelle version > Déployer
  * (l'adresse /exec reste la même).
@@ -54,6 +54,7 @@ function handle_(ss, auth, body) {
   }
   if (body.action === 'proposeGrille') return proposerGrille_(ss, auth, body.grille);
   if (body.action === 'saveGrille' || body.action === 'deleteGrille') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return saveGrille_(ss, body.action === 'deleteGrille' ? null : body.grille, body.code); }
+  if (body.action === 'setPartage') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setPartage_(ss, body); }
   if (body.action === 'setKey') { if (role !== 'bureau') return { ok:false, error:'réservé au bureau' }; return setKey_(ss, body); }
   if (body.action === 'batch') { // plusieurs opérations en un seul appel ; arrêt à la première erreur
     const results = []; for (const op of (body.ops || [])) { const r = handle_(ss, auth, op); results.push(r); if (!r.ok) break; }
@@ -135,6 +136,25 @@ function lotJson_(ss, id) {
   if (!parts.length || parts.length !== Number(parts[0].total || parts.length)) return '';
   return parts.map(p => String(p.data || '')).join('');
 }
+/* Partage d'un lot : la colonne « partage » de l'onglet LOT liste les opérateurs (séparés par « ; ») qui voient et modifient le lot
+   en plus de son opérateur. Elle est gérée depuis le Bureau (action setPartage) et conservée à chaque enregistrement. */
+function partage_(r) { return String((r && r.partage) || '').split(';').map(x => x.trim().toLowerCase()).filter(String); }
+function lotVisible_(r, op) { return !op || String(r.operateur || '').trim().toLowerCase() === op || partage_(r).indexOf(op) >= 0; }
+function setPartage_(ss, body) {
+  const id = String(body.lot_id || ''); if (!id) return { ok:false, error:'lot_id manquant' };
+  const sh = ss.getSheetByName('LOT'); if (!sh) return { ok:false, error:'aucun lot' }; delete ROWS_CACHE_['LOT'];
+  const v = sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(); const h = v[0].map(String);
+  const ci = h.indexOf('lot_id'); let pi = h.indexOf('partage'); if (pi < 0) { pi = h.length; sh.getRange(1, pi+1).setValue('partage'); }
+  let ri = h.indexOf('partage_retire'); if (ri < 0) { ri = Math.max(h.length, pi + 1); sh.getRange(1, ri+1).setValue('partage_retire'); }
+  const list = (body.partage || []).map(x => String(x).trim()).filter(String); const val = list.join(' ; '); const low = list.map(x => x.toLowerCase()); let n = 0;
+  for (let i = 1; i < v.length; i++) if (String(v[i][ci]) === id) {
+    // les techniciens retirés du partage sont mémorisés : leurs envois suivants sur ce lot sont refusés (sinon le lot passerait à leur nom)
+    const split = t => String(t || '').split(';').map(x => x.trim()).filter(String);
+    const ret = split(v[i][ri]).concat(split(v[i][pi])).filter((x, k, a) => low.indexOf(x.toLowerCase()) < 0 && a.findIndex(y => y.toLowerCase() === x.toLowerCase()) === k);
+    sh.getRange(i+1, pi+1).setNumberFormat('@').setValue(val); sh.getRange(i+1, ri+1).setNumberFormat('@').setValue(ret.join(' ; ')); n++; }
+  delete ROWS_CACHE_['LOT'];
+  return n ? { ok:true, lot_id:id, partage:val } : { ok:false, error:'lot introuvable sur le Sheet (il doit d’abord être sauvegardé)' };
+}
 function saveLot_(ss, auth, body) {
   const id = String(body.lot_id || ''); if (!id) return { ok:false, error:'lot_id manquant' };
   const cur = sheetRows_(ss, 'LOT').filter(r => String(r.lot_id) === id)[0] || null;
@@ -146,17 +166,21 @@ function saveLot_(ss, auth, body) {
     return { ok:false, conflict:true, lot_id:id, rev:rev, modifie_par:String(cur.modifie_par || ''), modifie_le:String(cur.modifie_le || ''), json:lotJson_(ss, id) };
   }
   // le bureau enregistre le lot d'un technicien : l'opérateur du lot est conservé
-  const rows = auth.role === 'bureau' ? body.rows : stamp_(body.rows, auth.operateur);
+  // lot partagé enregistré par un autre technicien que son opérateur : l'opérateur d'origine est conservé
+  const partageA = !!(cur && auth.operateur && auth.role !== 'bureau' && String(cur.operateur || '').trim().toLowerCase() !== auth.operateur.toLowerCase() && partage_(cur).indexOf(auth.operateur.toLowerCase()) >= 0);
+  if (cur && auth.operateur && auth.role !== 'bureau' && !partageA && String(cur.operateur || '').trim().toLowerCase() !== auth.operateur.toLowerCase() && partage_({ partage: cur.partage_retire }).indexOf(auth.operateur.toLowerCase()) >= 0)
+    return { ok:false, error:'Ce lot de ' + String(cur.operateur || '') + ' n’est plus partagé avec vous : vos modifications ne sont pas enregistrées. Voyez avec le bureau.' };
+  const rows = auth.role === 'bureau' ? body.rows : stamp_(body.rows, partageA ? String(cur.operateur).trim() : auth.operateur);
   const now = new Date().toISOString(); const nrev = rev + 1;
-  (rows.LOT || []).forEach(r => { r.rev = nrev; r.modifie_par = auth.operateur || (auth.role === 'bureau' ? 'bureau' : ''); r.modifie_le = now;
+  (rows.LOT || []).forEach(r => { r.partage = cur ? String(cur.partage || '') : ''; r.partage_retire = cur ? String(cur.partage_retire || '') : ''; r.rev = nrev; r.modifie_par = auth.operateur || (auth.role === 'bureau' ? 'bureau' : ''); r.modifie_le = now;
     r.edit_bureau = (auth.role === 'bureau' && (body.bureau || bureauEdit)) || auth.role === 'technicien' ? 'oui' : ''; r.poste = auth.role; });
   replaceRows_(ss, TABLES, 'lot_id', id, rows); if (body.propositions) proposer_(ss, auth, body);
   return { ok:true, lot_id:id, rev:nrev, at:now };
 }
 function revs_(ss, operateur) {
   const op = String(operateur || '').trim().toLowerCase();
-  return { ok:true, lots: sheetRows_(ss, 'LOT').filter(r => !op || String(r.operateur || '').trim().toLowerCase() === op)
-    .map(r => ({ lot_id:String(r.lot_id), rev:Number(r.rev) || 0, modifie_par:String(r.modifie_par || ''), modifie_le:String(r.modifie_le || ''), edit_bureau:String(r.edit_bureau || ''), poste:String(r.poste || '') })) };
+  return { ok:true, lots: sheetRows_(ss, 'LOT').filter(r => lotVisible_(r, op))
+    .map(r => ({ lot_id:String(r.lot_id), rev:Number(r.rev) || 0, modifie_par:String(r.modifie_par || ''), modifie_le:String(r.modifie_le || ''), edit_bureau:String(r.edit_bureau || ''), poste:String(r.poste || ''), partage: !!op && String(r.operateur || '').trim().toLowerCase() !== op })) };
 }
 
 /* ---------- lots clients ---------- */
@@ -409,9 +433,9 @@ function restore_(ss, operateur, ids) {
   const info = {}; sheetRows_(ss, 'LOT').forEach(r => info[String(r.lot_id)] = r);
   const parts = {}; sheetRows_(ss, 'LOT_JSON').forEach(r => { const id = String(r.lot_id); (parts[id] = parts[id] || []).push(r); });
   const lots = [];
-  Object.keys(parts).forEach(id => { const i = info[id] || {}; if (only && only.indexOf(id) < 0) return; if (op && String(i.operateur || '').trim().toLowerCase() !== op) return;
+  Object.keys(parts).forEach(id => { const i = info[id] || {}; if (only && only.indexOf(id) < 0) return; if (!lotVisible_(i, op)) return;
     const ps = parts[id].sort((a, b) => Number(a.part) - Number(b.part)); if (ps.length !== Number(ps[0].total || ps.length)) return;
-    lots.push({ lot_id: id, operateur: i.operateur || '', chantier: i.chantier || '', date: i.date || '', type: i.type || '', updated: i.updated || '', rev: Number(i.rev) || 0, modifie_par: String(i.modifie_par || ''), modifie_le: String(i.modifie_le || ''), edit_bureau: String(i.edit_bureau || ''), json: ps.map(p => String(p.data || '')).join('') }); });
+    lots.push({ lot_id: id, operateur: i.operateur || '', chantier: i.chantier || '', date: i.date || '', type: i.type || '', updated: i.updated || '', rev: Number(i.rev) || 0, modifie_par: String(i.modifie_par || ''), modifie_le: String(i.modifie_le || ''), edit_bureau: String(i.edit_bureau || ''), partage: String(i.partage || ''), json: ps.map(p => String(p.data || '')).join('') }); });
   if (only) return { ok:true, lots: lots, clients: [] };
   const clients = sheetRows_(ss, 'LOT_CLIENT').filter(r => r.json && (!op || String(r.operateur || '').trim().toLowerCase() === op))
     .map(r => ({ client_id: String(r.client_id), operateur: r.operateur || '', client: r.client || '', statut: r.statut || '', updated_at: r.updated_at || '', json: String(r.json) }));
