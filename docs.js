@@ -54,9 +54,11 @@ function pdfNew(titre,sousTitre){if(!window.jspdf){toast('Module PDF non chargé
   /* Tableau : colonnes numériques alignées à droite (num = indices), lignes de total en gras (celles dont la 1re cellule commence par « Total ») */
   D.table=(head,body,num,opts)=>{opts=opts||{};const cs={};head.forEach((h,i)=>{cs[i]={halign:num.includes(i)?'right':'left'};if(opts.widths&&opts.widths[i])cs[i].cellWidth=opts.widths[i];});
     doc.autoTable({startY:D.y,margin:{left:D.L,right:210-D.R,top:30,bottom:20},head:[head],body,theme:'grid',
-      styles:{fontSize:opts.fontSize||8.5,cellPadding:{top:1.6,bottom:1.6,left:2,right:2},lineColor:SBF.ligne,lineWidth:0.15,textColor:[30,30,30],overflow:'linebreak'},
+      styles:{fontSize:opts.fontSize||8.5,cellPadding:{top:opts.pad||1.6,bottom:opts.pad||1.6,left:2,right:2},lineColor:SBF.ligne,lineWidth:0.15,textColor:[30,30,30],overflow:'linebreak'},
       headStyles:{fillColor:SBF.slate,textColor:255,fontStyle:'bold',halign:'center',lineColor:SBF.slate},alternateRowStyles:{fillColor:[250,251,252]},columnStyles:cs,
       didParseCell:d=>{if(d.section==='body'&&/^Total/.test(String(d.row.raw[0]))){d.cell.styles.fontStyle='bold';d.cell.styles.fillColor=[232,236,240];}if(d.section==='body'&&opts.grp&&/^Total /.test(String(d.row.raw[0]))){d.cell.styles.fillColor=[242,244,246];}},
+      /* opts.box = indice d'une colonne à cocher au stylo : une case vide est dessinée dans chaque ligne */
+      didDrawCell:d=>{if(opts.box!=null&&d.section==='body'&&d.column.index===opts.box){const c=d.cell,s=3.6;doc.setDrawColor(40,40,40);doc.setLineWidth(0.35);doc.rect(c.x+(c.width-s)/2,c.y+(c.height-s)/2,s,s);}},
       didDrawPage:()=>D.header()});
     D.y=doc.lastAutoTable.finalY+6;};
   /* Cadres de signature */
@@ -133,9 +135,36 @@ function bordereauClient(src,withPrices,quiet){let v,sl='',client,ref='',chantie
   D.signatures('Pour Services Bois et Forêts : '+op,'Le client :');
   shareFile(D.finish('Bordereau de réception '+num),nomFichier,quiet);}
 
+/* Inventaire transport : uniquement le listing des billons, sans prix, avec une case à cocher par billon pour le pointage au chargement.
+   src = {lot} (billons présents sur le lot, recoupes comprises) ou {client} (lot client, un tableau par chantier d'origine). */
+function inventaireTransport(src,quiet){const all=A().stockItems(src.lot?{lot:src.lot}:undefined);let items,titre,nomFichier,cart=[];
+  const nat=(a,b)=>String(a.num).localeCompare(String(b.num),'fr',{numeric:true});
+  if(src.lot){const l=src.lot;items=all.filter(it=>!it.cut).sort(nat);titre=(l.xylo?'Chantier n° '+l.xylo:(l.chantier||''));
+    cart=[['N° chantier',l.xylo||'·'],['Commune',(l.commune||'')+(l.dept?' ('+l.dept+')':'')]];nomFichier='inventaire_transport_'+safe(l.xylo||l.chantier||'lot')+'_'+today()+'.pdf';}
+  else{const c=src.client,by=new Map(all.map(it=>[it.key,it]));items=(c.lignes||[]).map(k=>by.get(k)).filter(Boolean);titre='Lot client '+(c.client||'');
+    cart=[['Client',c.client||''],['Référence',c.ref||'']];nomFichier='inventaire_transport_'+safe(c.client||'client')+'_'+(c.date||today())+'.pdf';}
+  if(!items.length){toast('Aucun billon à inventorier');return;}
+  const gm=new Map();for(const it of items){if(!gm.has(it.lotId))gm.set(it.lotId,{l:it.lot,ls:[]});gm.get(it.lotId).ls.push(it);}
+  const groups=[...gm.values()].sort((a,b)=>String(a.l.xylo||'').localeCompare(String(b.l.xylo||''),'fr',{numeric:true}));groups.forEach(g=>g.ls.sort(nat));
+  const vt=items.reduce((a,x)=>a+x.v,0);const D=pdfNew('INVENTAIRE TRANSPORT',pdfDateFr(today())+'   ·   '+titre);if(!D)return;
+  cart.push(['Billons',String(items.length)],['Volume total',pdfFr3(vt)+' m³']);
+  if(groups.length===1&&groups[0].l.gps){const g=groups[0].l.gps;cart.push(['Point GPS',{txt:Number(g.lat).toFixed(5)+', '+Number(g.lon).toFixed(5)+' (ouvrir la carte)',url:gpsUrl(g)}]);}
+  if(groups.length>1)cart.push(['Chantiers',groups.length+' (détail ci-dessous)']);
+  D.cartouche(cart);
+  const ob=items.some(x=>String(x.note||'').trim());const head=['Pointé','N°','Essence','Qualité','Longueur m','Ø cm','Volume m³',...(ob?['Observations']:[])];
+  const widths=ob?{0:15,1:22,2:26,3:17,4:25,5:15,6:23}:{0:18};
+  for(const g of groups){if(groups.length>1)D.sub('Chantier n° '+(g.l.xylo||'·')+(g.l.commune?'  ·  '+g.l.commune+(g.l.dept?' ('+g.l.dept+')':''):'')+'  ·  '+g.ls.length+' billon'+(g.ls.length>1?'s':'')+'  ·  '+pdfFr3(g.ls.reduce((a,x)=>a+x.v,0))+' m³',g.l.gps||null);
+    D.table(head,g.ls.map(x=>['',String(x.num),x.ess,x.q||'·',pdfFr2(x.lm),String(x.d),pdfFr3(x.v),...(ob?[String(x.note||'').trim()]:[])]),[4,5,6],{box:0,pad:2.3,fontSize:9.5,widths});}
+  /* Pied : pointage et signatures */
+  D.need(58);const y=D.y+3;const doc=D.doc;doc.setFontSize(9.5);doc.setTextColor(...SBF.slate);
+  doc.text(pdfSp('Billons chargés : ............ / '+items.length),D.L,y+4);doc.text(pdfSp('Date de chargement : ......................'),D.L+62,y+4);doc.text(pdfSp('Immatriculation : ......................'),D.L+126,y+4);
+  doc.setFontSize(8);doc.setTextColor(...SBF.gris);doc.text(pdfSp('Cocher chaque billon chargé. Billon absent, non conforme ou en plus : le noter en marge.'),D.L,y+10);doc.setTextColor(0);D.y=y+13;
+  D.signatures('Pour Services Bois et Forêts :','Le transporteur / chauffeur :');
+  shareFile(D.finish('Inventaire transport · '+titre),nomFichier,quiet);}
+
 /* Fenêtre de choix « avec / sans prix » ; grille absente = sans prix seulement */
 function bordereauAsk(titre,texte,hasPrix,cb){const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="modal-box"><b>${titre}</b><p class="muted" style="margin:0">${texte}</p><div class="stack"><button type="button" class="btn primary big" id="bSans">Sans prix</button>${hasPrix?'<button type="button" class="btn big" id="bAvec">Avec prix HT</button>':'<span class="muted">Aucune grille de prix : document sans prix uniquement.</span>'}<button type="button" class="btn" id="bNon">Annuler</button></div></div>`;
   document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m)m.remove();});m.querySelector('#bSans').onclick=()=>{m.remove();cb(false);};if(m.querySelector('#bAvec'))m.querySelector('#bAvec').onclick=()=>{m.remove();cb(true);};m.querySelector('#bNon').onclick=()=>m.remove();}
 
-window.CubageDocs={bordereauProprietaire,bordereauClient,bordereauAsk};
+window.CubageDocs={bordereauProprietaire,bordereauClient,bordereauAsk,inventaireTransport};
 })();
