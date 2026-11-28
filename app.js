@@ -1174,11 +1174,17 @@ V.grille=()=>{const e=S.gEdit;const slObj=e.sl?(S.lot.sousLots||[]).find(x=>x.id
    <label class="f"><span class="l">Ø max cm</span><input data-f="dmax" type="text" inputmode="numeric" value="${l.dmax??''}"></label>
    <label class="f"><span class="l">Prix €/m³</span><input data-f="prix" type="text" inputmode="decimal" value="${l.prix!=null?String(l.prix).replace('.',','):''}"></label></div>
   </div>`).join('')||'<p class="muted">Aucune ligne. Ajoutez la première.</p>'}</div>
-  <div class="row" style="margin-top:12px"><button class="btn primary big grow" id="add">+ Ligne</button>${isLot||e.cli?'':'<button class="btn danger" id="del">Supprimer la grille</button>'}</div>`;
+  <div class="row" style="margin-top:12px"><button class="btn primary big grow" id="add">+ Ligne</button>${isLot||e.cli?'':'<button class="btn danger" id="del">Supprimer la grille</button>'}</div>${!isLot&&!e.cli&&g.src==='sheet'&&isBureau()?'<button class="btn block" id="unpub" style="margin-top:8px">Retirer du commun (la garder seulement sur ce poste)</button>':''}`;
   $('#nom').oninput=x=>{g.nom=x.target.value;persist();};
   $('#main').querySelectorAll('[data-gl]').forEach(tr=>{const l=g.lignes[Number(tr.dataset.gl)];tr.querySelectorAll('[data-f]').forEach(inp=>inp.onchange=()=>{const f=inp.dataset.f;l[f]=(f==='ess'||f==='q')?inp.value:num(inp.value);persist();});});
   $('#main').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{g.lignes.splice(Number(b.dataset.del),1);persist();render();});
   $('#add').onclick=()=>{const last=g.lignes[g.lignes.length-1];g.lignes.push({ess:last?last.ess:'',q:'',dmin:null,dmax:null,prix:null});persist();render();};
+  /* Grille mise en commun par erreur : retirée du Sheet, conservée ici comme grille personnelle (les lots de ce poste qui l'utilisent la gardent) */
+  if($('#unpub'))$('#unpub').onclick=async x=>{if(!x.target.dataset.c){x.target.textContent='Confirmer : retirer du commun';x.target.dataset.c='1';return;}
+    const set=statusBox();set('Retrait du Sheet…',g.nom,false);try{await keysApi({action:'deleteGrille',code:g.id.replace(/^sheet-/,'')});}catch(err){set('Retrait impossible',err.message,true);return;}
+    const old=g.id,nid=uid();await DB.del('grilles',old);g.id=nid;delete g.src;await saveGrille(g);
+    S.lots.forEach(l=>{let ch=false;if(l.grilleId===old){l.grilleId=nid;ch=true;}if(l.grilleCliId===old){l.grilleCliId=nid;ch=true;}(l.sousLots||[]).forEach(y=>{if(y.grilleId===old){y.grilleId=nid;ch=true;}});if(ch)DB.put('lots',l);});
+    S.gEdit={id:nid};set('✓ Grille retirée du commun',g.nom+' reste dans vos grilles personnelles. Les autres postes la perdront à leur prochaine mise à jour depuis le Sheet.',true);render();};
   if($('#del'))$('#del').onclick=async x=>{if(x.target.dataset.c){if(fromSheet&&isBureau()){try{const set=statusBox();set('Suppression sur le Sheet…','',false);await keysApi({action:'deleteGrille',code:g.id.replace(/^sheet-/,'')});set('✓ Grille supprimée du Sheet','Les téléphones la perdront à leur prochaine mise à jour.',true);}catch(e){toast(e.message);return;}}
     S.grilles=S.grilles.filter(y=>y!==g);DB.del('grilles',g.id);S.lots.forEach(l=>{let ch=false;if(l.grilleId===g.id){l.grilleId=null;ch=true;}if(l.grilleCliId===g.id){l.grilleCliId=null;ch=true;}(l.sousLots||[]).forEach(x=>{if(x.grilleId===g.id){x.grilleId=null;ch=true;}});if(ch)DB.put('lots',l);});back();}else{x.target.textContent='Confirmer';x.target.dataset.c='1';}};
   const canProp=!fromSheet&&!isLot&&!e.cli&&!!S.params.syncUrl;
